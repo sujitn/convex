@@ -78,6 +78,12 @@ async fn oas_setup() -> Setup {
         convex_ports::quote_event::QuoteField::MidSpread,
         Decimal::from(50),
     );
+    commit_oas_rule(&setup).await;
+    setup
+}
+
+/// BOND-001 quoted by its OAS from 2025-06-02.
+async fn commit_oas_rule(setup: &Setup) {
     setup
         .storage
         .bonds
@@ -94,7 +100,21 @@ async fn oas_setup() -> Setup {
         )
         .await
         .unwrap();
-    setup
+}
+
+/// The records a captured runtime over `setup`'s plan publishes at its start.
+async fn captured_results(setup: &Setup) -> Vec<convex_ports::runtime::PublishedValuation> {
+    let engine = make_engine(
+        setup,
+        archive(setup),
+        setup.plan.clone(),
+        setup.store.clone(),
+        RuntimeInput::Captured,
+    );
+    engine.start().await.unwrap();
+    let published = engine.runtime_results();
+    engine.shutdown().await.unwrap();
+    published
 }
 
 /// A started captured runtime over `setup`'s plan, with its discount recipe stored and
@@ -106,16 +126,7 @@ async fn request_runtime(setup: &Setup) -> std::sync::Arc<convex_engine::Pricing
 #[tokio::test]
 async fn a_stored_bermudan_callable_publishes_its_oas_and_effective_risk() {
     let setup = callable_setup(CallStyle::Bermudan, true).await;
-    let engine = make_engine(
-        &setup,
-        archive(&setup),
-        setup.plan.clone(),
-        setup.store.clone(),
-        RuntimeInput::Captured,
-    );
-    engine.start().await.unwrap();
-    let published = engine.runtime_results();
-    engine.shutdown().await.unwrap();
+    let published = captured_results(&setup).await;
     assert_eq!(published.len(), 1);
     let result = &published[0].result;
     assert_eq!(
@@ -175,16 +186,7 @@ async fn callables_without_a_model_assumption_or_with_american_calls_publish_the
         (CallStyle::American, true, "American"),
     ] {
         let setup = callable_setup(style, assumption).await;
-        let engine = make_engine(
-            &setup,
-            archive(&setup),
-            setup.plan.clone(),
-            setup.store.clone(),
-            RuntimeInput::Captured,
-        );
-        engine.start().await.unwrap();
-        let published = engine.runtime_results();
-        engine.shutdown().await.unwrap();
+        let published = captured_results(&setup).await;
         let result = &published[0].result;
         assert_eq!(result.status(), ResultStatus::Failed);
         assert_eq!(result.errors().len(), OPTIONAL_MEASURES.len());
@@ -260,17 +262,13 @@ async fn a_request_time_callable_valuation_matches_the_stream() {
         .is_none());
 }
 
-/// A callable under an `oas` rule is valued from its price in Live, exactly as with no
-/// rule, though its quote also holds a spread in the rule's field. At request time it is priced at an OAS: the stream's OAS gives the stream's
-/// price back, with the same accrued, dirty price and risk, and the OAS as quoted; a
-/// price gives the stream's values. An OAS out of range is refused before anything is
-/// valued.
+/// A callable under an `oas` rule is valued from its OAS in Live, though its quote also
+/// holds a price: the stream publishes the OAS as quoted and the model's price at it. At
+/// request time the same OAS gives the stream's values, and the stream's price gives the
+/// OAS back, with the same accrued, dirty price and risk. An OAS out of range is refused
+/// before anything is valued.
 #[tokio::test]
-async fn a_callable_under_an_oas_rule_is_valued_from_its_price_in_live_and_its_oas_at_request_time()
-{
-    let unruled = request_runtime(&callable_setup(CallStyle::Bermudan, true).await).await;
-    let by_price = unruled.runtime_results()[0].result.clone();
-    unruled.shutdown().await.unwrap();
+async fn a_callable_under_an_oas_rule_is_valued_from_its_oas_in_live_and_at_request_time() {
     let setup = oas_setup().await;
     let engine = request_runtime(&setup).await;
     let stream = engine.runtime_results()[0].result.clone();
@@ -284,23 +282,25 @@ async fn a_callable_under_an_oas_rule_is_valued_from_its_price_in_live_and_its_o
         stream.provenance().model_version.as_str(),
         OPTIONAL_SNAPSHOT_MODEL
     );
-    assert_eq!(stream.results(), by_price.results());
+    assert_eq!(measure(&stream, "oas_mid"), 50.0);
+    let clean = measure(&stream, "clean_price_mid");
+    assert!((clean - 99.25).abs() > 1e-3, "{clean}");
 
     let settlement = setup.plan.settlement_date;
     let at = |mark| configuration::value_quoted_at(&engine, &stream, settlement, Some(mark));
-    let oas = measure(&stream, "oas_mid");
-    let by_oas = at(QuotedInput::Level(Decimal::from_f64_retain(oas).unwrap()))
+    let by_oas = at(QuotedInput::Level(Decimal::from(50))).await.unwrap();
+    assert_eq!(by_oas.result.envelope().results(), stream.results());
+    let priced = at(QuotedInput::Price(Decimal::from_f64_retain(clean).unwrap()))
         .await
         .unwrap();
-    let by_oas = by_oas.result.envelope();
+    let priced = priced.result.envelope();
     assert_eq!(
-        by_oas.status(),
+        priced.status(),
         ResultStatus::Complete,
         "{:?}",
-        by_oas.errors()
+        priced.errors()
     );
-    assert_eq!(measure(by_oas, "oas_mid"), oas);
-    assert!((measure(by_oas, "clean_price_mid") - 99.25).abs() < 1e-6);
+    assert!((measure(priced, "oas_mid") - 50.0).abs() < 1e-4);
     for name in [
         "dirty_price_mid",
         "accrued_interest",
@@ -309,15 +309,11 @@ async fn a_callable_under_an_oas_rule_is_valued_from_its_price_in_live_and_its_o
         "pv01_mid",
     ] {
         assert!(
-            (measure(by_oas, name) - measure(&stream, name)).abs() < 1e-6,
+            (measure(priced, name) - measure(&stream, name)).abs() < 1e-6,
             "{name}"
         );
     }
-    let priced = at(QuotedInput::Price(Decimal::from_str("99.25").unwrap()))
-        .await
-        .unwrap();
-    assert_eq!(priced.result.envelope().results(), stream.results());
-    let refused = at(QuotedInput::Level(Decimal::from(1001)))
+    let refused = at(QuotedInput::Level(Decimal::from(5001)))
         .await
         .err()
         .unwrap();
@@ -326,6 +322,74 @@ async fn a_callable_under_an_oas_rule_is_valued_from_its_price_in_live_and_its_o
         "{refused}"
     );
     engine.shutdown().await.unwrap();
+}
+
+/// A Live plan reads a callable under an `oas` rule by its OAS alone, as a compile reads
+/// its rule's field, so a feed that sends only its price leaves it unvalued: each measure
+/// fails for the missing OAS.
+#[tokio::test]
+async fn a_callable_under_an_oas_rule_whose_feed_sends_only_a_price_fails_for_its_oas() {
+    let mut setup = callable_setup(CallStyle::Bermudan, true).await;
+    commit_oas_rule(&setup).await;
+    setup.plan.assembly.quotes[0].fields = vec![convex_ports::quote_event::QuoteField::MidSpread];
+    let published = captured_results(&setup).await;
+    let result = &published[0].result;
+    assert_eq!(result.status(), ResultStatus::Failed);
+    assert_eq!(result.errors().len(), OPTIONAL_MEASURES.len());
+    assert!(
+        result
+            .errors()
+            .iter()
+            .all(|error| error.code() == ErrorCode::MissingMarketData),
+        "{:?}",
+        result.errors()
+    );
+}
+
+/// A callable priced beyond the OAS solver's bracket, as a distressed one is, publishes
+/// its price, dirty price and accrued, and its OAS and effective risk fail, saying why.
+#[tokio::test]
+async fn a_callable_priced_beyond_the_oas_bracket_keeps_its_price_measures() {
+    let mut setup = callable_setup(CallStyle::Bermudan, true).await;
+    let plan = &mut setup.plan;
+    products::quote_in(
+        &mut plan.assembly.quotes[0],
+        &mut plan.seed_events[0],
+        convex_ports::quote_event::QuoteField::MidPrice,
+        Decimal::from(15),
+    );
+    let published = captured_results(&setup).await;
+    let result = &published[0].result;
+    assert_eq!(
+        result.status(),
+        ResultStatus::Partial,
+        "{:?}",
+        result.errors()
+    );
+    assert_eq!(measure(result, "clean_price_mid"), 15.0);
+    let accrued = measure(result, "accrued_interest");
+    assert!((measure(result, "dirty_price_mid") - 15.0 - accrued).abs() < 1e-12);
+    let failed: Vec<_> = result
+        .errors()
+        .iter()
+        .map(|error| error.field().unwrap())
+        .collect();
+    assert_eq!(
+        failed,
+        [
+            "effective_convexity_mid",
+            "effective_duration_mid",
+            "oas_mid",
+            "pv01_mid"
+        ]
+    );
+    assert!(
+        result
+            .errors()
+            .iter()
+            .all(|error| error.code() == ErrorCode::SolverLimit
+                && error.message().contains("bracket"))
+    );
 }
 
 /// One request context prices each curve on one revision. A bullet's read takes the
@@ -462,16 +526,7 @@ async fn nine_callables(rules: Vec<convex_ports::reference_master::MasterChange>
 #[tokio::test]
 async fn a_ninth_callable_on_hw1f_trees_fails_each_measure_and_the_eighth_is_valued() {
     let setup = nine_callables(vec![]).await;
-    let engine = make_engine(
-        &setup,
-        archive(&setup),
-        setup.plan.clone(),
-        setup.store.clone(),
-        RuntimeInput::Captured,
-    );
-    engine.start().await.unwrap();
-    let published = engine.runtime_results();
-    engine.shutdown().await.unwrap();
+    let published = captured_results(&setup).await;
     assert_eq!(published.len(), 9);
     let beyond = |error: &StructuredError| error.message() == BEYOND_CALLABLE_BOUND;
     let refused = |errors: &[StructuredError]| {

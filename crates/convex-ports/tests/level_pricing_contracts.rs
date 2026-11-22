@@ -135,33 +135,22 @@ fn each_method_applies_to_the_bonds_it_quotes() {
     assert_eq!(serde_json::to_value(&parsed).unwrap(), wire);
 }
 
-/// An OAS is a spread level read from `mid_spread` at request time; a Live plan reads no
-/// level for it, and reads a discount margin's or a yield's.
+/// An OAS is a spread level read from `mid_spread`, as a discount margin is: a quote is
+/// read by it whenever it declares it, even beside a price.
 #[test]
-fn an_oas_is_a_level_at_request_time_only() {
+fn an_oas_is_a_spread_level_read_beside_a_price() {
     use convex_ports::quote_event::QuoteField;
     let oas = PricingMethod::Oas {};
     assert_eq!(oas.name(), "oas");
-    assert_eq!(oas.level_field(), Some(QuoteField::MidSpread));
-    assert_eq!(oas.live_level_field(), None);
-    assert_eq!(
-        PricingMethod::DiscountMargin {}.live_level_field(),
-        Some(QuoteField::MidSpread)
-    );
-    assert_eq!(
-        PricingMethod::Yield {}.live_level_field(),
-        Some(QuoteField::MidYield)
-    );
-    assert_eq!(PricingMethod::Price {}.live_level_field(), None);
-    // A quote is read by an OAS only when it declares no price, as a request's quote does;
-    // a margin is read beside a price.
     let (price, spread) = (QuoteField::MidPrice, QuoteField::MidSpread);
-    assert_eq!(oas.declared_level_field(&[spread]), Some(spread));
-    assert_eq!(oas.declared_level_field(&[price, spread]), None);
-    assert_eq!(oas.declared_level_field(&[price]), None);
-    let margin = PricingMethod::DiscountMargin {};
-    assert_eq!(margin.declared_level_field(&[price, spread]), Some(spread));
-    assert_eq!(PricingMethod::Price {}.declared_level_field(&[price]), None);
+    assert_eq!(oas.level_field(), Some(spread));
+    assert_eq!(PricingMethod::Price {}.level_field(), None);
+    for method in [oas.clone(), PricingMethod::DiscountMargin {}] {
+        assert!(method.is_level_declared(&[spread]));
+        assert!(method.is_level_declared(&[price, spread]));
+        assert!(!method.is_level_declared(&[price]));
+    }
+    assert!(!PricingMethod::Price {}.is_level_declared(&[price]));
     let wire = rule(json!({"kind": "oas"}), None);
     let parsed: PricingRuleDefinition = serde_json::from_value(wire.clone()).unwrap();
     parsed.validate().unwrap();

@@ -14,6 +14,9 @@ use convex_ports::{
 };
 use serde_json::{json, Value};
 
+#[path = "support/products.rs"]
+mod products;
+
 /// Capture time of the seed: references, curves and pricing are recorded then.
 const CAPTURE: &str = "2026-10-07T12:00:00Z";
 
@@ -576,6 +579,49 @@ async fn a_level_quoted_bond_brings_its_benchmarks_and_reads_its_level() {
         )
     );
     assert_eq!(document.providers.len(), 1);
+}
+
+/// A callable quoted by its OAS reads its rule's field, `mid_spread`, as a note quoted by
+/// its margin does.
+#[tokio::test]
+async fn a_callable_quoted_by_its_oas_reads_its_oas() {
+    use convex_ports::{reference_master::CallStyle, reference_repository::ReferenceChange};
+    let dir = tempfile::tempdir().unwrap();
+    let (storage, instrument) = storage(&dir).await;
+    let stored = storage
+        .bonds
+        .get(&instrument.clone().into())
+        .await
+        .unwrap()
+        .unwrap();
+    let command = ReferenceCommand {
+        idempotency_key: RequestId::new("oas-callable").unwrap(),
+        changes: vec![ReferenceChange::Update {
+            bond: Box::new(products::callable(
+                stored.bond.unwrap(),
+                CallStyle::Bermudan,
+            )),
+            expected_version: stored.version,
+        }],
+        master_changes: vec![products::pricing_rule(&instrument, json!({"kind": "oas"}))],
+    };
+    storage
+        .bonds
+        .commit(&command, at("2026-10-07T12:30:00Z"))
+        .await
+        .unwrap();
+    let document = compile(&storage, &selection(), "showcase-feed")
+        .await
+        .unwrap();
+    assert_eq!(
+        quote_reads(&document),
+        [(
+            instrument,
+            "showcase-feed".to_owned(),
+            vec!["mid_spread".to_owned()],
+            600_000
+        )]
+    );
 }
 
 /// Benchmarks are quoted by price, at the versions their set pins, from a composed

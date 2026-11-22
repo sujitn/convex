@@ -357,7 +357,10 @@ runtime's measures for the product. The response has the bullets' shape, with:
 - `measure_errors` for each measure the valuation could not produce, with the
   runtime's code;
 - `snapshot`: `{"id", "published": false, "curves"}`. The id names the content but
-  cannot be fetched.
+  cannot be fetched;
+- for a callable on HW1F trees, `option_model`: the configuration's `mean_reversion`,
+  `volatility` and `reason`, and its `discount_curve`. An OAS means something only under
+  that model, and a change to it reprices every callable quoted by OAS.
 `x-convex-curve-versions` lists the curves that valuation read. A server without a
 runtime refuses callables and FRNs with `422 UNSUPPORTED_PRODUCT`. A runtime that is
 not ready returns `503 UNAVAILABLE`, and `429 CAPACITY_EXCEEDED` when every slot is
@@ -458,9 +461,9 @@ names the bond and its method:
 - `discount_margin`, for a floating rate note only: basis points over the frozen
   projection of its index (the configuration's `frn_reference_curve`), discounted on the
   configuration's discount curve;
-- `oas`, at request time only, for a callable the HW1F model values: European or
-  Bermudan fixed-price calls, none make-whole, and no other embedded terms. Basis points
-  over the configuration's discount curve at which its HW1F trees price it.
+- `oas`, for a callable the HW1F model values: European or Bermudan fixed-price calls,
+  none make-whole, and no other embedded terms. Basis points over the configuration's
+  discount curve at which its HW1F trees price it.
 
 A rule may also name a benchmark set by `benchmark_set_id`. A spread is quoted to that set, and the
 bond's G-spread is computed over it. The set's version in force at a valuation's cutoff
@@ -543,19 +546,24 @@ by its own model, `convex-floating-dm-v1`, in Live and at request time.
   read as its margin.
 
 A callable whose rule quotes it by `oas` stays on HW1F trees, `convex-optional-hw1f-v1`,
-and is priced from its OAS at request time only.
+and is priced from its OAS, in Live and at request time.
 - From an OAS it prices the callable at that spread over the discount curve, through
   `convex::library` (`OptionalBond` `Price`), then its effective risk at it; from a clean
   price it solves the OAS, as for a callable with no rule. Each inverts the other.
 - It publishes what a callable with no rule publishes, and `oas_mid` is the OAS as
-  quoted. It reads the discount curve, as from a price.
-- An OAS is from -500 to 1,000 basis points, the OAS solver's bracket, so the price at
-  any OAS solves back to it.
+  quoted. It reads the discount curve, as from a price, so in Live a curve revision
+  values it again.
+- An OAS is from -500 to 5,000 basis points, the OAS solver's bracket, so the price at
+  any OAS solves back to it. A price whose OAS is beyond the bracket, as a distressed
+  callable's is, with a rule or none, still publishes its clean and dirty price and
+  accrued; `oas_mid` and the effective risk fail with `SOLVER_LIMIT`, saying why.
 - `GET /api/v1/quotes/:id` takes `level` (basis points of OAS) or `market_price`. Its
   `pricing_rule` report names the HW1F model and the level.
-- In Live it is valued from its price, exactly as with no rule: its plan reads the
-  selection's fields, and a quote that declares a price is read and judged by its price,
-  even if it also holds a spread. It counts against the cap of 8 callables on HW1F trees.
+- In Live its plan reads `mid_spread` from the levels' source, as a note's margin is
+  read, and a quote that declares it is read and judged by it, even beside a price. A
+  callable under the rule whose feed sends only a price
+  fails each measure for its missing OAS. It counts against the cap of 8 callables on
+  HW1F trees.
 
 At request time, a level for a callable or a note quoted by its own model's level is
 checked against its method's range before it is valued, and refused with 400 outside it,
@@ -738,7 +746,8 @@ others" for a stored bond. It is read-only and stores nothing.
   `ytw`, for a callable by OAS its HW1F measures (clean price, accrued, dirty price,
   `oas_mid`, effective duration and convexity, PV01), and for a note its clean price,
   accrued, dirty price and `discount_margin_mid`; a callable by OAS and a note come with
-  the unpublished `snapshot` they were valued from. It adds:
+  the unpublished `snapshot` they were valued from, and a callable by OAS with its
+  `option_model`. It adds:
   - `input`: the `method` and `level` sent, and for a benchmark spread the `benchmark`
     it was quoted to, with the `ytm` it was added to;
   - `pricing_rule`, when the bond has a rule: its `version` and `method`, and the set as

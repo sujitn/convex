@@ -182,14 +182,26 @@ the changes that matter when you upgrade.
   again at that tick.
   `POST /api/v1/runtime/valuation` refuses the same callables in a supplied snapshot, so
   it reproduces what the runtime published.
-- **Callables by OAS, at request time.** A `pricing_rule` may quote a callable by `oas`
-  (basis points over the discount curve at which its HW1F trees price it). At request
-  time `GET /api/v1/quotes/:id` takes it as `level` and prices the callable at it under
-  `convex-optional-hw1f-v1`, publishing the OAS as quoted, the price at it and the
-  effective risk; it still takes `market_price`. An OAS is from -500 to 1,000 bp. In
-  Live the callable is valued from its price, exactly as with no rule. The rule is
-  refused at commit for any bond but a callable the HW1F model values: European or
-  Bermudan fixed-price calls, none make-whole, and no other embedded terms.
+- **A reply on HW1F trees names its model.** A request-time reply for a callable on
+  HW1F trees (the quote routes, the batch and the calculator) carries `option_model`: the
+  configuration's `mean_reversion`, `volatility` and `reason`, and its `discount_curve`,
+  the model an OAS is taken on.
+- **A callable priced beyond its OAS bracket keeps its price measures, and the bracket
+  is wider.** The OAS solver brackets -500 to 5,000 bp (was 1,000 bp), the range an
+  `oas` level takes. A price whose OAS is beyond it, such as a distressed callable's,
+  publishes its clean and dirty price and accrued, and `oas_mid` and the effective risk
+  fail with `SOLVER_LIMIT`, saying why; every measure failed before. A solve from a price
+  takes about 5–11% longer.
+- **Callables by OAS.** A `pricing_rule` may quote a callable by `oas` (basis points
+  over the discount curve at which its HW1F trees price it). The callable is priced at
+  its OAS under `convex-optional-hw1f-v1`, publishing the OAS as quoted, the price at it
+  and the effective risk. In Live its plan reads `mid_spread` as a note's margin is
+  read, even beside a price, and a curve revision values it again; a callable under the
+  rule whose feed sends only a price fails each measure for its missing OAS. At request
+  time `GET /api/v1/quotes/:id` takes it as `level`, and still takes `market_price`. An
+  OAS takes the solver's bracket (below). The rule is refused at commit for any bond but a
+  callable the HW1F model values: European or Bermudan fixed-price calls, none
+  make-whole, and no other embedded terms.
 - **A bond whose rule no longer applies is refused at request time.** A bond revised
   after its rule was committed, so that the rule no longer applies to its terms (a
   callable under an `oas` rule revised to American calls or to a bullet), is refused with
@@ -424,10 +436,9 @@ the changes that matter when you upgrade.
   library's `OptionalBond` `Price`, then its risk at it; `values_own_level` counts it. Its
   input and output are `CallableQuote` (a clean price or an OAS) and
   `CallableValuation`, as the other models'. At an OAS, risk is run first and its base
-  price read, so the price is run alone only when risk fails. Live values a callable
-  under an `oas` rule from its price: a Live compile reads no OAS for it, and a quote that
-  declares a price is read by its price (`PricingMethod::declared_level_field`), so a plan
-  compiled before the rule is too.
+  price read, so the price is run alone only when risk fails. Live reads a callable's
+  OAS as it reads a note's margin: a Live compile reads its rule's field, and a quote
+  declaring it is read by it, even beside a price (`PricingMethod::is_level_declared`).
 - **Floating rate notes by discount margin.** The floating model reads a note's rule's
   field, as the workout model does, and prices a margin through the library's `Bond`
   `Price` with a discount spread; a margin out of range fails each measure.
@@ -513,12 +524,10 @@ the changes that matter when you upgrade.
 
 - **`PricingMethod::Oas`** (`oas`): applies only to a callable the HW1F model values
   (`is_oas_callable`, which `is_workout_callable` now builds on), with no benchmark set, and
-  reads `mid_spread` at request time. `PricingMethod::is_request_time_only` is true for
-  it alone, and `PricingMethod::live_level_field` is the level a Live plan reads, none for
-  an OAS. `PricingMethod::declared_level_field` is the level a quote is read by, given the
-  fields it declares: not an OAS beside a price. The snapshot's valuation and its quality
-  both use it, so such a quote is judged as a price quote is (a manual one is
-  indicative, and its skew counts). `RULE_DOES_NOT_APPLY` names it.
+  reads `mid_spread`. `PricingMethod::is_level_declared` says whether a quote is read by
+  the rule's level, given the fields it declares: whenever it declares it, even beside a
+  price. The snapshot's valuation and its quality both use it.
+  `RULE_DOES_NOT_APPLY` names it.
 - **`PricingMethod::DiscountMargin`** (`discount_margin`): applies only to a floating rate
   note, with no benchmark set, and reads `mid_spread`. `RULE_DOES_NOT_APPLY` names it.
 - `BondQuoteOutput::without_measures`: a fresh quote with every measure absent, for a
