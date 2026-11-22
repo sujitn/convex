@@ -41,6 +41,11 @@ describe('decodeFailure', () => {
     expect(failure.code).toBe('INVALID_INPUT')
     expect(failure.diagnostics).toEqual([diagnostic])
   })
+  it('reads the rows a quote batch refused', () => {
+    const row = { index: 0, code: 'LEVEL_OUT_OF_RANGE', reason: 'the level is outside the rule range' }
+    const failure = decodeFailure(422, { code: 'QUOTES_REJECTED', error: 'batch rejected; nothing was queued', rows: [row], truncated: false }, '')
+    expect([failure.code, failure.rows]).toEqual(['QUOTES_REJECTED', [row]])
+  })
   it('reads access refusals and plain text', () => {
     expect(decodeFailure(403, { code: 'FORBIDDEN', error: 'FORBIDDEN' }, '').reason).toBe('FORBIDDEN')
     const text = decodeFailure(400, null, 'Failed to deserialize query string')

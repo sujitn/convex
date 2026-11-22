@@ -61,6 +61,7 @@ export function followValuations(
     const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
     socket = new WebSocket(`${scheme}://${window.location.host}/api/v1/ws`, streamProtocols(token))
     socket.onopen = () => {
+      if (stopped) return
       attempts = 0
       handlers.onStatus('open')
       subscribe()

@@ -18,8 +18,8 @@ server publishes it, from its `desk_ui_dir` setting, at `/desk`.
   US Treasury notes and bonds in 32nds (`99-16+` is 99 16.5/32, `99-162` is 99 16 2/8/32). Yields in
   percent, spreads and margins in basis points. A level is sent back exactly as
   written, never as a float.
-- **Live.** The sheet follows every row on the stream. Subscribing sends each bond's
-  current result first; after a reconnection or a `RESYNC_REQUIRED` it subscribes
+- **Live.** The sheet follows every row on the stream once its rows are built.
+  Subscribing sends each bond's current result first; after a reconnection or a `RESYNC_REQUIRED` it subscribes
   again, and the newer result of each bond is kept by runtime and revision. A clean
   price that moved flashes green up or red down.
 - **State per row** is the server's: `valid`, `partial`, `failed` (hover for the
@@ -31,14 +31,16 @@ server publishes it, from its `desk_ui_dir` setting, at `/desk`.
   - `+` and `−` (or Shift with ↑ and ↓) move the level one basis point, of spread or
     of yield, and Alt makes it a quarter;
   - Enter types a level: a decimal yield (`0.0525`) or basis points, as the rule's
-    field reads; Escape cancels.
+    field reads; Escape cancels. Either hands the keys back to the sheet.
 
   Each mark is posted at once, and the bond's next result prices it. While one is in
   flight, a held key's further nudges wait and only the latest level follows, since a
-  level is absolute. A refused mark shows its code and reason, and the level reverts.
-  The Mark column is its age. The sheet reads every mark again each 5 seconds, so
-  another page's marks appear. A server restart holds no level, as the Live runtime
-  holds none, so levels are marked again after one.
+  level is absolute. A refused mark shows the server's code and reason for its level,
+  and the bond reverts to the last level the server took. The Mark column is its age.
+  The sheet reads every mark again each 5 seconds, so another page's marks appear; a
+  read issued before this page's own mark was taken leaves that bond as it is. A server
+  restart holds no level, as the Live runtime holds none, so levels are marked again
+  after one.
 
 ## The calculator
 

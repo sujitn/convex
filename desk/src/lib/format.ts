@@ -86,3 +86,10 @@ export function formatAge(then: string, now: number): string {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
   return `${Math.floor(seconds / 3600)}h`
 }
+
+/** The calendar date of `at` where the page runs, as `YYYY-MM-DD`. */
+export function localDate(at: Date): string {
+  const month = String(at.getMonth() + 1).padStart(2, '0')
+  const day = String(at.getDate()).padStart(2, '0')
+  return `${at.getFullYear()}-${month}-${day}`
+}

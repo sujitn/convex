@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { ApiFailure, useSession, type PublishedValuation } from '@convex/api-client'
+import { useSession, type PublishedValuation } from '@convex/api-client'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react'
 import { isDecimal } from '../lib/decimal'
 import { formatAge, formatCoupon, formatMeasure } from '../lib/format'
+import { failureNotice } from '../lib/failure'
+import { MarkWriter, type PostMark } from '../lib/marks'
 import { readBonds, readDeskLevels, readPricingRules } from '../lib/reads'
 import {
   instrumentOf,
@@ -13,9 +15,9 @@ import {
   rowState,
   sheetRows,
   shownLevel,
+  withHeldMarks,
   withValuation,
   withMarks,
-  type DeskMark,
   type RowState,
   type SheetRow,
 } from '../lib/sheet'
@@ -37,11 +39,6 @@ export function PricingSheet() {
       return { rules, bonds }
     },
   })
-  const desk = useQuery({
-    queryKey: ['desk-levels'],
-    queryFn: () => readDeskLevels(call),
-    refetchInterval: MARKS_REFRESH_MS,
-  })
   const [rows, setRows] = useState<SheetRow[]>([])
   const [status, setStatus] = useState<StreamStatus | 'idle'>('idle')
   const [notice, setNotice] = useState<string | null>(null)
@@ -49,30 +46,58 @@ export function PricingSheet() {
   const [editing, setEditing] = useState<number | null>(null)
   const rowsRef = useRef(rows)
   rowsRef.current = rows
+  const sheet = useRef<HTMLDivElement>(null)
   const pending = useRef<PublishedValuation[]>([])
   const frame = useRef<number | null>(null)
-  /** Bonds with a mark in flight, and the latest level waiting to follow it. */
-  const inFlight = useRef(new Map<string, string | null>())
-  const deskData = desk.data ?? null
-  const deskSource = deskData?.source ?? null
-  const deskRef = useRef(deskData)
-  deskRef.current = deskData
+
+  const [writer] = useState(
+    () =>
+      new MarkWriter({
+        onShown: (instrumentId, mark) =>
+          setRows((current) => current.map((row) => (row.instrumentId === instrumentId ? { ...row, mark } : row))),
+        onNotice: setNotice,
+      }),
+  )
+
+  // Each read of the marks with when it was issued; none when the server takes no desk levels.
+  const desk = useQuery({
+    queryKey: ['desk-levels'],
+    queryFn: async () => {
+      const issuedAt = writer.readIssued()
+      const levels = await readDeskLevels(call)
+      return levels && { levels, issuedAt }
+    },
+    refetchInterval: MARKS_REFRESH_MS,
+  })
+  const deskLevels = desk.data?.levels ?? null
+  const deskSource = deskLevels?.source ?? null
+  const deskRef = useRef(desk.data)
+  deskRef.current = desk.data
   // A failed read of the marks leaves the sheet read-only, saying why.
-  const isDeskRead = desk.isSuccess || desk.isError
+  const isMarksRead = !desk.isPending
 
-  // Rows are built once the rules, the bonds and the desk's marks are read; the marks
-  // read again later are merged into them.
+  // Rows are built once the rules, the bonds and the desk's marks are read, and again when
+  // the rules or bonds change; each read of the marks is ordered against this page's own
+  // marks, so a rebuild keeps those the last read may not reflect.
   useEffect(() => {
-    if (universe.data && isDeskRead) setRows(sheetRows(universe.data.rules, universe.data.bonds, deskRef.current))
-  }, [universe.data, isDeskRead])
+    const read = deskRef.current
+    const { rules, bonds } = universe.data ?? {}
+    if (!rules || !bonds || !isMarksRead) return
+    setRows((current) => {
+      const built = sheetRows(rules, bonds, read?.levels ?? null)
+      return read ? withHeldMarks(built, current, writer.unread(read.issuedAt)) : built
+    })
+  }, [universe.data, isMarksRead, writer])
 
   useEffect(() => {
-    if (deskData) setRows((current) => withMarks(current, deskData, new Set(inFlight.current.keys())))
-  }, [deskData])
+    const read = desk.data
+    if (read) setRows((current) => withMarks(current, read.levels, writer.unread(read.issuedAt)))
+  }, [desk.data, writer])
 
   // Rows keep the rules' order, so a bond's row is found by its rule's position.
   const instrumentIds = useMemo(() => universe.data?.rules.map((rule) => rule.instrument_id) ?? [], [universe.data])
   const indexById = useMemo(() => new Map(instrumentIds.map((id, index) => [id, index])), [instrumentIds])
+  const hasRows = rows.length > 0
 
   // Results arrive in bursts; they are merged once a frame.
   const flush = useCallback(() => {
@@ -95,8 +120,9 @@ export function PricingSheet() {
     })
   }, [indexById])
 
+  // The stream opens once the rows are built, as subscribing sends each bond's current result once.
   useEffect(() => {
-    if (instrumentIds.length === 0) return
+    if (!hasRows) return
     return followValuations(token, instrumentIds, {
       onValuation: (valuation) => {
         pending.current.push(valuation)
@@ -105,59 +131,35 @@ export function PricingSheet() {
       onStatus: setStatus,
       onRefusal: (code, message) => setNotice(`${code}: ${message}`),
     })
-  }, [instrumentIds, token, flush])
+  }, [hasRows, instrumentIds, token, flush])
 
-  const setMark = useCallback((index: number, mark: DeskMark | null) => {
-    setRows((current) => {
-      const row = current[index]
-      if (!row) return current
-      const next = [...current]
-      next[index] = { ...row, mark }
-      return next
-    })
-  }, [])
+  const post = useCallback<PostMark>(
+    async (instrumentId, field, level) => {
+      const reply = await call<{ receive_time_ms: number }>('/api/v1/market/levels', {
+        method: 'POST',
+        body: { source: deskSource, levels: [{ instrument_id: instrumentId, field, level }] },
+      })
+      return reply.data.receive_time_ms
+    },
+    [call, deskSource],
+  )
 
-  // One mark in flight a bond: a level set meanwhile waits, and only the latest is sent.
   const mark = useCallback(
     (index: number, level: string) => {
       const row = rowsRef.current[index]
       if (!deskSource || !row?.deskField) return
-      const field = row.deskField
-      const id = row.instrumentId
-      setMark(index, { level, marked_at: new Date().toISOString() })
-      if (inFlight.current.has(id)) {
-        inFlight.current.set(id, level)
-        return
-      }
-      const send = async (sent: string, previous: DeskMark | null) => {
-        inFlight.current.set(id, null)
-        try {
-          const reply = await call<{ receive_time_ms: number }>('/api/v1/market/levels', {
-            method: 'POST',
-            body: { source: deskSource, levels: [{ instrument_id: id, field, level: sent }] },
-          })
-          // The server's receipt time orders this mark against the marks read back later.
-          if (inFlight.current.get(id) === null) {
-            setMark(index, { level: sent, marked_at: new Date(reply.data.receive_time_ms).toISOString() })
-          }
-          setNotice(null)
-        } catch (error) {
-          setMark(index, previous)
-          setNotice(error instanceof ApiFailure ? error.message : String(error))
-        }
-        const next = inFlight.current.get(id)
-        inFlight.current.delete(id)
-        if (next) void send(next, rowsRef.current[index]?.mark ?? null)
-      }
-      void send(level, row.mark)
+      writer.mark({ instrumentId: row.instrumentId, field: row.deskField, acknowledged: row.mark }, level, post)
     },
-    [call, deskSource, setMark],
+    [deskSource, post, writer],
   )
 
+  // A level typed and committed or cancelled from the keyboard hands the keys back to
+  // the sheet; one left by moving elsewhere does not.
   const onMark = useCallback(
-    (index: number, level: string | null) => {
+    (index: number, level: string | null, returnsFocus: boolean) => {
       setEditing(null)
       if (level !== null) mark(index, level)
+      if (returnsFocus) sheet.current?.focus()
     },
     [mark],
   )
@@ -199,12 +201,13 @@ export function PricingSheet() {
           {deskSource
             ? `Desk levels on ${deskSource}: ↑↓ select · + / − nudge 1 bp (Alt: ¼ bp) · Enter types a level`
             : desk.error
-              ? `Desk levels could not be read (${desk.error instanceof ApiFailure ? desk.error.message : String(desk.error)}): levels are read-only.`
+              ? `Desk levels could not be read (${failureNotice(desk.error)}): levels are read-only.`
               : 'This server takes no desk levels: levels are read-only.'}
         </span>
         {notice && <span className="text-amber-300">{notice}</span>}
       </div>
       <div
+        ref={sheet}
         tabIndex={0}
         onKeyDown={onKeyDown}
         className="overflow-auto rounded border border-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-700"
@@ -305,7 +308,7 @@ const Row = memo(function Row({
   selected: boolean
   editing: boolean
   onSelect: (index: number) => void
-  onMark: (index: number, level: string | null) => void
+  onMark: (index: number, level: string | null, returnsFocus: boolean) => void
 }) {
   const thirtySeconds = isQuotedInThirtySeconds(row.bond)
   const cell = (name: string) => {
@@ -327,7 +330,7 @@ const Row = memo(function Row({
       <td className="px-2 py-0.5 text-slate-400">{methodLabel(row.rule.method)}</td>
       <td className={`px-2 py-0.5 text-right font-mono tabular-nums ${row.deskField ? 'text-sky-300' : ''}`}>
         {editing ? (
-          <LevelInput initial={row.mark?.level ?? ''} onDone={(text) => onMark(index, text)} />
+          <LevelInput initial={row.mark?.level ?? ''} onDone={(text, returnsFocus) => onMark(index, text, returnsFocus)} />
         ) : level === null ? (
           ''
         ) : (
@@ -352,7 +355,13 @@ const Row = memo(function Row({
 })
 
 /** A typed level, sent as written: a decimal yield or basis points, as the field reads. */
-function LevelInput({ initial, onDone }: { initial: string; onDone: (level: string | null) => void }) {
+function LevelInput({
+  initial,
+  onDone,
+}: {
+  initial: string
+  onDone: (level: string | null, returnsFocus: boolean) => void
+}) {
   const [text, setText] = useState(initial)
   return (
     <input
@@ -360,11 +369,11 @@ function LevelInput({ initial, onDone }: { initial: string; onDone: (level: stri
       value={text}
       onChange={(event) => setText(event.target.value.trim())}
       onKeyDown={(event) => {
-        if (event.key === 'Enter' && isDecimal(text)) onDone(text)
-        if (event.key === 'Escape') onDone(null)
+        if (event.key === 'Enter' && isDecimal(text)) onDone(text, true)
+        if (event.key === 'Escape') onDone(null, true)
         event.stopPropagation()
       }}
-      onBlur={() => onDone(null)}
+      onBlur={() => onDone(null, false)}
       className={`w-24 rounded border bg-slate-950 px-1 text-right font-mono ${isDecimal(text) ? 'border-sky-700' : 'border-red-700'}`}
     />
   )

@@ -1,8 +1,10 @@
-import type { PublishedValuation } from '@convex/api-client'
+import { ApiFailure, type PublishedValuation } from '@convex/api-client'
 import { describe, expect, it } from 'vitest'
 import { calculatedMeasures } from './calculation'
 import { addDecimal, isDecimal } from './decimal'
-import { formatAge, formatCoupon, formatMeasure, formatThirtySeconds, measureUnit } from './format'
+import { formatAge, formatCoupon, formatMeasure, formatThirtySeconds, localDate, measureUnit } from './format'
+import { failureNotice } from './failure'
+import { MarkWriter, type DeskBond, type PostMark } from './marks'
 import {
   isQuotedInThirtySeconds,
   methodLabel,
@@ -11,6 +13,7 @@ import {
   rowState,
   sheetRows,
   shownLevel,
+  withHeldMarks,
   withMarks,
   withValuation,
   type Bond,
@@ -126,6 +129,10 @@ describe('formats', () => {
     expect(formatAge('2026-11-22T11:59:30Z', now)).toBe('30s')
     expect(formatAge('2026-11-22T11:45:00Z', now)).toBe('15m')
     expect(formatAge('2026-11-22T09:00:00Z', now)).toBe('3h')
+  })
+  it('take the calendar date where the page runs, late and early in its day', () => {
+    expect(localDate(new Date(2026, 0, 15, 23, 30))).toBe('2026-01-15')
+    expect(localDate(new Date(2026, 0, 15, 0, 30))).toBe('2026-01-15')
   })
 })
 
@@ -252,22 +259,101 @@ describe('calculator reply', () => {
 
 describe('marks read back', () => {
   const rules: PricingRule[] = [{ instrument_id: 'BOND-001', method: { kind: 'z_spread' } }]
-  const read = (level: string, at: string) => ({
+  const read = (level: string | null, at = '2026-11-22T12:00:00.000Z') => ({
     source: 'desk',
-    levels: [{ instrument_id: 'BOND-001', field: 'mid_spread' as const, mark: { level, marked_at: at } }],
+    levels: [
+      { instrument_id: 'BOND-001', field: 'mid_spread' as const, mark: level === null ? null : { level, marked_at: at } },
+    ],
   })
-  const [row] = sheetRows(rules, [], read('125', '2026-11-22T12:00:00.000Z'))
-  it("take another page's newer mark", () => {
-    const [next] = withMarks([row!], read('130', '2026-11-22T12:00:05.000Z'), new Set())
-    expect(next!.mark?.level).toBe('130')
+  const [row] = sheetRows(rules, [], read('125'))
+  it("take another page's mark, and none after a restart", () => {
+    expect(withMarks([row!], read('130', '2026-11-22T12:00:05.000Z'), new Set())[0]!.mark?.level).toBe('130')
+    expect(withMarks([row!], read(null), new Set())[0]!.mark).toBeNull()
   })
-  it('keep a newer mark of this page over a read issued before it was queued', () => {
+  it('keep, when the rows are built again, the mark of a bond the last read may not reflect', () => {
     const held = { ...row!, mark: { level: '127', marked_at: '2026-11-22T12:00:09.000Z' } }
-    expect(withMarks([held], read('125', '2026-11-22T12:00:00.000Z'), new Set())[0]).toBe(held)
+    const built = sheetRows(rules, [], read('125'))
+    expect(withHeldMarks(built, [held], new Set(['BOND-001']))[0]!.mark?.level).toBe('127')
+    expect(withHeldMarks(built, [held], new Set())[0]!.mark?.level).toBe('125')
   })
-  it('leave a bond with a mark in flight, and change nothing when nothing changed', () => {
+  it('leave a bond the read may not reflect, and change nothing when nothing changed', () => {
     const rows = [row!]
-    expect(withMarks(rows, read('130', '2026-11-22T12:00:05.000Z'), new Set(['BOND-001']))).toBe(rows)
-    expect(withMarks(rows, read('125', '2026-11-22T12:00:00.000Z'), new Set())).toBe(rows)
+    expect(withMarks(rows, read(null), new Set(['BOND-001']))).toBe(rows)
+    expect(withMarks(rows, read('125'), new Set())).toBe(rows)
+  })
+})
+
+describe('marks written', () => {
+  const bond: DeskBond = {
+    instrumentId: 'BOND-001',
+    field: 'mid_spread',
+    acknowledged: { level: '125', marked_at: '2026-11-22T12:00:00.000Z' },
+  }
+
+  /** A writer on a counting clock whose posts wait until settled, refusing any level in `refused`. */
+  function harness(refused: string[] = []) {
+    let clock = 0
+    const shown: (string | null)[] = []
+    const notices: (string | null)[] = []
+    const sent: string[] = []
+    const settles: (() => void)[] = []
+    const writer = new MarkWriter(
+      { onShown: (_, mark) => shown.push(mark?.level ?? null), onNotice: (notice) => notices.push(notice) },
+      () => (clock += 1),
+    )
+    const post: PostMark = (_, __, level) => {
+      sent.push(level)
+      return new Promise((resolve, reject) => {
+        const row = { index: 0, code: 'LEVEL_OUT_OF_RANGE', reason: 'the level is outside the rule range' }
+        settles.push(() =>
+          refused.includes(level)
+            ? reject(new ApiFailure(422, 'QUOTES_REJECTED', 'batch rejected', [], [row]))
+            : resolve(Date.UTC(2026, 10, 22, 12)),
+        )
+      })
+    }
+    const settle = async () => {
+      settles.shift()!()
+      await new Promise((resolve) => setTimeout(resolve))
+    }
+    return { writer, post, shown, notices, sent, settle }
+  }
+
+  it('send one mark a bond at a time, and only the latest level queued behind it', async () => {
+    const { writer, post, shown, sent, settle } = harness()
+    for (const level of ['126', '127', '128']) writer.mark(bond, level, post)
+    await settle()
+    await settle()
+    expect(sent).toEqual(['126', '128'])
+    expect(shown.at(-1)).toBe('128')
+  })
+  it("revert a refused mark to the server's last, not to a level only queued, and say why", async () => {
+    const { writer, post, shown, notices, settle } = harness(['127'])
+    writer.mark(bond, '126', post)
+    writer.mark(bond, '127', post)
+    await settle()
+    await settle()
+    expect(shown.at(-1)).toBe('126')
+    expect(notices.at(-1)).toBe('LEVEL_OUT_OF_RANGE: the level is outside the rule range')
+  })
+  it('order a read of the marks against the marks the server took', async () => {
+    const { writer, post, settle } = harness()
+    const before = writer.readIssued()
+    writer.mark(bond, '126', post)
+    expect(writer.unread(before)).toEqual(new Set(['BOND-001']))
+    await settle()
+    expect(writer.unread(before)).toEqual(new Set(['BOND-001']))
+    expect(writer.unread(writer.readIssued())).toEqual(new Set())
+  })
+})
+
+describe('failures', () => {
+  it("say the server's reason for a refused row, else the request's, else the error's", () => {
+    const row = { index: 0, code: 'LEVEL_OUT_OF_RANGE', reason: 'the level is outside the rule range' }
+    expect(failureNotice(new ApiFailure(422, 'QUOTES_REJECTED', 'batch rejected', [], [row]))).toBe(
+      'LEVEL_OUT_OF_RANGE: the level is outside the rule range',
+    )
+    expect(failureNotice(new ApiFailure(403, 'FORBIDDEN', 'FORBIDDEN'))).toBe('403 FORBIDDEN: FORBIDDEN')
+    expect(failureNotice(new TypeError('Failed to fetch'))).toBe('Failed to fetch')
   })
 })

@@ -1,9 +1,10 @@
 import { useMutation } from '@tanstack/react-query'
-import { ApiFailure, useSession } from '@convex/api-client'
+import { useSession } from '@convex/api-client'
 import { useState, type ReactNode } from 'react'
 import { isDecimal } from '../lib/decimal'
 import { calculatedMeasures } from '../lib/calculation'
-import { formatMeasure, measureUnit } from '../lib/format'
+import { failureNotice } from '../lib/failure'
+import { formatMeasure, localDate, measureUnit } from '../lib/format'
 import type { MethodKind, PricingMethod } from '../lib/sheet'
 
 // "Given this level, what are the others": one level of a stored bond, by any method,
@@ -39,17 +40,13 @@ interface CalculationReply {
 const inputClass =
   'rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-sm text-slate-100 focus:border-sky-600 focus:outline-none'
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
 export function Calculator() {
   const { call } = useSession()
   const [instrumentId, setInstrumentId] = useState('')
   const [kind, setKind] = useState<MethodKind>('price')
   const [tenor, setTenor] = useState('10Y')
   const [level, setLevel] = useState('')
-  const [settlement, setSettlement] = useState(today)
+  const [settlement, setSettlement] = useState(() => localDate(new Date()))
   const calculation = useMutation({
     mutationFn: async () => {
       const method: PricingMethod = kind === 'benchmark_spread' ? { kind, tenor } : { kind }
@@ -121,8 +118,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function Refusal({ error }: { error: unknown }) {
-  const text = error instanceof ApiFailure ? error.message : String(error)
-  return <p className="rounded border border-red-900 bg-red-950 px-3 py-2 text-sm text-red-300">{text}</p>
+  return <p className="rounded border border-red-900 bg-red-950 px-3 py-2 text-sm text-red-300">{failureNotice(error)}</p>
 }
 
 function Reply({ reply }: { reply: CalculationReply }) {
