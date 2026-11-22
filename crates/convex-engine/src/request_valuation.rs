@@ -14,7 +14,7 @@ use convex_core::contracts::{
 use convex_ports::{
     configuration::{ConfigurationPin, InstrumentPin, NumericalSettings, SnapshotAssembly},
     fixing::FixingKey,
-    level_pricing::{PricingMethod, RULE_DOES_NOT_APPLY},
+    level_pricing::{is_oas_callable, PricingMethod, NOT_AN_OAS_CALLABLE, RULE_DOES_NOT_APPLY},
     quote_event::{
         FieldUpdate, QuoteChange, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality,
         QuoteValue,
@@ -28,7 +28,7 @@ use convex_ports::{
 
 use crate::context::{ValuationContext, ValuationContextSpec, ValuationScenario};
 use crate::curve_resolution::CurveResolutionError;
-use crate::level_pricing::{check_level, LevelError, QuotedInput, NOT_AN_OAS_CALLABLE};
+use crate::level_pricing::{check_level, LevelError, QuotedInput};
 use crate::optional_valuation::{product_measures, product_model, values_own_level};
 use crate::runtime::RuntimeServices;
 use crate::snapshot::{read_curve_ids, SnapshotAssembler, SnapshotValuationResult};
@@ -107,7 +107,8 @@ impl RequestValuer {
     /// curve the product does not read refuses nothing. A level `mark` is in the field of
     /// the bond's rule, and only a bond whose model values its own level takes one: a
     /// callable's yield to worst on its workouts or its OAS on HW1F trees, or a floating
-    /// rate note's discount margin.
+    /// rate note's discount margin. An OAS `mark` takes any callable the HW1F model values
+    /// onto its trees, whatever its rule.
     pub(crate) async fn prepare(
         &self,
         context: &mut RequestContext,
@@ -130,14 +131,16 @@ impl RequestValuer {
             .ok_or(TraitError::InvalidInput("the stored reference is deleted"))?;
         // An OAS for a callable its rule quotes otherwise is the request's own method,
         // which its quote records; under an `oas` rule it is the rule's level.
-        let oas = PricingMethod::Oas {};
-        let quoted_by = matches!(mark, Some(QuotedInput::Oas(_)))
-            .then_some(&oas)
-            .filter(|method| rule_method != Some(*method));
-        if quoted_by.is_some_and(|method| !method.applies_to(false, bond)) {
-            return Err(LevelError::Refused(NOT_AN_OAS_CALLABLE.into()).into());
-        }
-        let method = quoted_by.or(rule_method);
+        let quoted_by = match mark {
+            Some(QuotedInput::Oas(_)) if rule_method != Some(&PricingMethod::Oas {}) => {
+                if !is_oas_callable(bond) {
+                    return Err(LevelError::Refused(NOT_AN_OAS_CALLABLE.into()).into());
+                }
+                Some(PricingMethod::Oas {})
+            }
+            _ => None,
+        };
+        let method = quoted_by.as_ref().or(rule_method);
         // The context reads its curves at its own cutoff, so the snapshot must share it.
         if known_at != context.known_at {
             return Err(
@@ -212,7 +215,7 @@ impl RequestValuer {
                 key: key.clone(),
                 fields: vec![field],
                 max_age_ms: 1,
-                quoted_by: quoted_by.cloned(),
+                quoted_by: quoted_by.clone(),
             }],
             fixings: self.fixings.clone(),
             required_curves: roots

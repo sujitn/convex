@@ -112,21 +112,15 @@ impl RuntimePlan {
         // belongs to one instrument.
         let mut quotes = std::collections::BTreeMap::new();
         for quote in &self.assembly.quotes {
+            if quote.quoted_by.is_some() {
+                return Err(RuntimeError::Configuration(
+                    "a runtime plan reads each quote by its bond's rule, never a quoting method of its own",
+                ));
+            }
             let count = quotes
                 .entry(quote.key.instrument_id.as_str())
                 .or_insert(0usize);
             *count = count.saturating_add(1);
-        }
-        // Each quote is read by its bond's rule; a quoting method of its own is a request's.
-        if self
-            .assembly
-            .quotes
-            .iter()
-            .any(|quote| quote.quoted_by.is_some())
-        {
-            return Err(RuntimeError::Configuration(
-                "a runtime plan reads each quote by its bond's rule, never a quoting method of its own",
-            ));
         }
         let mut ids = std::collections::BTreeSet::new();
         for pin in &self.assembly.instruments {

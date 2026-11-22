@@ -487,6 +487,9 @@ pub const RULE_DOES_NOT_APPLY: &str = "only a fixed bullet is quoted by a spread
 /// Why a callable is not valued on its workouts ([`is_workout_callable`]).
 pub const NOT_A_WORKOUT_CALLABLE: &str = "a callable is valued on its workouts only with European or Bermudan fixed-price calls, at most 128, and no other embedded terms";
 
+/// Why an OAS does not quote a bond ([`is_oas_callable`]).
+pub const NOT_AN_OAS_CALLABLE: &str = "an OAS quotes only a callable the HW1F model values: European or Bermudan fixed-price calls, none make-whole, and no other embedded terms";
+
 /// A fixed callable the HW1F model values by its OAS: European or Bermudan fixed-price
 /// calls, none make-whole, and nothing beyond its calls
 /// ([`BondReferenceData::has_terms_beyond_calls`]).

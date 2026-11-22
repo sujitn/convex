@@ -886,40 +886,37 @@ fn a_manual_level_is_the_desks_mark_in_the_whole_snapshot() {
     assert_eq!(quality(by_yield(), &[price, mid_yield]), DataQuality::Valid);
 }
 
-/// A request's own quoting method is part of the snapshot's identity, and a snapshot
-/// without one keeps the bytes it had before the field existed. Only a callable's OAS, in
-/// the quote's one field, is taken.
+/// A quote's own quoting method is only an OAS, in the quote's one field, for a callable
+/// the HW1F model values; a snapshot without one names none in its bytes.
 #[test]
-fn a_requests_own_quoting_method_is_named_by_the_snapshot_and_only_an_oas() {
-    use convex_ports::level_pricing::PricingMethod;
+fn a_quotes_own_quoting_method_is_only_an_oas_for_a_callable() {
+    use convex_ports::level_pricing::{PricingMethod, NOT_AN_OAS_CALLABLE};
     use convex_ports::quote_event::QuoteField;
-    let snapshot = |fields: &[QuoteField], quoted_by: Option<PricingMethod>| {
+    let refusal = |fields: &[QuoteField], quoted_by: Option<PricingMethod>| {
         let mut content = fixture::content();
         let requirement = &mut content.quotes[0].make_mut().requirement;
         requirement.fields = fields.to_vec();
         requirement.quoted_by = quoted_by;
         MarketSnapshot::new(content)
+            .err()
+            .map(|error| error.to_string())
     };
-    let spread = [QuoteField::MidSpread];
-    let unnamed = snapshot(&spread, None).unwrap();
-    let by_oas = snapshot(&spread, Some(PricingMethod::Oas {})).unwrap();
-    assert_ne!(by_oas.id(), unnamed.id());
-    let bytes =
-        |snapshot: &MarketSnapshot| String::from_utf8(snapshot.canonical_bytes().unwrap()).unwrap();
-    assert!(!bytes(&unnamed).contains("quoted_by"));
-    assert!(bytes(&by_oas).contains("quoted_by"));
-    assert_eq!(
-        fixture::snapshot().id(),
-        MarketSnapshot::new(fixture::content()).unwrap().id()
-    );
+    let (price, spread) = (QuoteField::MidPrice, QuoteField::MidSpread);
     for (fields, method) in [
-        (&[QuoteField::MidPrice][..], PricingMethod::Price {}),
-        (&spread[..], PricingMethod::DiscountMargin {}),
-        (
-            &[QuoteField::MidPrice, QuoteField::MidSpread][..],
-            PricingMethod::Oas {},
-        ),
+        (&[price][..], PricingMethod::Price {}),
+        (&[spread][..], PricingMethod::DiscountMargin {}),
+        (&[price, spread][..], PricingMethod::Oas {}),
     ] {
-        assert!(snapshot(fields, Some(method)).is_err());
+        let refused = refusal(fields, Some(method)).unwrap();
+        assert!(
+            refused.contains("only an OAS, in its one field"),
+            "{refused}"
+        );
     }
+    // The fixture bond is a bullet.
+    let refused = refusal(&[spread], Some(PricingMethod::Oas {})).unwrap();
+    assert!(refused.contains(NOT_AN_OAS_CALLABLE), "{refused}");
+    assert_eq!(refusal(&[spread], None), None);
+    let bytes = fixture::snapshot().canonical_bytes().unwrap();
+    assert!(!String::from_utf8(bytes).unwrap().contains("quoted_by"));
 }

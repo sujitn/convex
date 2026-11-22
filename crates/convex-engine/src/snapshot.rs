@@ -113,23 +113,12 @@ pub(crate) fn valuation_inputs<'a>(
     let curves = read_curve_ids(
         spec.model_id.as_str(),
         &spec.measures,
-        quoted_method(snapshot, instrument_id.as_str()),
+        snapshot
+            .pricing_rule(instrument_id.as_str())
+            .map(|rule| &rule.method),
         &snapshot.content().configuration.analytics_curves,
     );
     Ok(snapshot.inputs(instrument_id.as_str(), &curves))
-}
-/// The method `instrument_id`'s quote is read by: a request's own, else its bond's rule's.
-fn quoted_method<'a>(
-    snapshot: &'a MarketSnapshot,
-    instrument_id: &str,
-) -> Option<&'a PricingMethod> {
-    let rule = snapshot
-        .pricing_rule(instrument_id)
-        .map(|rule| &rule.method);
-    match snapshot.quotes_for(instrument_id).first() {
-        Some(quote) => quote.requirement.quoted_method(rule),
-        None => rule,
-    }
 }
 /// Quality of the inputs one valuation context reads, never the whole snapshot's.
 pub(crate) fn valuation_quality(
@@ -1168,17 +1157,9 @@ impl SnapshotValuator {
                 "pricing requires one explicitly selected quote source",
             ));
         }
+        // A request may quote the bond by a method of its own, which the snapshot checked
+        // quotes it.
         let requirement = &selected[0].requirement;
-        // A request may quote the bond by a method of its own, which must quote its terms.
-        if requirement
-            .quoted_by
-            .as_ref()
-            .is_some_and(|method| !method.applies_to(false, bond))
-        {
-            return Err(TraitError::InvalidInput(
-                "the request's quoting method does not quote the pinned bond",
-            ));
-        }
         let rule = reference.pricing_rule.as_ref();
         let method = requirement.quoted_method(reference.pricing_method());
         if crate::optional_valuation::product_model(bond, method) != spec.model_id.as_str() {
@@ -1210,13 +1191,13 @@ impl SnapshotValuator {
         // ([`PricingMethod::is_level_declared`]).
         let declared = &requirement.fields;
         let price = PricingMethod::Price {};
-        let quoted_method = method
+        let read_by = method
             .filter(|method| {
                 !crate::optional_valuation::values_own_level(model)
                     || method.is_level_declared(declared)
             })
             .unwrap_or(&price);
-        let quoted_field = quoted_method.quote_field();
+        let quoted_field = read_by.quote_field();
         if refusal.is_none() && !declared.contains(&quoted_field) {
             return Err(TraitError::InvalidInput(
                 "mid valuation must declare the field the bond is quoted by",
@@ -1244,19 +1225,19 @@ impl SnapshotValuator {
                 spec,
                 reference,
                 recipe_curves,
-                quoted_method,
+                read_by,
                 mark(quoted_field),
                 quality,
             )?
         } else if model == crate::workout_valuation::WORKOUT_SNAPSHOT_MODEL {
-            workout_measures(spec, reference, quoted_method, mark(quoted_field), quality)?
+            workout_measures(spec, reference, read_by, mark(quoted_field), quality)?
         } else if model == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL {
             floating_measures(
                 snapshot,
                 spec,
                 reference,
                 recipe_curves,
-                quoted_method,
+                read_by,
                 mark(quoted_field),
                 quality,
             )?

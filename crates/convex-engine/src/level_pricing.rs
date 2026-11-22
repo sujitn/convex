@@ -59,9 +59,6 @@ use crate::runtime::accepted;
 /// Why a rule that quotes a level or names a benchmark set does not price a bond.
 const NOT_A_PLAIN_BULLET: &str =
     "only a fixed bullet is priced from a level or against a benchmark set";
-/// Why an OAS is not taken for a bond.
-pub(crate) const NOT_AN_OAS_CALLABLE: &str =
-    "an OAS quotes only a callable the HW1F model values: European or Bermudan fixed-price calls, none make-whole, and no other embedded terms";
 /// The stage's model id, recorded beside a level-priced result.
 pub const LEVEL_PRICE_MODEL: &str = "convex-level-price-v1";
 /// A yield level is a decimal from -10% to 100%. A yield sent in percent (6.12 for
@@ -588,7 +585,7 @@ fn price_without_rule(input: QuotedInput) -> Result<RulePricing, LevelError> {
         QuotedInput::Level(_) => Err(refused(
             "this bond has no pricing rule in force for its terms, so it is quoted by price; send market_price",
         )),
-        QuotedInput::Oas(_) => Err(refused(NOT_AN_OAS_CALLABLE)),
+        QuotedInput::Oas(_) => Err(refused(crate::ports::level_pricing::NOT_AN_OAS_CALLABLE)),
     }
 }
 
@@ -623,7 +620,9 @@ fn price_with_rule(
         None => None,
     };
     let (clean_price_mid, benchmark, bid_ask) = match input {
-        QuotedInput::Oas(_) => return Err(refused(NOT_AN_OAS_CALLABLE)),
+        QuotedInput::Oas(_) => {
+            return Err(refused(crate::ports::level_pricing::NOT_AN_OAS_CALLABLE))
+        }
         QuotedInput::Price(price) if method.is_level() => (price, None, BidAsk::MidOnly),
         QuotedInput::Price(price) => {
             let bid_ask = match width {

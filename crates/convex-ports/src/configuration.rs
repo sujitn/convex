@@ -337,8 +337,6 @@ impl ConfigurationDocument {
                     .any(|i| i.as_str() == quote.key.instrument_id.as_str())
                 || quote.fields.is_empty()
                 || quote.fields.len() > 12
-                // Each quote is read by its bond's rule; a quoting method of its own is a
-                // request's.
                 || quote.quoted_by.is_some()
             {
                 return Err(TraitError::InvalidInput("invalid quote requirement"));

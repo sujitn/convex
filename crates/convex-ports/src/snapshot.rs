@@ -17,7 +17,7 @@ use crate::calibration::SnapshotCalibration;
 use crate::fixing::{FixingKey, PublishedFixing};
 use crate::level_pricing::{
     BenchmarkSecurity, PricingMethod, ResolvedBenchmarkSet, ResolvedPricingRule,
-    MAX_SNAPSHOT_BENCHMARK_SETS,
+    MAX_SNAPSHOT_BENCHMARK_SETS, NOT_AN_OAS_CALLABLE,
 };
 use crate::quote_event::{
     DataState, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality, QuoteSnapshot,
@@ -305,9 +305,9 @@ pub struct QuoteRequirement {
     /// Maximum source/receipt age, 1..=86,400,000 UTC milliseconds.
     pub max_age_ms: i64,
     /// The method a request quotes this quote by when its bond's rule quotes it otherwise:
-    /// a callable's OAS, in the quote's one field. A runtime plan never sets it; each of
-    /// its quotes is read by its bond's rule. Omitted when absent, so a snapshot without
-    /// it keeps its id.
+    /// an OAS, in the quote's one field, for the one callable the snapshot values. A
+    /// runtime plan never sets it. Omitted when absent, so a snapshot without it keeps its
+    /// id.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quoted_by: Option<PricingMethod>,
 }
@@ -1820,6 +1820,21 @@ fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
             ));
         }
         check_quote_at(quote, as_of_ms, known_at_ms)?;
+        // A request's own quoting method names the one bond its snapshot values.
+        if let Some(method) = &quote.requirement.quoted_by {
+            let bond = content
+                .references
+                .find(key.instrument_id.as_str())
+                .and_then(|reference| reference.record.bond.as_ref());
+            if content.references.len() != 1 {
+                return Err(TraitError::InvalidInput(
+                    "a quote's own quoting method is a request's, for its one bond",
+                ));
+            }
+            if !bond.is_some_and(|bond| method.applies_to(false, bond)) {
+                return Err(TraitError::InvalidInput(NOT_AN_OAS_CALLABLE));
+            }
+        }
     }
     validate_benchmark_sets(content)?;
     validate_inputs(content)
@@ -2031,7 +2046,7 @@ fn check_quote(quote: &SnapshotQuote) -> Result<(), TraitError> {
         *method != PricingMethod::Oas {} || requirement.fields != [method.quote_field()]
     }) {
         return Err(TraitError::InvalidInput(
-            "a request quotes a quote by a method of its own only as a callable's OAS, in its one field",
+            "a quote's own quoting method is only an OAS, in its one field",
         ));
     }
     let selected = |event: &QuoteEvent| -> Result<(), TraitError> {
