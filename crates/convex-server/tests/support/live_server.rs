@@ -222,6 +222,20 @@ pub async fn level_live_setup(
     ServerConfig,
     LevelKeys,
 ) {
+    level_live_setup_from(dependents, None).await
+}
+
+/// [`level_live_setup`] with the bonds' spreads read from `level_source` when named, and
+/// the Treasuries' prices from the feed's source.
+pub async fn level_live_setup_from(
+    dependents: usize,
+    level_source: Option<&str>,
+) -> (
+    tempfile::TempDir,
+    std::path::PathBuf,
+    ServerConfig,
+    LevelKeys,
+) {
     use convex_core::contracts::{InstrumentId, RequestId};
     use convex_engine::ports::{
         configuration::InstrumentPin,
@@ -235,10 +249,14 @@ pub async fn level_live_setup(
     plan.measures
         .push(convex_core::contracts::MeasureId::new("g_spread_mid").unwrap());
     widen(&s, &mut plan, dependents).await;
-    let bonds: Vec<QuoteKey> = plan.assembly.quotes.iter().map(|q| q.key.clone()).collect();
+    let feed_source = plan.assembly.quotes[0].key.source.clone();
     for quote in &mut plan.assembly.quotes {
         quote.fields = vec![QuoteField::MidSpread];
+        if let Some(source) = level_source {
+            quote.key.source = source.into();
+        }
     }
+    let bonds: Vec<QuoteKey> = plan.assembly.quotes.iter().map(|q| q.key.clone()).collect();
 
     let notes: Vec<_> = TREASURIES
         .iter()
@@ -331,6 +349,7 @@ pub async fn level_live_setup(
         });
         let mut quote = plan.assembly.quotes[0].clone();
         quote.key.instrument_id = note.instrument_id.clone();
+        quote.key.source = feed_source.clone();
         quote.fields = vec![QuoteField::MidPrice];
         treasuries.push(quote.key.clone());
         plan.assembly.quotes.push(quote);

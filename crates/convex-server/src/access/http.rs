@@ -92,6 +92,45 @@ pub(crate) fn response(error: AccessError) -> Response {
     }
     response
 }
+/// The stream's two paths.
+pub(crate) fn is_stream_path(path: &str) -> bool {
+    matches!(path, "/ws" | "/api/v1/ws")
+}
+/// The subprotocol a browser page offers when it opens the stream, and the one the server
+/// selects: a browser fails the handshake when it offers protocols and none is selected.
+pub(crate) const STREAM_PROTOCOL: &str = "convex.v1";
+/// The prefix of the subprotocol a browser page sends its bearer token in, base64url
+/// without padding, since a browser WebSocket cannot send `Authorization`.
+pub(crate) const BEARER_PROTOCOL_PREFIX: &str = "convex.bearer.";
+/// A stream request's bearer token sent as a subprotocol. The entry is removed from the
+/// offered protocols before the token is read, so no handler, log or reply sees it.
+fn protocol_bearer(headers: &mut HeaderMap) -> Result<Option<BearerToken>, AccessError> {
+    let mut offered = Vec::new();
+    for value in headers.get_all(header::SEC_WEBSOCKET_PROTOCOL) {
+        let value = value.to_str().map_err(|_| AccessError::InvalidRequest)?;
+        offered.extend(value.split(',').map(str::trim).filter(|p| !p.is_empty()));
+    }
+    let (bearers, others): (Vec<&str>, Vec<&str>) = offered
+        .into_iter()
+        .partition(|protocol| protocol.starts_with(BEARER_PROTOCOL_PREFIX));
+    let encoded = match bearers.as_slice() {
+        [] => return Ok(None),
+        [one] => one[BEARER_PROTOCOL_PREFIX.len()..].to_owned(),
+        _ => return Err(AccessError::Unauthenticated),
+    };
+    let others = others.join(", ");
+    headers.remove(header::SEC_WEBSOCKET_PROTOCOL);
+    if !others.is_empty() {
+        let others = HeaderValue::from_str(&others).map_err(|_| AccessError::InvalidRequest)?;
+        headers.insert(header::SEC_WEBSOCKET_PROTOCOL, others);
+    }
+    use base64::Engine as _;
+    let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(encoded)
+        .map_err(|_| AccessError::Unauthenticated)?;
+    let token = std::str::from_utf8(&decoded).map_err(|_| AccessError::Unauthenticated)?;
+    BearerToken::parse(token).map(Some)
+}
 fn bearer(headers: &HeaderMap) -> Result<Option<BearerToken>, AccessError> {
     let mut values = headers.get_all(header::AUTHORIZATION).iter();
     let Some(first) = values.next() else {
@@ -280,6 +319,23 @@ fn requirement(
         "/api/v1/market/quotes" => {
             req.action = CurveWrite;
             req.data = vec![D::Market];
+        }
+        // The desk's marks, scoped by each bond and the desk's source the body names, as a
+        // feed's are. Reading them back lists every desk-quoted bond, so it needs wildcard
+        // grants, as the runtime's results do.
+        "/api/v1/market/levels" => {
+            req.data = vec![D::Market];
+            if read {
+                req.action = MarketRead;
+                req.body_required = false;
+                req.inspect_output_resources = false;
+                req.resources.extend([
+                    Resource::new(R::Instrument, "*"),
+                    Resource::new(R::Source, "*"),
+                ]);
+            } else {
+                req.action = CurveWrite;
+            }
         }
         "/api/v1/analytics"
         | "/api/v1/analytics/snapshots"
@@ -576,7 +632,7 @@ pub(crate) async fn enforce(
         Err(error) => response(error),
         Ok(None) => StatusCode::NO_CONTENT.into_response(),
         Ok(Some((ctx, req, admission))) => {
-            let websocket = request.uri().path() == "/ws" || request.uri().path() == "/api/v1/ws";
+            let websocket = is_stream_path(request.uri().path());
             request.headers_mut().remove(header::AUTHORIZATION);
             request.extensions_mut().insert(ctx.clone());
             // CPU handlers retain this same admission until their blocking work
@@ -714,7 +770,16 @@ async fn enforce_inner(
             }),
         )));
     }
-    let token = bearer(request.headers())?;
+    // A browser page sends its token as a subprotocol, which only the stream reads.
+    let header_token = bearer(request.headers())?;
+    let protocol_token = match matched.as_deref() {
+        Some(path) if is_stream_path(path) => protocol_bearer(request.headers_mut())?,
+        _ => None,
+    };
+    let token = match (header_token, protocol_token) {
+        (Some(_), Some(_)) => return Err(AccessError::InvalidRequest),
+        (header, protocol) => header.or(protocol),
+    };
     let ctx = tokio::time::timeout(Duration::from_secs(3), access.authenticate(token))
         .await
         .map_err(|_| AccessError::Unavailable)??;
@@ -732,7 +797,7 @@ async fn enforce_inner(
     *request = Request::from_parts(parts, body);
     let mut req = requirement(path, request.method(), &params)?;
     access.authorize(&ctx, req.action, &req.data, &req.resources)?;
-    let websocket = ["/ws", "/api/v1/ws"].contains(&path);
+    let websocket = is_stream_path(path);
     let admission = Arc::new(access.admit(&ctx, websocket, permit)?);
     if req.body_required && !access.is_local_development() {
         let body = std::mem::replace(request.body_mut(), Body::empty());

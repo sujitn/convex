@@ -211,7 +211,8 @@ pub(crate) async fn ws_handler(
         return crate::access::http::response(AccessError::Unauthenticated);
     };
     let limits = limits.map(|Extension(feed)| feed);
-    ws.max_message_size(MAX_MESSAGE_BYTES)
+    ws.protocols([crate::access::http::STREAM_PROTOCOL])
+        .max_message_size(MAX_MESSAGE_BYTES)
         .max_frame_size(MAX_MESSAGE_BYTES)
         .on_upgrade(move |socket| handle_socket(socket, state, profile, authorization, limits))
         .into_response()

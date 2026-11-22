@@ -114,7 +114,7 @@ async fn an_uploaded_import_commits_once_reports_rows_and_lists_masters_by_kind(
 }
 
 #[tokio::test]
-async fn the_admin_app_is_served_only_when_configured_with_a_restrictive_policy() {
+async fn the_admin_and_desk_apps_are_served_only_when_configured_with_a_restrictive_policy() {
     let s = support::setup().await;
     let engine = support::make_engine(
         &s,
@@ -132,11 +132,14 @@ async fn the_admin_app_is_served_only_when_configured_with_a_restrictive_policy(
     std::fs::create_dir(ui.path().join("assets")).unwrap();
     std::fs::write(ui.path().join("assets").join("app.js"), "export {};").unwrap();
     let origin = "http://127.0.0.1:8080";
-    let server = |admin_ui_dir: Option<String>| {
+    let dir = Some(ui.path().to_string_lossy().into_owned());
+    // Each app at its own prefix, from its own setting.
+    let server = |admin_ui_dir: Option<String>, desk_ui_dir: Option<String>| {
         Server::with_access_control(
             ServerConfig {
                 host: "127.0.0.1".into(),
                 admin_ui_dir,
+                desk_ui_dir,
                 access: AccessSettings {
                     cors_origins: vec![origin.into()],
                     ..Default::default()
@@ -148,11 +151,20 @@ async fn the_admin_app_is_served_only_when_configured_with_a_restrictive_policy(
         )
         .router()
     };
-    let configured = server(Some(ui.path().to_string_lossy().into_owned()));
+    let admin_only = server(dir.clone(), None);
+    let desk_only = server(None, dir.clone());
+    for (router, other) in [(&admin_only, "/desk/"), (&desk_only, "/admin/")] {
+        let response = router.clone().oneshot(read(other)).await.unwrap();
+        assert_ne!(response.status(), StatusCode::OK, "{other}");
+    }
+    let configured = server(dir.clone(), dir.clone());
     for (path, kind) in [
         ("/admin/", "text/html"),
         ("/admin/configuration/history", "text/html"),
         ("/admin/assets/app.js", "javascript"),
+        ("/desk/", "text/html"),
+        ("/desk/calculator", "text/html"),
+        ("/desk/assets/app.js", "javascript"),
     ] {
         let response = configured.clone().oneshot(read(path)).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK, "{path}");
@@ -193,7 +205,7 @@ async fn the_admin_app_is_served_only_when_configured_with_a_restrictive_policy(
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
-    let response = server(None).oneshot(read("/admin/")).await.unwrap();
+    let response = server(None, None).oneshot(read("/admin/")).await.unwrap();
     assert_ne!(response.status(), StatusCode::OK);
     assert!(response
         .headers()
@@ -219,8 +231,17 @@ async fn the_admin_app_is_served_only_when_configured_with_a_restrictive_policy(
             ..
         })
     ));
+    config.admin_ui_dir = None;
+    config.desk_ui_dir = Some(empty.path().to_string_lossy().into_owned());
+    assert!(matches!(
+        config.validate_startup(),
+        Err(ConfigError::InvalidValue {
+            field: "desk_ui_dir",
+            ..
+        })
+    ));
     // The page's origin must be listed, or its own script and writes are refused.
-    config.admin_ui_dir = Some(ui.path().to_string_lossy().into_owned());
+    config.desk_ui_dir = dir;
     assert!(matches!(
         config.validate_startup(),
         Err(ConfigError::InvalidValue {

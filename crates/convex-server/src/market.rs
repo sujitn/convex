@@ -37,10 +37,21 @@ const MAX_ROW_ERRORS: usize = 64;
 /// While the clock is further behind, every batch is refused with 503.
 pub const MAX_CLOCK_STEP_MS: i64 = 5_000;
 
-/// The Live runtime's only quote source, fed by [`QuoteIngress::submit`].
+/// The Live runtime's only quote source, fed by [`QuoteIngress::submit`] and, for the
+/// desk's levels, by [`QuoteIngress::submit_desk`].
 pub struct QuoteIngress {
     keys: HashSet<QuoteKey>,
+    /// The source only the desk's level route writes.
+    desk_source: Option<String>,
     queue: Mutex<Queue>,
+}
+
+/// Who sends a batch: a feed, through `POST /api/v1/market/quotes`, or the desk's level
+/// route, the only writer of the desk's source.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Writer {
+    Feed,
+    Desk,
 }
 
 struct Queue {
@@ -120,6 +131,7 @@ impl QuoteIngress {
         let (sender, _) = broadcast::channel(CAPACITY);
         Self {
             keys: keys.into_iter().collect(),
+            desk_source: None,
             queue: Mutex::new(Queue {
                 sender,
                 last_receive_ms: 0,
@@ -128,9 +140,26 @@ impl QuoteIngress {
         }
     }
 
+    /// Reserve `source` for the desk's level route: a feed's event on it is refused, so
+    /// the route alone numbers that source's quotes.
+    pub fn with_desk_source(mut self, source: impl Into<String>) -> Self {
+        self.desk_source = Some(source.into());
+        self
+    }
+
     /// Stamp server receipt time on every event and queue the whole batch, or nothing.
     pub fn submit(&self, events: Vec<QuoteEvent>) -> Result<Receipt, IngressError> {
-        self.submit_with_clock(events, || chrono::Utc::now().timestamp_millis())
+        self.submit_with_clock(events, Writer::Feed, || {
+            chrono::Utc::now().timestamp_millis()
+        })
+    }
+
+    /// [`Self::submit`] for the desk's marks, on the desk's source only: a mark is
+    /// observed when it is received, so its source time is its receipt time too.
+    pub(crate) fn submit_desk(&self, events: Vec<QuoteEvent>) -> Result<Receipt, IngressError> {
+        self.submit_with_clock(events, Writer::Desk, || {
+            chrono::Utc::now().timestamp_millis()
+        })
     }
 
     /// [`Self::submit`] with the wall clock read from `clock`, under the queue lock so
@@ -138,6 +167,7 @@ impl QuoteIngress {
     fn submit_with_clock(
         &self,
         mut events: Vec<QuoteEvent>,
+        writer: Writer,
         clock: impl FnOnce() -> i64,
     ) -> Result<Receipt, IngressError> {
         if events.is_empty() || events.len() > MAX_BATCH {
@@ -156,7 +186,16 @@ impl QuoteIngress {
         let mut refused = 0usize;
         for (index, event) in events.iter_mut().enumerate() {
             event.receive_time_ms = now;
-            let refusal = if event.validate().is_err() {
+            if writer == Writer::Desk {
+                event.source_time_ms = now;
+            }
+            let on_desk_source = self.desk_source.as_deref() == Some(event.key.source.as_str());
+            let refusal = if on_desk_source != (writer == Writer::Desk) {
+                Some((
+                    "DESK_LEVEL_SOURCE",
+                    "the desk's levels are marked through /api/v1/market/levels only",
+                ))
+            } else if event.validate().is_err() {
                 Some(("INVALID_EVENT", "event fails the canonical quote contract"))
             } else if !self.keys.contains(&event.key) {
                 Some((
@@ -278,14 +317,22 @@ pub async fn post_quotes(
             })),
         )
             .into_response(),
-        Err(IngressError::Batch) => {
+        Err(error) => ingress_error(error),
+    }
+}
+
+/// The reply to a batch the ingress queued nothing of. A refused row is 422
+/// `QUOTES_REJECTED`, with the first rows' codes.
+pub(crate) fn ingress_error(error: IngressError) -> Response {
+    match error {
+        IngressError::Batch => {
             ApiError::invalid(format!("a batch holds 1 to {MAX_BATCH} events")).into_response()
         }
-        Err(IngressError::Busy) => {
+        IngressError::Busy => {
             ApiError::overloaded("the live runtime's queue is full").into_response()
         }
-        Err(IngressError::Unavailable(reason)) => ApiError::unavailable(reason).into_response(),
-        Err(IngressError::Rejected { rows, truncated }) => {
+        IngressError::Unavailable(reason) => ApiError::unavailable(reason).into_response(),
+        IngressError::Rejected { rows, truncated } => {
             let rows: Vec<_> = rows
                 .iter()
                 .map(|e| serde_json::json!({"index":e.index, "code":e.code, "reason":e.reason}))
@@ -416,7 +463,7 @@ mod tests {
         let t = 1_700_000_000_000;
         let stamped = |clock: i64, events| {
             ingress
-                .submit_with_clock(events, || clock)
+                .submit_with_clock(events, Writer::Feed, || clock)
                 .map(|r| r.receive_time_ms)
         };
         assert_eq!(stamped(t, vec![event(1, t)]), Ok(t));

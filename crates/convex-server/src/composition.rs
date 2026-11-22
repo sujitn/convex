@@ -15,6 +15,7 @@ use convex_engine::{
     PricingEngine, PricingEngineBuilder, RuntimeInput, RuntimeMode, RuntimePlan, RuntimeServices,
 };
 
+use crate::desk_levels::DeskLevels;
 use crate::market::QuoteIngress;
 use crate::{ConfigError, Server, ServerConfig, ServerProfile, StartupError};
 
@@ -80,7 +81,7 @@ pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> 
     let builder = PricingEngineBuilder::new()
         .with_config(EngineConfig::default())
         .with_storage(storage.clone());
-    let (builder, ingress) = match plan {
+    let (builder, live) = match plan {
         Some(plan) => {
             let durable = Durable {
                 runtime: runtime_store,
@@ -92,13 +93,23 @@ pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> 
         }
         None => (builder.with_demo_mode(), None),
     };
+    if config.desk_level_source.is_some() && live.is_none() {
+        return Err(ConfigError::Unsupported {
+            field: "desk_level_source",
+            reason: "desk levels reach only a Live runtime",
+        }
+        .into());
+    }
     let engine = Arc::new(builder.build()?);
 
     let mut server = Server::with_access_control(config, engine.clone(), access)
         .with_core_workflow(core)
         .with_limit_monitor(storage.audit.clone());
-    if let Some(ingress) = ingress {
-        server = server.with_quote_ingress(ingress);
+    if let Some(live) = live {
+        server = server.with_quote_ingress(live.ingress);
+        if let Some(desk) = live.desk_levels {
+            server = server.with_desk_levels(desk);
+        }
     }
     Ok(Composition { server, engine })
 }
@@ -191,20 +202,43 @@ struct Durable {
     results: Arc<convex_ext_redb::RedbResultPublisher>,
 }
 
-/// The runtime over the durable ports, and in Live the HTTP quote ingress that feeds it.
+/// A Live runtime's HTTP inputs: the quote ingress, and the desk's levels on it.
+struct LiveInputs {
+    ingress: Arc<QuoteIngress>,
+    desk_levels: Option<Arc<DeskLevels>>,
+}
+
+/// The runtime over the durable ports, and in Live the HTTP inputs that feed it.
 async fn with_runtime(
     builder: PricingEngineBuilder,
     config: &ServerConfig,
     plan: RuntimePlan,
     storage: &convex_engine::ports::storage::StorageAdapter,
     durable: Durable,
-) -> Result<(PricingEngineBuilder, Option<Arc<QuoteIngress>>), StartupError> {
+) -> Result<(PricingEngineBuilder, Option<LiveInputs>), StartupError> {
     let live = plan.mode == RuntimeMode::Live;
-    // Live quotes arrive only through the HTTP ingress, scoped to the plan's quote keys.
+    let desk_levels = match &config.desk_level_source {
+        Some(_) if !live => {
+            return Err(ConfigError::Unsupported {
+                field: "desk_level_source",
+                reason: "desk levels reach only a Live runtime",
+            }
+            .into())
+        }
+        Some(source) => Some(Arc::new(
+            DeskLevels::from_plan(source, &plan.assembly.quotes)
+                .map_err(stage("desk_level_source"))?,
+        )),
+        None => None,
+    };
+    // Live quotes arrive only through the HTTP ingress, scoped to the plan's quote keys;
+    // the desk's level source only through the desk's route.
     let ingress = live.then(|| {
-        Arc::new(QuoteIngress::new(
-            plan.assembly.quotes.iter().map(|q| q.key.clone()),
-        ))
+        let ingress = QuoteIngress::new(plan.assembly.quotes.iter().map(|q| q.key.clone()));
+        Arc::new(match &desk_levels {
+            Some(desk) => ingress.with_desk_source(desk.source()),
+            None => ingress,
+        })
     });
     let snapshots: Arc<dyn SnapshotRepository> = if live {
         Arc::new(UnstoredSnapshots)
@@ -275,7 +309,11 @@ async fn with_runtime(
             publisher,
             input,
         });
-    Ok((builder, ingress))
+    let live = ingress.map(|ingress| LiveInputs {
+        ingress,
+        desk_levels,
+    });
+    Ok((builder, live))
 }
 
 /// Live market snapshots are not stored. The Live runtime never publishes one, and
