@@ -15,6 +15,7 @@ import {
   rowState,
   sheetRows,
   shownLevel,
+  withHeldMarks,
   withValuation,
   withMarks,
   type RowState,
@@ -70,16 +71,23 @@ export function PricingSheet() {
   })
   const deskLevels = desk.data?.levels ?? null
   const deskSource = deskLevels?.source ?? null
-  const deskRef = useRef(deskLevels)
-  deskRef.current = deskLevels
+  const deskRef = useRef(desk.data)
+  deskRef.current = desk.data
   // A failed read of the marks leaves the sheet read-only, saying why.
   const isMarksRead = !desk.isPending
 
-  // Rows are built once the rules, the bonds and the desk's marks are read; each read of
-  // the marks after is merged into them, ordered against this page's own marks.
+  // Rows are built once the rules, the bonds and the desk's marks are read, and again when
+  // the rules or bonds change; each read of the marks is ordered against this page's own
+  // marks, so a rebuild keeps those the last read may not reflect.
   useEffect(() => {
-    if (universe.data && isMarksRead) setRows(sheetRows(universe.data.rules, universe.data.bonds, deskRef.current))
-  }, [universe.data, isMarksRead])
+    const read = deskRef.current
+    const { rules, bonds } = universe.data ?? {}
+    if (!rules || !bonds || !isMarksRead) return
+    setRows((current) => {
+      const built = sheetRows(rules, bonds, read?.levels ?? null)
+      return read ? withHeldMarks(built, current, writer.unread(read.issuedAt)) : built
+    })
+  }, [universe.data, isMarksRead, writer])
 
   useEffect(() => {
     const read = desk.data

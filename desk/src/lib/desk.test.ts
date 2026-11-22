@@ -13,6 +13,7 @@ import {
   rowState,
   sheetRows,
   shownLevel,
+  withHeldMarks,
   withMarks,
   withValuation,
   type Bond,
@@ -268,6 +269,12 @@ describe('marks read back', () => {
   it("take another page's mark, and none after a restart", () => {
     expect(withMarks([row!], read('130', '2026-11-22T12:00:05.000Z'), new Set())[0]!.mark?.level).toBe('130')
     expect(withMarks([row!], read(null), new Set())[0]!.mark).toBeNull()
+  })
+  it('keep, when the rows are built again, the mark of a bond the last read may not reflect', () => {
+    const held = { ...row!, mark: { level: '127', marked_at: '2026-11-22T12:00:09.000Z' } }
+    const built = sheetRows(rules, [], read('125'))
+    expect(withHeldMarks(built, [held], new Set(['BOND-001']))[0]!.mark?.level).toBe('127')
+    expect(withHeldMarks(built, [held], new Set())[0]!.mark?.level).toBe('125')
   })
   it('leave a bond the read may not reflect, and change nothing when nothing changed', () => {
     const rows = [row!]

@@ -203,6 +203,20 @@ export function sheetRows(rules: PricingRule[], bonds: Bond[], desk: DeskLevels 
 }
 
 /**
+ * `built`, the rows built again from a read of the marks, keeping the mark `current` holds
+ * for each bond that read may not reflect: one of this page's in flight, or taken after
+ * the read was issued.
+ */
+export function withHeldMarks(built: SheetRow[], current: SheetRow[], unread: ReadonlySet<string>): SheetRow[] {
+  if (unread.size === 0) return built
+  const held = new Map(current.map((row) => [row.instrumentId, row.mark]))
+  return built.map((row) => {
+    const mark = held.get(row.instrumentId)
+    return unread.has(row.instrumentId) && mark !== undefined ? { ...row, mark } : row
+  })
+}
+
+/**
  * `rows` with the desk's marks as read back, except the bonds the read may not reflect:
  * a mark of this page in flight, or taken after the read was issued. Every other bond
  * takes the read's mark, none included, as after a restart.
