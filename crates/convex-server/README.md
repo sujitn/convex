@@ -216,6 +216,8 @@ These process settings require a restart. Versioned quantitative/integration/pol
 | fixings_file | CONVEX_FIXINGS_FILE | Rejected: file provider composition is not implemented |
 | bonds_file | CONVEX_BONDS_FILE | Rejected: file provider composition is not implemented |
 | admin_ui_dir | CONVEX_ADMIN_UI_DIR | Optional built admin app served at `/admin`; must hold `index.html` |
+| desk_ui_dir | CONVEX_DESK_UI_DIR | Optional built desk app served at `/desk`; must hold `index.html` |
+| desk_level_source | CONVEX_DESK_LEVEL_SOURCE | Optional, Live only: the plan's level source, written only through [`/api/v1/market/levels`](#desk-levels) |
 | limits.clear_hold_seconds | CONVEX_LIMITS_CLEAR_HOLD_SECONDS | Integer 0–300; default 5. How long the [limit monitor](#the-monitor) waits before recording a change to a less severe status; 0 records every change at once |
 | limits.record_retention_days | CONVEX_LIMITS_RECORD_RETENTION_DAYS | Integer 8–3,650; unset by default, which keeps every limit record. How long the [limit monitor](#retention) keeps its records before pruning them |
 | access.mode | CONVEX_ACCESS_MODE | Required by default; explicit local_development only for isolated loopback |
@@ -235,7 +237,17 @@ Router construction uses the engine’s configured reference repository. Provide
 ## WebSocket streaming
 
 `/ws` and `/api/v1/ws` stream canonical runtime results and recorded limit status
-changes, and nothing else. Send
+changes, and nothing else.
+
+**Authentication.** A client sends its bearer token in `Authorization`, as on every
+route. A browser cannot set that header on a WebSocket, so a page offers two
+subprotocols instead: `convex.v1`, which the server selects, and
+`convex.bearer.<token>`, the token base64url-encoded without padding. Only the stream
+reads a token from a subprotocol. The entry is removed before any handler sees it and
+is never echoed, and a request sending a token both ways is refused (400). A client that
+offers no subprotocol connects as before.
+
+Send
 `{"type":"subscribe_valuations","instrument_ids":[...]}`. A session follows at most 4,096
 instruments, as many as a Live runtime values; listing one it already follows does not
 count again. A message lists at most 256 (more is refused: `at most 256 instruments a
@@ -675,8 +687,10 @@ and each benchmark security of its set is valued beside it, so their quotes are 
 every snapshot.
 - **Levels are quotes.** A bond quoted by a level reads its rule's field (`mid_yield`,
   or `mid_spread` for a Z or benchmark spread) from its quote, posted to
-  `POST /api/v1/market/quotes` like any other. The compiled configuration names where
-  levels come from (see `CONFIGURATION.md`). A `manual` level is the desk's own mark and
+  `POST /api/v1/market/quotes` like any other, or marked by the desk through
+  [`POST /api/v1/market/levels`](#desk-levels) when the server names the levels'
+  source as the desk's. The compiled configuration names where levels come from (see
+  `CONFIGURATION.md`). A `manual` level is the desk's own mark and
   is judged `Valid`; a `manual` price, or a `manual` quote on a benchmark, stays
   `Indicative`.
 - **One tick, one price for each benchmark.** The stage reads each benchmark's clean
@@ -695,6 +709,44 @@ every snapshot.
 - **Rules are pinned with the references at each activation.** A rule or set change
   reaches a running Live runtime at its next activation. A roll to a Treasury the
   runtime does not value changes the universe, which is restart-required.
+
+### Desk levels
+
+With `desk_level_source` set, the desk marks the levels of the bonds the Live plan reads
+from that source, the configuration's `levels.source`. The two are separate settings,
+so they must name the same source.
+
+```json
+{"source": "desk",
+ "levels": [{"instrument_id": "BOND-001", "field": "mid_spread", "level": "125.5"}]}
+```
+
+- **A mark is a quote.** `POST /api/v1/market/levels` queues each level as a `manual`
+  image of the bond's one field on the desk's source, which the runtime judges as the
+  desk's own mark (`Valid`). 202 means queued: the bond's result arrives on the stream.
+  A level is absolute, so a retry marks the same level again.
+- **One writer.** The route numbers each bond's quotes in one session for the process,
+  so two pages marking at once cannot interleave. The quote ingress refuses a feed's
+  event on the desk's source (422, row code `DESK_LEVEL_SOURCE`).
+- **Checked against the rule in force.** Each level must be for a bond the plan reads
+  from the desk (`NOT_DESK_QUOTED`), in its rule's field, `mid_yield` for a decimal
+  yield or `mid_spread` for basis points (`WRONG_LEVEL_FIELD`), and within its method's
+  range, as a quote by level checks it (`LEVEL_OUT_OF_RANGE`). Any refused row refuses
+  the batch with 422 `QUOTES_REJECTED`, listing the first 64 rows; nothing is marked.
+- **400** for a body that is not this shape, a level that is not an exact decimal
+  string, another source, no level or more than 256, or a bond twice. **503** when the
+  server takes no desk levels.
+- **Reading back.** `GET /api/v1/market/levels` lists every bond the desk quotes, in
+  instrument id order, with its `field` and its last `mark` (`level` as sent and
+  `marked_at`), `null` before the first. A Live runtime keeps no quote across a restart,
+  and neither does the route, so after a restart every mark is `null` and the bonds wait
+  for the desk's next.
+- **Startup** refuses `desk_level_source` without a Live runtime, a source the plan reads
+  no level from, and one it reads anything else from, such as a price.
+- **Access.** A mark needs `CurveWrite` on market data, scoped to each bond and to the
+  source the body names, as a feed's quote is. Reading the marks back lists every
+  desk-quoted bond, so it needs `MarketRead` with wildcard grants on instruments and
+  sources, as runtime results do.
 
 ### The bond calculator
 
@@ -1252,11 +1304,12 @@ The [local redb storage guide](../convex-ext-redb/README.md) documents immutable
 
 Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` alongside the server. Its [runnable configuration guide](../convex-engine/CONFIGURATION.md) creates a new fictional workspace and shows schema, validate/explain, diff, stage, activate, rollback, exact-version/history/effective inspection and plan export. The CLI opens local redb exclusively, so stop the server for these operations. A running server offers the same validate, diff, stage, activate, rollback, history and version operations over HTTP for the `operator` role (see the [configuration guide](../convex-engine/CONFIGURATION.md)), beside read-only `GET /api/v1/configuration/schema` and `GET /api/v1/configuration/:id?as_of=...&known_at=...`. A restart-required activation commits and applies at the next start; the server never restarts itself. These routes share [current access control and quotas](ACCESS.md). The offline CLI still relies on trusted local filesystem/operator access.
 
-## Management routes and the admin app
+## Management routes, the admin app and the desk app
 
 - `POST /api/v1/reference/import` takes a reference import file as the request body: the strict `{schema_version, command}` envelope, at most 8 MiB. It commits the one atomic transaction like `/api/v1/reference/transactions`. The file's idempotency key makes a re-upload return the retained receipt. A refusal carries the importer's `diagnostics` (section, row, field, code, line and column), never source values.
 - `GET /api/v1/reference/masters/:kind?after=&limit=` lists current master resources of one kind (`entity`, `calendar`, `convention`, `rate_index`, `identifier`, `pricing_rule`, `benchmark_set`, ...) in identity order. `limit` defaults to 100, `next` is the cursor for the following page, and books and their limits keep `/api/v1/books`.
-- `admin_ui_dir` (`CONVEX_ADMIN_UI_DIR`) serves a built admin app at `/admin`, falling back to its `index.html`. The repository's app is [`admin/`](../../admin/README.md); build it with `npm run build` and point the setting at `admin/dist`. List the page's own origin (for example `https://convex.example.com`, or `http://127.0.0.1:8080` locally) in `access.cors_origins`: browsers send it on the page's script and on every write, and the origin guard admits listed origins only. Startup refuses `admin_ui_dir` with no listed origin. Startup refuses a directory without one. The files are public static assets outside the API access layer. They are sent with a policy that loads scripts only from the server and forbids framing, because the page holds a pasted bearer token in memory. Unset, nothing is served there.
+- `admin_ui_dir` (`CONVEX_ADMIN_UI_DIR`) serves a built admin app at `/admin`, falling back to its `index.html`. The repository's app is [`admin/`](../../admin/README.md); build it with `npm run build -w admin` from the repository root and point the setting at `admin/dist`. List the page's own origin (for example `https://convex.example.com`, or `http://127.0.0.1:8080` locally) in `access.cors_origins`: browsers send it on the page's script and on every write, and the origin guard admits listed origins only. Startup refuses `admin_ui_dir` with no listed origin. Startup refuses a directory without one. The files are public static assets outside the API access layer. They are sent with a policy that loads scripts only from the server and forbids framing, because the page holds a pasted bearer token in memory. Unset, nothing is served there.
+- `desk_ui_dir` (`CONVEX_DESK_UI_DIR`) serves the built desk app, [`desk/`](../../desk/README.md), at `/desk` in the same way and under the same policy, which admits its stream as a same-origin connection. Build it with `npm run build -w desk` and point the setting at `desk/dist`; startup refuses it without `index.html` or a listed origin.
 
 ## Metrics
 
