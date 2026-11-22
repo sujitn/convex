@@ -78,6 +78,7 @@ fn entry(
             key: key.clone(),
             fields: vec![QuoteField::MidPrice],
             max_age_ms,
+            quoted_by: None,
         },
         delivery_watermark: Some(event.clone()),
         image: Some(QuoteSnapshot {

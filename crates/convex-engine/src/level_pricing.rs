@@ -243,14 +243,17 @@ pub fn live_clean_price_mid(
     })
 }
 
-/// What a request quotes: a clean price, or a level in the rule's unit (a decimal yield,
-/// or basis points of spread).
+/// What a request quotes: a clean price, a level in the rule's unit (a decimal yield, or
+/// basis points of spread), or an OAS whatever the rule quotes.
 #[derive(Debug, Clone, Copy)]
 pub enum QuotedInput {
     /// A clean price per 100 face.
     Price(Decimal),
     /// A level in the rule's unit.
     Level(Decimal),
+    /// An OAS in basis points for a callable the HW1F model values, whatever its rule
+    /// quotes it by, or none.
+    Oas(Decimal),
 }
 
 impl QuotedInput {
@@ -582,6 +585,7 @@ fn price_without_rule(input: QuotedInput) -> Result<RulePricing, LevelError> {
         QuotedInput::Level(_) => Err(refused(
             "this bond has no pricing rule in force for its terms, so it is quoted by price; send market_price",
         )),
+        QuotedInput::Oas(_) => Err(refused(crate::ports::level_pricing::NOT_AN_OAS_CALLABLE)),
     }
 }
 
@@ -616,6 +620,9 @@ fn price_with_rule(
         None => None,
     };
     let (clean_price_mid, benchmark, bid_ask) = match input {
+        QuotedInput::Oas(_) => {
+            return Err(refused(crate::ports::level_pricing::NOT_AN_OAS_CALLABLE))
+        }
         QuotedInput::Price(price) if method.is_level() => (price, None, BidAsk::MidOnly),
         QuotedInput::Price(price) => {
             let bid_ask = match width {

@@ -14,7 +14,7 @@ use convex_core::contracts::{
 use convex_ports::{
     configuration::{ConfigurationPin, InstrumentPin, NumericalSettings, SnapshotAssembly},
     fixing::FixingKey,
-    level_pricing::RULE_DOES_NOT_APPLY,
+    level_pricing::{is_oas_callable, PricingMethod, NOT_AN_OAS_CALLABLE, RULE_DOES_NOT_APPLY},
     quote_event::{
         FieldUpdate, QuoteChange, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality,
         QuoteValue,
@@ -107,7 +107,8 @@ impl RequestValuer {
     /// curve the product does not read refuses nothing. A level `mark` is in the field of
     /// the bond's rule, and only a bond whose model values its own level takes one: a
     /// callable's yield to worst on its workouts or its OAS on HW1F trees, or a floating
-    /// rate note's discount margin.
+    /// rate note's discount margin. An OAS `mark` takes any callable the HW1F model values
+    /// onto its trees, whatever its rule.
     pub(crate) async fn prepare(
         &self,
         context: &mut RequestContext,
@@ -122,12 +123,24 @@ impl RequestValuer {
         if reference.is_rule_misapplied() {
             return Err(TraitError::InvalidInput(RULE_DOES_NOT_APPLY).into());
         }
-        let method = reference.pricing_method();
+        let rule_method = reference.pricing_method();
         let reference = &reference.record;
         let bond = reference
             .bond
             .as_ref()
             .ok_or(TraitError::InvalidInput("the stored reference is deleted"))?;
+        // An OAS for a callable its rule quotes otherwise is the request's own method,
+        // which its quote records; under an `oas` rule it is the rule's level.
+        let quoted_by = match mark {
+            Some(QuotedInput::Oas(_)) if rule_method != Some(&PricingMethod::Oas {}) => {
+                if !is_oas_callable(bond) {
+                    return Err(LevelError::Refused(NOT_AN_OAS_CALLABLE.into()).into());
+                }
+                Some(PricingMethod::Oas {})
+            }
+            _ => None,
+        };
+        let method = quoted_by.as_ref().or(rule_method);
         // The context reads its curves at its own cutoff, so the snapshot must share it.
         if known_at != context.known_at {
             return Err(
@@ -142,7 +155,7 @@ impl RequestValuer {
         // A level out of its method's range is refused here, as the level stage
         // refuses a bullet's, not valued into a result whose every measure fails.
         let field = match mark {
-            Some(QuotedInput::Level(level)) => {
+            Some(QuotedInput::Level(level) | QuotedInput::Oas(level)) => {
                 let method = method.filter(|_| values_own_level(model)).ok_or(
                     TraitError::InvalidInput(
                         "a level is valued at request time only as a callable's yield to worst or OAS, or a floating rate note's discount margin",
@@ -202,6 +215,7 @@ impl RequestValuer {
                 key: key.clone(),
                 fields: vec![field],
                 max_age_ms: 1,
+                quoted_by: quoted_by.clone(),
             }],
             fixings: self.fixings.clone(),
             required_curves: roots
@@ -216,7 +230,9 @@ impl RequestValuer {
         };
         let events: Vec<_> = mark
             .map(|mark| {
-                let (QuotedInput::Price(value) | QuotedInput::Level(value)) = mark;
+                let (QuotedInput::Price(value)
+                | QuotedInput::Level(value)
+                | QuotedInput::Oas(value)) = mark;
                 request_mark(key, field, value, known_at)
             })
             .into_iter()

@@ -152,6 +152,7 @@ fn largest_quote(n: usize, at_ms: i64, quality: QuoteQuality) -> SharedQuote {
             key,
             fields: FIELDS.to_vec(),
             max_age_ms: 86_400_000,
+            quoted_by: None,
         },
         delivery_watermark: Some(event.clone()),
         image: Some(QuoteSnapshot {

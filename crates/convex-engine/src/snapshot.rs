@@ -1151,10 +1151,18 @@ impl SnapshotValuator {
                 "configuration does not apply to pinned instrument",
             ));
         }
+        let selected = snapshot.quotes_for(instrument_id.as_str());
+        if selected.len() != 1 {
+            return Err(TraitError::InvalidInput(
+                "pricing requires one explicitly selected quote source",
+            ));
+        }
+        // A request may quote the bond by a method of its own, which the snapshot checked
+        // quotes it.
+        let requirement = &selected[0].requirement;
         let rule = reference.pricing_rule.as_ref();
-        if crate::optional_valuation::product_model(bond, reference.pricing_method())
-            != spec.model_id.as_str()
-        {
+        let method = requirement.quoted_method(reference.pricing_method());
+        if crate::optional_valuation::product_model(bond, method) != spec.model_id.as_str() {
             return Err(TraitError::Unsupported(
                 "context model does not value the pinned product",
             ));
@@ -1170,32 +1178,26 @@ impl SnapshotValuator {
                 "snapshot pricing currently requires observed clean marks",
             ));
         }
-        let selected = snapshot.quotes_for(instrument_id.as_str());
-        if selected.len() != 1 {
-            return Err(TraitError::InvalidInput(
-                "pricing requires one explicitly selected quote source",
-            ));
-        }
         let model = spec.model_id.as_str();
         // A bond refused whatever its market data fails each measure, saying why; the
         // runtime reports it ahead of the inputs' quality, and a request is refused before
         // it is valued.
         let refusal = valuation_refusal(snapshot, spec);
-        // A bond is read from the field its rule quotes it by: its level, or a price. A
-        // callable and a floating rate note value their rule's level themselves, and a
-        // price too, so when their quote declares no field of their rule's they are read
-        // from a price: a request may send one, and a Live plan compiled before the rule
-        // moved to a level still carries one ([`PricingMethod::is_level_declared`]).
-        let declared = &selected[0].requirement.fields;
+        // A bond is read from the field its rule quotes it by, or the request's method:
+        // its level, or a price. A callable and a floating rate note value their level
+        // themselves, and a price too, so when their quote declares no field of their
+        // method's they are read from a price: a request may send one, and a Live plan
+        // compiled before the rule moved to a level still carries one
+        // ([`PricingMethod::is_level_declared`]).
+        let declared = &requirement.fields;
         let price = PricingMethod::Price {};
-        let quoted_method = rule
-            .map(|rule| &rule.method)
+        let read_by = method
             .filter(|method| {
                 !crate::optional_valuation::values_own_level(model)
                     || method.is_level_declared(declared)
             })
             .unwrap_or(&price);
-        let quoted_field = quoted_method.quote_field();
+        let quoted_field = read_by.quote_field();
         if refusal.is_none() && !declared.contains(&quoted_field) {
             return Err(TraitError::InvalidInput(
                 "mid valuation must declare the field the bond is quoted by",
@@ -1223,19 +1225,19 @@ impl SnapshotValuator {
                 spec,
                 reference,
                 recipe_curves,
-                quoted_method,
+                read_by,
                 mark(quoted_field),
                 quality,
             )?
         } else if model == crate::workout_valuation::WORKOUT_SNAPSHOT_MODEL {
-            workout_measures(spec, reference, quoted_method, mark(quoted_field), quality)?
+            workout_measures(spec, reference, read_by, mark(quoted_field), quality)?
         } else if model == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL {
             floating_measures(
                 snapshot,
                 spec,
                 reference,
                 recipe_curves,
-                quoted_method,
+                read_by,
                 mark(quoted_field),
                 quality,
             )?
@@ -2131,6 +2133,7 @@ mod tests {
             key: key(instrument),
             fields: vec![QuoteField::MidPrice],
             max_age_ms: 60_000,
+            quoted_by: None,
         }
     }
 

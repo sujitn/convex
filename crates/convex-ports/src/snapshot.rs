@@ -16,7 +16,8 @@ use std::sync::{Arc, OnceLock};
 use crate::calibration::SnapshotCalibration;
 use crate::fixing::{FixingKey, PublishedFixing};
 use crate::level_pricing::{
-    BenchmarkSecurity, ResolvedBenchmarkSet, ResolvedPricingRule, MAX_SNAPSHOT_BENCHMARK_SETS,
+    BenchmarkSecurity, PricingMethod, ResolvedBenchmarkSet, ResolvedPricingRule,
+    MAX_SNAPSHOT_BENCHMARK_SETS, NOT_AN_OAS_CALLABLE,
 };
 use crate::quote_event::{
     DataState, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality, QuoteSnapshot,
@@ -303,6 +304,22 @@ pub struct QuoteRequirement {
     pub fields: Vec<QuoteField>,
     /// Maximum source/receipt age, 1..=86,400,000 UTC milliseconds.
     pub max_age_ms: i64,
+    /// The method a request quotes this quote by when its bond's rule quotes it otherwise:
+    /// an OAS, in the quote's one field, for the one callable the snapshot values. A
+    /// runtime plan never sets it. Omitted when absent, so a snapshot without it keeps its
+    /// id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quoted_by: Option<PricingMethod>,
+}
+
+impl QuoteRequirement {
+    /// The method this quote is read by: the request's, else `rule`'s, its bond's rule.
+    pub fn quoted_method<'a>(
+        &'a self,
+        rule: Option<&'a PricingMethod>,
+    ) -> Option<&'a PricingMethod> {
+        self.quoted_by.as_ref().or(rule)
+    }
 }
 
 /// Selected feed state and latest delivery watermark, including explicit loss/closure controls.
@@ -1803,6 +1820,21 @@ fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
             ));
         }
         check_quote_at(quote, as_of_ms, known_at_ms)?;
+        // A request's own quoting method names the one bond its snapshot values.
+        if let Some(method) = &quote.requirement.quoted_by {
+            let bond = content
+                .references
+                .find(key.instrument_id.as_str())
+                .and_then(|reference| reference.record.bond.as_ref());
+            if content.references.len() != 1 {
+                return Err(TraitError::InvalidInput(
+                    "a quote's own quoting method is a request's, for its one bond",
+                ));
+            }
+            if !bond.is_some_and(|bond| method.applies_to(false, bond)) {
+                return Err(TraitError::InvalidInput(NOT_AN_OAS_CALLABLE));
+            }
+        }
     }
     validate_benchmark_sets(content)?;
     validate_inputs(content)
@@ -2010,6 +2042,13 @@ fn check_quote(quote: &SnapshotQuote) -> Result<(), TraitError> {
             "invalid/duplicate quote requirement",
         ));
     }
+    if requirement.quoted_by.as_ref().is_some_and(|method| {
+        *method != PricingMethod::Oas {} || requirement.fields != [method.quote_field()]
+    }) {
+        return Err(TraitError::InvalidInput(
+            "a quote's own quoting method is only an OAS, in its one field",
+        ));
+    }
     let selected = |event: &QuoteEvent| -> Result<(), TraitError> {
         event.validate()?;
         if event.key != requirement.key {
@@ -2132,7 +2171,10 @@ fn derive_quality(
                 .and_then(|reference| reference.pricing_rule.as_ref())
                 .map(|rule| &rule.method),
         };
-        method.is_some_and(|method| method.is_level_declared(&quote.requirement.fields))
+        quote
+            .requirement
+            .quoted_method(method)
+            .is_some_and(|method| method.is_level_declared(&quote.requirement.fields))
     };
     let own = inputs
         .own_quotes

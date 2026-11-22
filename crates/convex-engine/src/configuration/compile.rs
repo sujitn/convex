@@ -350,6 +350,7 @@ pub async fn assemble_from_repository(
                     .map_or_else(|| selection.fields.clone(), |field| vec![field]),
                 max_age_ms: level_source
                     .map_or(selection.quote_max_age_ms, |levels| levels.max_age_ms),
+                quoted_by: None,
             }
         })
         .collect();

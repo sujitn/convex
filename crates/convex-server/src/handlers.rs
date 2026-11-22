@@ -343,9 +343,19 @@ async fn optional_context(
     }
 }
 
+/// A stored callable or floating rate note valued at request time.
+pub(crate) struct StoredValuation {
+    /// Its reply body, as the bullets' quote reads.
+    pub body: serde_json::Value,
+    /// Each curve the valuation read, as `id@version`.
+    pub curve_pins: Vec<String>,
+    /// The model it was valued on.
+    pub model_id: String,
+}
+
 /// Value a stored callable or floating rate note at request time and read it as
 /// the bullets' quote. `snapshot` names the unpublished snapshot it read and the
-/// curve pins it consumed, which are also returned.
+/// curve pins it consumed.
 pub(crate) async fn value_stored(
     engine: &PricingEngine,
     context: &mut convex_engine::RequestContext,
@@ -353,7 +363,7 @@ pub(crate) async fn value_stored(
     settlement_date: Date,
     known_at: convex_core::contracts::UtcTimestamp,
     mark: Option<convex_engine::level_pricing::QuotedInput>,
-) -> Result<(serde_json::Value, Vec<String>), crate::error::ApiError> {
+) -> Result<StoredValuation, crate::error::ApiError> {
     use crate::error::ApiError;
     let bond = reference
         .record
@@ -394,7 +404,11 @@ pub(crate) async fn value_stored(
         value["option_model"]["discount_curve"] =
             serde_json::json!(context.config().analytics_curves.discount_curve);
     }
-    Ok((value, pins))
+    Ok(StoredValuation {
+        body: value,
+        curve_pins: pins,
+        model_id: model.to_owned(),
+    })
 }
 
 /// One callable or floating rate note quote: the valuation, its context in the body and
@@ -409,8 +423,11 @@ async fn runtime_quote(
     mark: Option<convex_engine::level_pricing::QuotedInput>,
     pricing_rule: Option<serde_json::Value>,
 ) -> Result<axum::response::Response, crate::error::ApiError> {
-    let (mut value, pins) =
-        value_stored(engine, context, reference, settlement_date, known_at, mark).await?;
+    let StoredValuation {
+        body: mut value,
+        curve_pins: pins,
+        ..
+    } = value_stored(engine, context, reference, settlement_date, known_at, mark).await?;
     if let Some(pricing_rule) = pricing_rule {
         value["pricing_rule"] = pricing_rule;
     }
@@ -1306,7 +1323,7 @@ async fn runtime_item(
         context.ok_or(convex_engine::curve_resolution::CurveResolutionError::NoConfiguration)?;
     let reference = engine.stored_terms(bond, known_at).await?;
     let mark = runtime_mark(engine, context, reference, bond, quoted, settlement_date).await?;
-    let (mut value, _) = value_stored(
+    let mut value = value_stored(
         engine,
         context,
         &mark.reference,
@@ -1314,7 +1331,8 @@ async fn runtime_item(
         known_at,
         mark.mark,
     )
-    .await?;
+    .await?
+    .body;
     if let Some(report) = mark.pricing_rule {
         value["pricing_rule"] = report;
     }

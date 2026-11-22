@@ -57,6 +57,7 @@ pub fn quote_requirement() -> QuoteRequirement {
         },
         fields: vec![QuoteField::MidPrice],
         max_age_ms: 10_000,
+        quoted_by: None,
     }
 }
 pub fn fixing_key() -> FixingKey {

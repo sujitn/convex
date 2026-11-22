@@ -210,11 +210,13 @@ the changes that matter when you upgrade.
   A callable or note was a 200 whose every measure failed, and a bullet by price was
   priced as if it had no rule. In Live each measure still fails, saying why, whatever its
   quote.
-- **The calculator takes a callable's OAS** under an `oas` rule, valued by the runtime as
-  `GET /api/v1/quotes/:id` values it: the HW1F measures, the unpublished `snapshot`,
-  `input` and `pricing_rule`, and no `workouts`. An OAS with no `oas` rule is 400, and a
-  server without a runtime refuses it (422 `UNSUPPORTED_PRODUCT`). By `price` or `yield`
-  a callable is still calculated on its workouts.
+- **The calculator takes a callable's OAS**, whatever its rule, for a callable the HW1F
+  model values, valued by the runtime as `GET /api/v1/quotes/:id` values it: the HW1F
+  measures, the unpublished `snapshot`, `input` and `pricing_rule` (with the model it was
+  valued on), and no `workouts`. A callable under a `price` or `yield` rule is valued on
+  its trees at the OAS, though Live values it on its workouts. Any other callable's OAS
+  is 400, and a server without a runtime refuses it (422 `UNSUPPORTED_PRODUCT`). By
+  `price` or `yield` a callable is still calculated on its workouts.
 - **Floating rate notes by discount margin.** A `pricing_rule` may quote a floating rate
   note by `discount_margin` (basis points over the frozen projection of its index,
   discounted on the discount curve). Live and request-time quotes value it from its
@@ -424,6 +426,11 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **A request's OAS for any callable on HW1F trees.** `QuotedInput::Oas` is an OAS a
+  request names whatever the bond's rule quotes. The request valuation values the callable
+  on its trees and records the method on its quote (`QuoteRequirement::quoted_by`) when
+  the rule quotes it otherwise; the snapshot valuation reads it ahead of the rule.
+  `RuntimePlan::validate` refuses a plan carrying one.
 - **The HW1F callable bound is per callable.** A runtime no longer fails with
   `RuntimeError::Configuration` when a snapshot holds more than `MAX_RUNTIME_CALLABLES`
   callables on trees. The snapshot valuation fails each measure of a callable after the
@@ -522,6 +529,11 @@ the changes that matter when you upgrade.
 
 ### convex-ports
 
+- **`QuoteRequirement::quoted_by`**: the method a request quotes a quote by when its bond's
+  rule quotes it otherwise. A snapshot takes it only as an OAS in the quote's one field,
+  for the one callable it values, which the HW1F model must value (`NOT_AN_OAS_CALLABLE`).
+  Omitted when absent, so a snapshot without it keeps its bytes and id; a configuration
+  document refuses it. `QuoteRequirement::quoted_method` is the method a quote is read by.
 - **`PricingMethod::Oas`** (`oas`): applies only to a callable the HW1F model values
   (`is_oas_callable`, which `is_workout_callable` now builds on), with no benchmark set, and
   reads `mid_spread`. `PricingMethod::is_level_declared` says whether a quote is read by

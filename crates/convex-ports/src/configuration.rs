@@ -337,6 +337,7 @@ impl ConfigurationDocument {
                     .any(|i| i.as_str() == quote.key.instrument_id.as_str())
                 || quote.fields.is_empty()
                 || quote.fields.len() > 12
+                || quote.quoted_by.is_some()
             {
                 return Err(TraitError::InvalidInput("invalid quote requirement"));
             }
