@@ -113,6 +113,14 @@ the changes that matter when you upgrade.
 
 ### convex-core
 
+- **A client tier's factor on a two-way quote's width.** `WidthFactor` is a unit-free
+  factor from 0 to 10 (`MAX_WIDTH_FACTOR`), an exact decimal string on the wire.
+  `QuoteWidth::scaled` multiplies a width by it exactly and keeps its unit: one keeps it,
+  below one tightens it for a better client, and zero quotes the mid both ways. A scaled
+  width past the unit's widest is refused (`WidthOutOfRange`), never capped, and one a
+  decimal cannot hold is `Unrepresentable`; a factor out of range is `FactorOutOfRange`.
+  The shared fixture gains seven cases and four refusals.
+
 - **A two-way quote's width, in the quoting unit.** `WidthSchedule` holds
   widths by trade size in one `WidthUnit`: price points, 32nds or basis
   points. Each `SizeBucket` holds trades up to its face amount, inclusive, and
@@ -575,6 +583,21 @@ the changes that matter when you upgrade.
   for the one callable it values, which the HW1F model must value (`NOT_AN_OAS_CALLABLE`).
   Omitted when absent, so a snapshot without it keeps its bytes and id; a configuration
   document refuses it. `QuoteRequirement::quoted_method` is the method a quote is read by.
+- **The RFQ model** (`rfq`). `RfqRequest` is a client's request as its source sends it: the
+  source and its RFQ id, the client and its tier, the bond by `instrument_id` or by an
+  ISIN, CUSIP or provider identifier, the client's side, the face, the settlement date, the
+  desk's book and a deadline. `validate` refuses an id or tier empty, too long, or holding
+  surrounding spaces or a control character, a bond named twice, not at all or by an
+  invalid identifier, a size not positive, and a deadline outside 1 to 300 seconds after
+  receipt, each with an `RFQ_*` code. `transition` is the closed state table from
+  `received` through `priced` and `quoted` to `done`, `traded_away`, `covered`, `passed`,
+  `expired` or `cancelled`: a final request refuses every event (`RFQ_FINAL`), a source's
+  outcome after an expiry included, and a move the table lacks is `RFQ_TRANSITION`. Each
+  event has one actor (server, trader or source), and `SourceOutcome` names the only
+  events a source sends. An expiry says whether its deadline passed or the server
+  restarted, and a client buy lifts the desk's ask and shortens its position. `RfqBatch`
+  is one ingest's requests; ingest will refuse more than `MAX_RFQ_BATCH` (64) or a body
+  over `MAX_RFQ_BODY_BYTES` (128 KiB), which 64 of the largest requests fit.
 - **`PricingMethod::Oas`** (`oas`): applies only to a callable the HW1F model values
   (`is_oas_callable`, which `is_workout_callable` now builds on), with no benchmark set, and
   reads `mid_spread`. `PricingMethod::is_level_declared` says whether a quote is read by

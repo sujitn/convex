@@ -1,4 +1,5 @@
-//! A two-way quote's width, in the unit its level is quoted in, chosen by trade size.
+//! A two-way quote's width, in the unit its level is quoted in, chosen by trade size and
+//! scaled by the client's tier.
 //!
 //! A width is the distance from bid to ask, and each side lies half of it from the mid. A
 //! price falls to its bid and rises to its ask. A yield or spread rises to its bid and falls
@@ -17,6 +18,9 @@ use crate::contracts::ExactDecimal;
 
 /// The most size buckets a width schedule holds.
 pub const MAX_SIZE_BUCKETS: usize = 16;
+
+/// The most a client tier's factor scales a width by.
+pub const MAX_WIDTH_FACTOR: Decimal = dec!(10);
 
 /// The unit of a width: the quoting unit of the level it widens.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -82,8 +86,11 @@ pub enum QuoteWidthError {
     UnitMismatch,
     /// The width takes the bid price to zero or below.
     BidPriceNotPositive,
-    /// A side needs more than a decimal's range or precision; it is never rounded.
+    /// A scaled width or a side needs more than a decimal's range or precision; it is never
+    /// rounded.
     Unrepresentable,
+    /// A client tier's factor is negative or above [`MAX_WIDTH_FACTOR`].
+    FactorOutOfRange,
 }
 
 impl QuoteWidthError {
@@ -105,8 +112,9 @@ impl QuoteWidthError {
             }
             Self::BidPriceNotPositive => "the bid price is not positive",
             Self::Unrepresentable => {
-                "a side of the two-way quote needs more than a decimal's range or precision"
+                "a scaled width or a side of the two-way quote needs more than a decimal's range or precision"
             }
+            Self::FactorOutOfRange => "a client tier's width factor is from 0 to 10",
         }
     }
 }
@@ -145,6 +153,13 @@ impl QuoteWidth {
         self.value
     }
 
+    /// This width scaled by a client tier's factor, exactly and in the same unit. A scaled
+    /// width past [`WidthUnit::max_width`] is refused, never capped, and one needing more
+    /// precision than a decimal holds is refused, never rounded.
+    pub fn scaled(&self, factor: WidthFactor) -> Result<Self, QuoteWidthError> {
+        Self::new(self.unit, exact_product(self.value, &[factor.0])?)
+    }
+
     /// The bid and ask this width gives around `mid`, each half the width from it, in the
     /// mid's own form ([`Mark::at_level`]). Each side is exact, never rounded to a tick or
     /// to a decimal's precision.
@@ -154,11 +169,7 @@ impl QuoteWidth {
             .unit
             .level_per_unit(basis)
             .ok_or(QuoteWidthError::UnitMismatch)?;
-        let half = BoundedDecimal::decimal(self.value)
-            .multiply(level_per_unit)
-            .and_then(|width| width.multiply(dec!(0.5)))
-            .and_then(|half| half.finish_exact())
-            .map_err(|_| QuoteWidthError::Unrepresentable)?;
+        let half = exact_product(self.value, &[level_per_unit, dec!(0.5)])?;
         let level = mid.level();
         let (lower, higher) = (exact_sum(level, -half)?, exact_sum(level, half)?);
         let (bid, ask) = match basis {
@@ -173,6 +184,53 @@ impl QuoteWidth {
             ask: mid.at_level(ask),
         })
     }
+}
+
+/// A client tier's factor on a two-way quote's width, the same in every unit: one keeps
+/// the width, below one tightens it for a better client, and above one widens it. Zero
+/// quotes the mid both ways. On the wire it is an exact decimal string.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(try_from = "ExactDecimal", into = "ExactDecimal")]
+pub struct WidthFactor(Decimal);
+
+impl WidthFactor {
+    /// The factor `value`, from zero to [`MAX_WIDTH_FACTOR`].
+    pub fn new(value: Decimal) -> Result<Self, QuoteWidthError> {
+        if value < Decimal::ZERO || value > MAX_WIDTH_FACTOR {
+            return Err(QuoteWidthError::FactorOutOfRange);
+        }
+        Ok(Self(value))
+    }
+
+    /// The factor.
+    pub fn value(self) -> Decimal {
+        self.0
+    }
+}
+
+impl TryFrom<ExactDecimal> for WidthFactor {
+    type Error = QuoteWidthError;
+    fn try_from(value: ExactDecimal) -> Result<Self, Self::Error> {
+        Self::new(value.decimal())
+    }
+}
+
+impl From<WidthFactor> for ExactDecimal {
+    fn from(factor: WidthFactor) -> Self {
+        ExactDecimal::new(factor.0)
+    }
+}
+
+/// `value` times each of `factors`, exactly.
+fn exact_product(value: Decimal, factors: &[Decimal]) -> Result<Decimal, QuoteWidthError> {
+    factors
+        .iter()
+        .try_fold(BoundedDecimal::decimal(value), |product, factor| {
+            product.multiply(*factor)
+        })
+        .and_then(|product| product.finish_exact())
+        .map_err(|_| QuoteWidthError::Unrepresentable)
 }
 
 /// `level + change`, exactly.

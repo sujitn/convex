@@ -19,6 +19,7 @@
 //! - [`reference_repository`] — atomic versioned reference commits
 //! - [`storage`] — persistence (bonds, curves, configs, overrides, audit)
 //! - [`output`] — calculator output values (quotes, ETF iNAV, portfolio analytics)
+//! - [`rfq`] — a client's request for quote, its states and who moves it between them
 //! - [`config`] — engine / node configuration value types
 //! - [`error`] — the shared [`error::TraitError`]
 
@@ -42,6 +43,7 @@ pub mod quote_event;
 pub mod reference_data;
 pub mod reference_master;
 pub mod reference_repository;
+pub mod rfq;
 pub mod runtime;
 pub mod snapshot;
 pub mod storage;

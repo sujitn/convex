@@ -1,14 +1,15 @@
 {
   "schema_version": 1,
   "fixture_id": "quote-widths-v1",
-  "reference": "Hand-computed desk two-way quotes: a width is the bid-to-ask distance in the level's quoting unit, each side half of it from the mid; a price falls to its bid, a yield or spread rises to it. Not a market convention certificate.",
+  "reference": "Hand-computed desk two-way quotes: a width is the bid-to-ask distance in the level's quoting unit, each side half of it from the mid; a price falls to its bid, a yield or spread rises to it. A client tier's factor multiplies the width, exactly. Not a market convention certificate.",
   "units": {
     "mid": "a trader mark, as convex_core::types::Mark parses it",
     "face": "face amount of the trade, in currency units; null for a quote with no size",
     "price_points": "price per 100 face",
     "thirty_seconds": "32nds of a price point",
     "basis_points": "basis points of yield (0.0001 of a decimal yield) or of spread",
-    "bid_ask": "price per 100 face, decimal yield, or basis points of spread, as the mid"
+    "bid_ask": "price per 100 face, decimal yield, or basis points of spread, as the mid",
+    "factor": "a client tier's factor on the width, unit-free; absent for no tier"
   },
   "tolerance": "exact",
   "certified": false,
@@ -360,6 +361,154 @@
         "width": "1000",
         "bid": "1000",
         "ask": "0"
+      }
+    },
+    {
+      "id": "tier-tightens-a-treasury",
+      "note": "a better client's factor of a half: half a 32nd wide around 99-16+",
+      "mid": "99-16+",
+      "schedule": {
+        "unit": "thirty_seconds",
+        "buckets": [
+          {
+            "width": "1"
+          }
+        ]
+      },
+      "face": "5000000",
+      "factor": "0.5",
+      "expected": {
+        "width": "0.5",
+        "bid": "99.5078125",
+        "ask": "99.5234375"
+      }
+    },
+    {
+      "id": "tier-widens-a-spread",
+      "note": "a factor of 1.5 on 4 bp: 6 bp wide",
+      "mid": "125 G@USD.TSY.10Y",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "width": "4"
+          }
+        ]
+      },
+      "face": "1000000",
+      "factor": "1.5",
+      "expected": {
+        "width": "6",
+        "bid": "128",
+        "ask": "122"
+      }
+    },
+    {
+      "id": "tier-widens-a-yield",
+      "note": "a factor of 2 on 3 bp of yield: 4.68% / 4.62%",
+      "mid": "4.65%@SA",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "width": "3"
+          }
+        ]
+      },
+      "face": "1000000",
+      "factor": "2",
+      "expected": {
+        "width": "6",
+        "bid": "0.0468",
+        "ask": "0.0462"
+      }
+    },
+    {
+      "id": "tier-keeps-a-price",
+      "note": "a factor of one keeps the width",
+      "mid": "98.25",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "width": "0.5"
+          }
+        ]
+      },
+      "face": "2000000",
+      "factor": "1",
+      "expected": {
+        "width": "0.5",
+        "bid": "98",
+        "ask": "98.5"
+      }
+    },
+    {
+      "id": "tier-quotes-the-mid",
+      "note": "a factor of zero quotes the mid both ways",
+      "mid": "101",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "width": "0.5"
+          }
+        ]
+      },
+      "face": "1000000",
+      "factor": "0",
+      "expected": {
+        "width": "0",
+        "bid": "101",
+        "ask": "101"
+      }
+    },
+    {
+      "id": "tier-to-the-widest",
+      "note": "the largest factor on 100 bp reaches the unit's widest width",
+      "mid": "500 Z@USD.SOFR",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "width": "100"
+          }
+        ]
+      },
+      "face": "1000000",
+      "factor": "10",
+      "expected": {
+        "width": "1000",
+        "bid": "1000",
+        "ask": "0"
+      }
+    },
+    {
+      "id": "tier-on-a-size-bucket",
+      "note": "the factor scales the width the trade's size bucket gives: 4 bp at 2mm, by 1.25",
+      "mid": "125 G@USD.TSY.10Y",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "max_face": "1000000",
+            "width": "6"
+          },
+          {
+            "max_face": "5000000",
+            "width": "4"
+          },
+          {
+            "width": "5"
+          }
+        ]
+      },
+      "face": "2000000",
+      "factor": "1.25",
+      "expected": {
+        "width": "5",
+        "bid": "127.5",
+        "ask": "122.5"
       }
     }
   ],
@@ -717,6 +866,66 @@
         ]
       },
       "face": "1000000",
+      "refused": "unrepresentable"
+    },
+    {
+      "id": "factor-above-ten",
+      "mid": "125 G@USD.TSY.10Y",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "width": "4"
+          }
+        ]
+      },
+      "face": "1000000",
+      "factor": "10.5",
+      "refused": "factor_out_of_range"
+    },
+    {
+      "id": "negative-factor",
+      "mid": "125 G@USD.TSY.10Y",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "width": "4"
+          }
+        ]
+      },
+      "face": "1000000",
+      "factor": "-1",
+      "refused": "factor_out_of_range"
+    },
+    {
+      "id": "scaled-past-the-widest",
+      "mid": "500 Z@USD.SOFR",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "width": "1000"
+          }
+        ]
+      },
+      "face": "1000000",
+      "factor": "1.01",
+      "refused": "width_out_of_range"
+    },
+    {
+      "id": "scaled-past-a-decimal",
+      "mid": "125 G@USD.TSY.10Y",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "width": "0.0000000000000000000000000001"
+          }
+        ]
+      },
+      "face": "1000000",
+      "factor": "0.5",
       "refused": "unrepresentable"
     }
   ]
