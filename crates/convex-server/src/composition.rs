@@ -15,6 +15,7 @@ use convex_engine::{
     PricingEngine, PricingEngineBuilder, RuntimeInput, RuntimeMode, RuntimePlan, RuntimeServices,
 };
 
+use crate::desk_levels::DeskLevels;
 use crate::market::QuoteIngress;
 use crate::{ConfigError, Server, ServerConfig, ServerProfile, StartupError};
 
@@ -80,6 +81,18 @@ pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> 
     let builder = PricingEngineBuilder::new()
         .with_config(EngineConfig::default())
         .with_storage(storage.clone());
+    // Desk levels are quotes a Live runtime reads, so they need one.
+    if config.desk_level_source.is_some()
+        && !plan
+            .as_ref()
+            .is_some_and(|plan| plan.mode == RuntimeMode::Live)
+    {
+        return Err(ConfigError::Unsupported {
+            field: "desk_level_source",
+            reason: "desk levels reach only a Live runtime",
+        }
+        .into());
+    }
     let (builder, ingress) = match plan {
         Some(plan) => {
             let durable = Durable {
@@ -200,11 +213,20 @@ async fn with_runtime(
     durable: Durable,
 ) -> Result<(PricingEngineBuilder, Option<Arc<QuoteIngress>>), StartupError> {
     let live = plan.mode == RuntimeMode::Live;
-    // Live quotes arrive only through the HTTP ingress, scoped to the plan's quote keys.
+    let desk_levels = config
+        .desk_level_source
+        .as_deref()
+        .map(|source| DeskLevels::from_plan(source, &plan.assembly.quotes))
+        .transpose()
+        .map_err(stage("desk_level_source"))?;
+    // Live quotes arrive only through the HTTP ingress, scoped to the plan's quote keys;
+    // the desk's level source only through the desk's route.
     let ingress = live.then(|| {
-        Arc::new(QuoteIngress::new(
-            plan.assembly.quotes.iter().map(|q| q.key.clone()),
-        ))
+        let ingress = QuoteIngress::new(plan.assembly.quotes.iter().map(|q| q.key.clone()));
+        Arc::new(match desk_levels {
+            Some(desk) => ingress.with_desk_levels(desk),
+            None => ingress,
+        })
     });
     let snapshots: Arc<dyn SnapshotRepository> = if live {
         Arc::new(UnstoredSnapshots)

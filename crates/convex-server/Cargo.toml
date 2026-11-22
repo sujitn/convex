@@ -55,6 +55,8 @@ thiserror = { workspace = true }
 sha2 = "0.10.9"
 chrono = "0.4"
 async-trait = "0.1"
+# A browser page's bearer token arrives base64url-encoded in a WebSocket subprotocol
+base64 = "0.22"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "form"] }
 
 [[bin]]

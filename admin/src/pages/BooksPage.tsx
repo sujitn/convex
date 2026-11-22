@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useSession } from '@convex/api-client'
 import { ErrorNotice, JsonBlock, Pager, Panel, Table } from '../components/ui'
-import { useSession } from '../lib/session'
 import type { BookPage } from '../lib/types'
 
 const PAGE = 50

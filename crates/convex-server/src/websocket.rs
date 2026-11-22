@@ -35,6 +35,10 @@ use crate::ServerProfile;
 
 /// Books one session may follow: every book the monitor watches.
 const MAX_LIMIT_SUBSCRIPTIONS: usize = crate::limits::MAX_LIMITED_BOOKS;
+/// The subprotocol a browser page offers when it opens the stream beside its token's,
+/// and the one the server selects: a browser fails the handshake when it offers
+/// protocols and none is selected.
+const STREAM_PROTOCOL: &str = "convex.v1";
 /// Instruments one session may follow: every instrument the runtime values.
 const MAX_VALUATION_SUBSCRIPTIONS: usize = convex_engine::MAX_RUNTIME_INSTRUMENTS;
 /// Instruments one valuation message lists, so it fits one message and its seed is at
@@ -211,7 +215,8 @@ pub(crate) async fn ws_handler(
         return crate::access::http::response(AccessError::Unauthenticated);
     };
     let limits = limits.map(|Extension(feed)| feed);
-    ws.max_message_size(MAX_MESSAGE_BYTES)
+    ws.protocols([STREAM_PROTOCOL])
+        .max_message_size(MAX_MESSAGE_BYTES)
         .max_frame_size(MAX_MESSAGE_BYTES)
         .on_upgrade(move |socket| handle_socket(socket, state, profile, authorization, limits))
         .into_response()

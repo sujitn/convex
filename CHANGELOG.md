@@ -99,6 +99,16 @@ the changes that matter when you upgrade.
   the feed can point at an internal mirror. `CX.DIAG()` gains an "Update check"
   row at the end.
 
+### Web apps
+
+- **The desk app, `desk/`:** the pricing sheet (every bond with a pricing rule, repriced
+  from the stream, Treasuries in 32nds, tick colours, each row's state as the server
+  judged it, and keyboard nudges of a desk level) and the bond calculator.
+- **One npm workspace at the repository root** over `api-client/`, `admin/` and
+  `desk/`, with one lockfile. The admin app's API client, session and exact-number
+  helpers moved into `api-client`, which both apps use. Build an app with
+  `npm run build -w <app>` from the root. The CI job is now `Web Apps`.
+
 ### convex-core
 
 - **A two-way quote's width, in the quoting unit.** `WidthSchedule` holds
@@ -168,6 +178,26 @@ the changes that matter when you upgrade.
   resolution changed after a registry generation, from a 4,096-entry log.
 
 ### convex-server
+
+- **The desk app and the desk's levels.**
+  - `desk_ui_dir` serves the built desk app (`desk/`: the pricing sheet and the bond
+    calculator) at `/desk`, as `admin_ui_dir` serves `/admin`, under the same policy and
+    startup checks.
+  - `desk_level_source` names the Live plan's level source as the desk's.
+    `POST /api/v1/market/levels` marks a level-quoted bond's level there as a `manual`
+    quote, checked against its rule's field and its method's range. The quote ingress
+    owns that source: it numbers and stamps each mark under the lock that orders every
+    quote, and `POST /api/v1/market/quotes` now refuses a feed's event on it
+    (`DESK_LEVEL_SOURCE`).
+    `GET /api/v1/market/levels` reads back each bond's last mark. Startup refuses the
+    setting without a Live runtime or when the plan reads no level, or anything else,
+    from the source.
+- **A browser opens the stream with its token.** A page offers `convex.v1`, which the
+  server selects, and `convex.bearer.<token>`, the bearer token base64url-encoded, as
+  WebSocket subprotocols, since a browser cannot send `Authorization` on a WebSocket.
+  Only the stream reads it, it is removed before the handler and never echoed, and a request
+  sending a token both ways is refused (400). Clients sending `Authorization` are
+  unchanged.
 
 - **A ninth callable on HW1F trees no longer stops the runtime.** A runtime plan still
   values at most 8 callables on HW1F trees, and a configuration holding more is still

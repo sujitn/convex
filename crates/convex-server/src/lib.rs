@@ -30,6 +30,7 @@ pub mod config;
 pub mod configuration_admin;
 mod core_workflow;
 mod curves;
+pub mod desk_levels;
 mod error;
 pub mod handlers;
 pub mod health;
@@ -229,7 +230,10 @@ impl Server {
             )));
         }
         if let Some(dir) = &self.config.admin_ui_dir {
-            router = router.nest_service("/admin", admin_ui(dir));
+            router = router.nest_service("/admin", built_app(dir));
+        }
+        if let Some(dir) = &self.config.desk_ui_dir {
+            router = router.nest_service("/desk", built_app(dir));
         }
         router
             .layer(Extension(profile))
@@ -342,10 +346,11 @@ impl Server {
         }
     }
 }
-/// The built admin app: static files outside the API access layer (they carry no data),
-/// with unknown paths falling back to its single page. The page holds a pasted bearer
-/// token in memory, so it loads scripts only from its own origin and cannot be framed.
-fn admin_ui(dir: &str) -> Router {
+/// A built app, the admin's or the desk's: static files outside the API access layer
+/// (they carry no data), with unknown paths falling back to its single page. The page
+/// holds a pasted bearer token in memory, so it loads scripts and connects only to its
+/// own origin and cannot be framed.
+fn built_app(dir: &str) -> Router {
     use axum::http::header;
     use tower_http::services::{ServeDir, ServeFile};
     use tower_http::set_header::SetResponseHeaderLayer;

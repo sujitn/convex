@@ -106,6 +106,22 @@ impl Running {
         }
     }
 
+    /// `method` on `path` with a JSON `body`, its status and JSON reply (`null` if none).
+    pub async fn send(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        body: Option<&Value>,
+    ) -> (reqwest::StatusCode, Value) {
+        let mut request = self.client.request(method, format!("{}{path}", self.base));
+        if let Some(body) = body {
+            request = request.json(body);
+        }
+        let response = request.send().await.unwrap();
+        let status = response.status();
+        (status, response.json().await.unwrap_or(Value::Null))
+    }
+
     pub async fn post_quotes(&self, events: Vec<QuoteEvent>) -> reqwest::Response {
         self.client
             .post(format!("{}/api/v1/market/quotes", self.base))
@@ -222,6 +238,20 @@ pub async fn level_live_setup(
     ServerConfig,
     LevelKeys,
 ) {
+    level_live_setup_from(dependents, None).await
+}
+
+/// [`level_live_setup`] with the bonds' spreads read from `level_source` when named, and
+/// the Treasuries' prices from the feed's source.
+pub async fn level_live_setup_from(
+    dependents: usize,
+    level_source: Option<&str>,
+) -> (
+    tempfile::TempDir,
+    std::path::PathBuf,
+    ServerConfig,
+    LevelKeys,
+) {
     use convex_core::contracts::{InstrumentId, RequestId};
     use convex_engine::ports::{
         configuration::InstrumentPin,
@@ -235,10 +265,14 @@ pub async fn level_live_setup(
     plan.measures
         .push(convex_core::contracts::MeasureId::new("g_spread_mid").unwrap());
     widen(&s, &mut plan, dependents).await;
-    let bonds: Vec<QuoteKey> = plan.assembly.quotes.iter().map(|q| q.key.clone()).collect();
+    let feed_source = plan.assembly.quotes[0].key.source.clone();
     for quote in &mut plan.assembly.quotes {
         quote.fields = vec![QuoteField::MidSpread];
+        if let Some(source) = level_source {
+            quote.key.source = source.into();
+        }
     }
+    let bonds: Vec<QuoteKey> = plan.assembly.quotes.iter().map(|q| q.key.clone()).collect();
 
     let notes: Vec<_> = TREASURIES
         .iter()
@@ -331,6 +365,7 @@ pub async fn level_live_setup(
         });
         let mut quote = plan.assembly.quotes[0].clone();
         quote.key.instrument_id = note.instrument_id.clone();
+        quote.key.source = feed_source.clone();
         quote.fields = vec![QuoteField::MidPrice];
         treasuries.push(quote.key.clone());
         plan.assembly.quotes.push(quote);

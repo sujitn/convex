@@ -803,7 +803,7 @@ fn level_to_clean_price(
 
 /// Refuse a level outside its method's range: a yield sent in percent, or a spread in
 /// decimal, is refused rather than priced. A price is not a level, and is refused too.
-pub(crate) fn check_level(method: &PricingMethod, level: Decimal) -> Result<(), LevelError> {
+pub fn check_level(method: &PricingMethod, level: Decimal) -> Result<(), LevelError> {
     let (range, unit) = match method {
         PricingMethod::Price {} => return Err(quoted_by_price()),
         PricingMethod::Yield {} => (YIELD_LEVEL_RANGE, "a decimal yield"),

@@ -88,7 +88,7 @@ cargo run --locked -p convex-server --bin convex-config -- process explain /srv/
 cargo run --locked -p convex-server -- /srv/convex/server.toml
 ```
 
-Process inspection validates settings without contacting the issuer; successful executable startup also requires a bounded authenticated introspection availability check. Use a native client SDK to put `Authorization: Bearer <access token>` on requests. Duplicate authorization headers, query tokens, cookies and forwarded identity/role headers cannot establish identity. Responses disable caching. The two WS aliases require the same header; browser clients that cannot supply it need an explicitly reviewed same-origin BFF/proxy integration. Query-token workarounds are unsupported.
+Process inspection validates settings without contacting the issuer; successful executable startup also requires a bounded authenticated introspection availability check. Use a native client SDK to put `Authorization: Bearer <access token>` on requests. Duplicate authorization headers, query tokens, cookies and forwarded identity/role headers cannot establish identity. Responses disable caching. The two WS aliases take the same header. A browser page, which cannot set a header on a WebSocket, instead offers two subprotocols: `convex.v1`, which the server selects, and `convex.bearer.<token>`, the token base64url-encoded without padding. Only the WS paths read a token from a subprotocol; the entry is removed before the handler, never echoed, and a request sending a token both ways is refused. Query-token workarounds are unsupported.
 
 ## Role and data boundaries
 
@@ -115,6 +115,7 @@ Combine roles deliberately. `reference_writer` does not automatically include `r
 | Supplied runtime valuation | All selected instrument, curve, source and calibration `InputVersion` dependencies; reference/market/results and any book in the payload |
 | Runtime result resync | Whole instruments/curves/sources and reference/market/results; the current endpoint returns the entire selected runtime |
 | Live quote ingress | Instrument and source of every event; market data; `reference_writer` |
+| Desk levels (`POST /api/v1/market/levels`) | Instrument of every level and the source the body names; market data; `reference_writer`. Reading the marks back (`GET`) lists every desk-quoted bond, so it needs whole instrument and source grants, as runtime results do |
 | Portfolio/position operations | Book ID and every instrument in input/returned content; nested batches are checked before dispatch |
 | Portfolio analytics stream | Book plus whole underlying instrument/curve/source grants and market/results/books |
 | Book limit reads (set, version, proposal, status, records) | Book ID, books data and every instrument the book holds or a limit names, because a set or status names instruments in fields the response scan does not read; status and records also need reference, market and results data. History summaries name no instrument and need the book only. Each record also needs every instrument it names (a `face` limit's instrument, or the position that set its status, and each instrument its reason lists), which the book may no longer hold; a record naming one the caller cannot read is left out of the page and counted in `withheld`, not refused, and the cursor passes it |

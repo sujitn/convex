@@ -28,10 +28,12 @@ setting; no Pages workflow does.
 
 ## Build and serve
 
+The app is one package of the repository's npm workspace, beside the desk app and
+`api-client`, the API client and session both use. From the repository root:
+
 ```sh
-cd admin
 npm ci
-npm run lint && npm test && npm run build   # writes admin/dist
+npm run lint -w admin && npm test -w admin && npm run build -w admin   # writes admin/dist
 ```
 
 Then configure the server and open `http://<host>:<port>/admin/`:
@@ -49,6 +51,6 @@ to its own server, and the server admits listed origins only. Startup refuses
 
 ## Develop
 
-`npm run dev` serves on port 3100 and proxies `/api` to `CONVEX_API_URL`, which
+`npm run dev -w admin` serves on port 3100 and proxies `/api` to `CONVEX_API_URL`, which
 defaults to `http://127.0.0.1:8080`. The proxy forwards the page's origin, so list
 `http://localhost:3100` in the server's `cors_origins` while developing.

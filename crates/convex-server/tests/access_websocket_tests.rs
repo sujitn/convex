@@ -57,15 +57,7 @@ async fn connect(
     path: &str,
     token: Option<&str>,
 ) -> Result<Socket, tokio_tungstenite::tungstenite::Error> {
-    let mut request = format!("ws://{address}{path}")
-        .into_client_request()
-        .unwrap();
-    if let Some(token) = token {
-        request
-            .headers_mut()
-            .insert("authorization", format!("Bearer {token}").parse().unwrap());
-    }
-    tokio_tungstenite::connect_async(request)
+    connect_offering(address, path, &[], token)
         .await
         .map(|(socket, _)| socket)
 }
@@ -218,6 +210,129 @@ async fn websocket_aliases_subscription_scopes_delivery_and_quota_release_use_cu
     assert_eq!(next(&mut new_socket).await["type"], "connected");
     new_socket.close(None).await.unwrap();
     drop(new_socket);
+    stop.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(5), task)
+        .await
+        .unwrap()
+        .unwrap();
+    issuer.finish().await;
+}
+
+/// A stream request offering `protocols`, none when empty, and sending `Authorization`
+/// when `header_token` is given.
+async fn connect_offering(
+    address: std::net::SocketAddr,
+    path: &str,
+    protocols: &[String],
+    header_token: Option<&str>,
+) -> Result<
+    (
+        Socket,
+        tokio_tungstenite::tungstenite::handshake::client::Response,
+    ),
+    tokio_tungstenite::tungstenite::Error,
+> {
+    let mut request = format!("ws://{address}{path}")
+        .into_client_request()
+        .unwrap();
+    if !protocols.is_empty() {
+        request.headers_mut().insert(
+            "sec-websocket-protocol",
+            protocols.join(", ").parse().unwrap(),
+        );
+    }
+    if let Some(token) = header_token {
+        request
+            .headers_mut()
+            .insert("authorization", format!("Bearer {token}").parse().unwrap());
+    }
+    tokio_tungstenite::connect_async(request).await
+}
+
+fn bearer_protocol(token: &str) -> String {
+    use base64::Engine as _;
+    format!(
+        "convex.bearer.{}",
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(token)
+    )
+}
+
+fn refused_with(
+    outcome: Result<
+        (
+            Socket,
+            tokio_tungstenite::tungstenite::handshake::client::Response,
+        ),
+        tokio_tungstenite::tungstenite::Error,
+    >,
+) -> u16 {
+    match outcome {
+        Err(tokio_tungstenite::tungstenite::Error::Http(response)) => response.status().as_u16(),
+        Err(other) => panic!("refused before HTTP: {other}"),
+        Ok(_) => panic!("stream opened"),
+    }
+}
+
+#[tokio::test]
+async fn a_browser_opens_the_stream_with_its_token_in_a_subprotocol() {
+    let issuer = IssuerFixture::start().await;
+    let access = AccessControl::new(issuer.verifier.clone(), policy()).unwrap();
+    let s = support::setup().await;
+    let engine = support::make_engine(
+        &s,
+        support::archive(&s),
+        s.plan.clone(),
+        s.store.clone(),
+        convex_engine::RuntimeInput::Captured,
+    );
+    engine.start().await.unwrap();
+    let (address, stop, task) = serve(engine.clone(), access).await;
+    let page = |token: &str| vec!["convex.v1".to_owned(), bearer_protocol(token)];
+
+    // The server selects the page's fixed protocol and never echoes the token's.
+    for path in ["/ws", "/api/v1/ws"] {
+        let (mut socket, response) = connect_offering(address, path, &page(HUMAN_TOKEN), None)
+            .await
+            .unwrap();
+        assert_eq!(response.headers()["sec-websocket-protocol"], "convex.v1");
+        assert_eq!(next(&mut socket).await["type"], "connected");
+        // The token's grants scope the session as a header's do.
+        socket
+            .send(Message::Text(
+                json!({"type":"subscribe_valuations","instrument_ids":["BOND-002"]})
+                    .to_string()
+                    .into(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(until(&mut socket, "error").await["code"], "FORBIDDEN");
+        socket.close(None).await.unwrap();
+    }
+    // A client sending its token as a header and offering no protocol connects as before.
+    let mut socket = connect(address, "/ws", Some(HUMAN_TOKEN)).await.unwrap();
+    assert_eq!(next(&mut socket).await["type"], "connected");
+    socket.close(None).await.unwrap();
+
+    // An unknown token, a token not base64url, two tokens, or a token sent both ways.
+    let unknown = page("not-a-granted-token");
+    let garbled = vec!["convex.v1".to_owned(), "convex.bearer.%%".to_owned()];
+    let twice = vec![bearer_protocol(HUMAN_TOKEN), bearer_protocol(HUMAN_TOKEN)];
+    for protocols in [&unknown, &garbled, &twice] {
+        let status = refused_with(connect_offering(address, "/ws", protocols, None).await);
+        assert_eq!(status, 401, "{protocols:?}");
+    }
+    let both = connect_offering(address, "/ws", &page(HUMAN_TOKEN), Some(HUMAN_TOKEN)).await;
+    assert_eq!(refused_with(both), 400);
+
+    // Only the stream reads a token from a subprotocol.
+    let runtime = reqwest::Client::new()
+        .get(format!("http://{address}/api/v1/runtime"))
+        .header("sec-websocket-protocol", page(HUMAN_TOKEN).join(", "))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(runtime.status().as_u16(), 401);
+
     stop.send(()).unwrap();
     tokio::time::timeout(Duration::from_secs(5), task)
         .await

@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { readAllPages } from './admin'
-import { useSession } from './session'
-import type { HistoryPage, RuntimeHealth, RuntimeResultsPage } from './types'
+import { readAllPages, type RuntimeResultsPage, useSession } from '@convex/api-client'
+import type { HistoryPage, RuntimeHealth } from './types'
 
 const RECENT_ACTIVATIONS = 20
 /** The most results the server returns a page. */

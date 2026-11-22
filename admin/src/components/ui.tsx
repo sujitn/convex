@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ApiFailure } from '../lib/admin'
+import { ApiFailure } from '@convex/api-client'
 
 // Small presentational pieces. Writes are buttons, never <form> submissions: the
 // server's page policy sets form-action 'none'.

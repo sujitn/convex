@@ -3533,12 +3533,9 @@ jobs:
       - name: Run storage and server tests
         run: cargo test --locked -p convex-ext-redb -p convex-server -- --test-threads=1
 
-  admin-app:
-    name: Admin App
+  web-apps:
+    name: Web Apps
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: admin
     steps:
       - uses: actions/checkout@v6
 
@@ -3547,17 +3544,18 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: admin/package-lock.json
+          cache-dependency-path: package-lock.json
 
+      # One workspace: the shared API client and the admin and desk apps.
       - name: Install dependencies
         run: npm ci
 
-      # tsc runs inside the build script.
+      # tsc runs inside each build script.
       - name: Lint
-        run: npm run lint
+        run: npm run lint --workspaces
 
       - name: Test
-        run: npm test
+        run: npm test --workspaces
 
       - name: Build
-        run: npm run build
+        run: npm run build --workspaces

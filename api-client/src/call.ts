@@ -1,4 +1,4 @@
-import { ApiFailure, decodeFailure } from './admin'
+import { decodeFailure } from './failure'
 
 // Same-origin calls only: the server's policy allows connections to itself alone.
 
@@ -47,4 +47,3 @@ export async function call<T>(token: string | null, path: string, options: CallO
   return { data: parsed as T, text, headers: response.headers }
 }
 
-export { ApiFailure }

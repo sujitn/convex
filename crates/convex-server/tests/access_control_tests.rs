@@ -1169,6 +1169,83 @@ async fn live_quote_ingress_needs_writer_market_and_each_event_scope() {
 }
 
 #[tokio::test]
+async fn desk_levels_need_writer_market_and_each_bond_and_source_scope() {
+    let issuer = IssuerFixture::start().await;
+    let router = |document: PolicyDocument| async {
+        let access = AccessControl::new(issuer.verifier.clone(), document).unwrap();
+        let s = support::setup().await;
+        let engine = support::make_engine(
+            &s,
+            support::archive(&s),
+            s.plan.clone(),
+            s.store.clone(),
+            convex_engine::RuntimeInput::Captured,
+        );
+        convex_server::routes::create_router_with_access(engine, true, access)
+    };
+    let mut document = policy();
+    document.grants[0]
+        .resources
+        .insert(ResourceKind::Source, vec!["desk".into()]);
+    let scoped = router(document).await;
+    let marks = |source: &str, instrument_id: &str| {
+        Some(json!({"source": source,
+            "levels": [{"instrument_id": instrument_id, "field": "mid_spread", "level": "125"}]}))
+    };
+    // Admitted: the router has no live runtime, so the handler itself answers 503.
+    let (status, _, body) = request(
+        scoped.clone(),
+        "POST",
+        "/api/v1/market/levels",
+        Some(HUMAN_TOKEN),
+        marks("desk", "BOND-001"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
+    assert_eq!(body["error"], "this server takes no desk levels");
+    // Another source, an ungranted bond, or a reader without a writer role.
+    for (token, body) in [
+        (HUMAN_TOKEN, marks("feed-b", "BOND-001")),
+        (HUMAN_TOKEN, marks("desk", "BOND-002")),
+        (SERVICE_TOKEN, marks("desk", "BOND-001")),
+    ] {
+        let (status, _, reply) = request(
+            scoped.clone(),
+            "POST",
+            "/api/v1/market/levels",
+            Some(token),
+            body,
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{reply}");
+    }
+    // Reading every mark back lists every desk bond, so it needs the wildcards.
+    let (status, _, body) = request(
+        scoped,
+        "GET",
+        "/api/v1/market/levels",
+        Some(HUMAN_TOKEN),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    let mut wildcard = policy();
+    wildcard.grants[0]
+        .resources
+        .insert(ResourceKind::Instrument, vec!["*".into()]);
+    let (status, _, body) = request(
+        router(wildcard).await,
+        "GET",
+        "/api/v1/market/levels",
+        Some(HUMAN_TOKEN),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
+    issuer.finish().await;
+}
+
+#[tokio::test]
 async fn configuration_writes_need_the_operator_role_and_the_configuration_grant() {
     let issuer = IssuerFixture::start().await;
     let access = AccessControl::new(issuer.verifier.clone(), policy()).unwrap();

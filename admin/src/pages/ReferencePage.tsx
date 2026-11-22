@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { type BondPage, type MasterPage, readExact, useSession, writeExact } from '@convex/api-client'
 import { Button, ErrorNotice, Field, JsonBlock, JsonEditor, Pager, Panel, Table, inputClass, parseJson } from '../components/ui'
 import {
   bondEditCommand,
@@ -7,12 +8,7 @@ import {
   masterEditCommand,
   masterLabel,
   newIdempotencyKey,
-  readExact,
-  writeExact,
-  type MasterRecord,
 } from '../lib/admin'
-import { useSession } from '../lib/session'
-import type { BondPage } from '../lib/types'
 
 const PAGE = 50
 // Books keep their own screen and routes.
@@ -129,11 +125,6 @@ function Bonds({ onEdit }: { onEdit: (draft: string) => void }) {
       )}
     </div>
   )
-}
-
-interface MasterPage {
-  items: MasterRecord[]
-  next: string | null
 }
 
 function Masters({ kind, onEdit }: { kind: string; onEdit: (draft: string) => void }) {

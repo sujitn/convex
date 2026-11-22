@@ -136,6 +136,12 @@ pub struct ServerConfig {
     pub bonds_file: Option<String>,
     /// Built admin app served at `/admin`; unset serves nothing there.
     pub admin_ui_dir: Option<String>,
+    /// Built desk app served at `/desk`; unset serves nothing there.
+    pub desk_ui_dir: Option<String>,
+    /// The quote source a Live runtime reads the desk's levels from: the plan's level
+    /// source, written only through `POST /api/v1/market/levels`. Unset, that route
+    /// takes no level.
+    pub desk_level_source: Option<String>,
     /// The limit monitor's settings.
     pub limits: LimitSettings,
 }
@@ -156,6 +162,8 @@ impl Default for ServerConfig {
             fixings_file: None,
             bonds_file: None,
             admin_ui_dir: None,
+            desk_ui_dir: None,
+            desk_level_source: None,
             limits: LimitSettings::default(),
         }
     }
@@ -190,6 +198,10 @@ pub struct EffectiveConfig<'a> {
     pub bonds_file: Option<&'static str>,
     /// Redacted optional admin app directory.
     pub admin_ui_dir: Option<&'static str>,
+    /// Redacted optional desk app directory.
+    pub desk_ui_dir: Option<&'static str>,
+    /// The desk's level source; an identity, not a path.
+    pub desk_level_source: Option<&'a str>,
     /// The limit monitor's settings.
     pub limits: LimitSettings,
 }
@@ -348,6 +360,8 @@ impl ServerConfig {
                 "CONVEX_FIXINGS_FILE" => candidate.fixings_file = Some(value),
                 "CONVEX_BONDS_FILE" => candidate.bonds_file = Some(value),
                 "CONVEX_ADMIN_UI_DIR" => candidate.admin_ui_dir = Some(value),
+                "CONVEX_DESK_UI_DIR" => candidate.desk_ui_dir = Some(value),
+                "CONVEX_DESK_LEVEL_SOURCE" => candidate.desk_level_source = Some(value),
                 "CONVEX_LIMITS_CLEAR_HOLD_SECONDS" => {
                     candidate.limits.clear_hold_seconds =
                         value.parse().map_err(|_| ConfigError::InvalidValue {
@@ -392,15 +406,21 @@ impl ServerConfig {
                 expected: "a nonempty file path without NUL",
             });
         }
-        if self
-            .admin_ui_dir
-            .as_ref()
-            .is_some_and(|dir| dir.trim().is_empty() || dir.contains('\0'))
-        {
-            return Err(ConfigError::InvalidValue {
-                field: "admin_ui_dir",
-                expected: "a nonempty directory path without NUL",
-            });
+        for (field, dir) in self.app_dirs() {
+            if dir.trim().is_empty() || dir.contains('\0') {
+                return Err(ConfigError::InvalidValue {
+                    field,
+                    expected: "a nonempty directory path without NUL",
+                });
+            }
+        }
+        if let Some(source) = &self.desk_level_source {
+            convex_core::contracts::SourceId::new(source).map_err(|_| {
+                ConfigError::InvalidValue {
+                    field: "desk_level_source",
+                    expected: "a quote source id",
+                }
+            })?;
         }
         if self.limits.clear_hold_seconds > MAX_CLEAR_HOLD_SECONDS {
             return Err(ConfigError::InvalidValue {
@@ -478,24 +498,34 @@ impl ServerConfig {
         Ok(())
     }
 
+    /// The built apps the server serves, by setting name.
+    fn app_dirs(&self) -> impl Iterator<Item = (&'static str, &str)> {
+        [
+            ("admin_ui_dir", &self.admin_ui_dir),
+            ("desk_ui_dir", &self.desk_ui_dir),
+        ]
+        .into_iter()
+        .filter_map(|(field, dir)| dir.as_deref().map(|dir| (field, dir)))
+    }
+
     /// Refuse an incomplete composition before opening storage.
     pub fn validate_startup(&self) -> Result<(), ConfigError> {
         self.validate()?;
-        if let Some(dir) = &self.admin_ui_dir {
+        for (field, dir) in self.app_dirs() {
             if !std::path::Path::new(dir).join("index.html").is_file() {
                 return Err(ConfigError::InvalidValue {
-                    field: "admin_ui_dir",
-                    expected: "a directory holding the built admin app's index.html",
+                    field,
+                    expected: "a directory holding the built app's index.html",
                 });
             }
-            // Browsers send Origin on the page's module script and on every write, even
-            // to its own server, and the origin guard admits listed origins only.
-            if self.access.cors_origins.is_empty() {
-                return Err(ConfigError::InvalidValue {
-                    field: "access.cors_origins",
-                    expected: "the admin page's own origin when admin_ui_dir is set",
-                });
-            }
+        }
+        // Browsers send Origin on the page's module script and on every write, even to
+        // its own server, and the origin guard admits listed origins only.
+        if self.app_dirs().next().is_some() && self.access.cors_origins.is_empty() {
+            return Err(ConfigError::InvalidValue {
+                field: "access.cors_origins",
+                expected: "the page's own origin when admin_ui_dir or desk_ui_dir is set",
+            });
         }
         if self.profile == ServerProfile::Production {
             self.validate_production()?;
@@ -589,6 +619,12 @@ impl ServerConfig {
             fixings_file: self.fixings_file.as_ref().map(|_| REDACTED),
             bonds_file: self.bonds_file.as_ref().map(|_| REDACTED),
             admin_ui_dir: self.admin_ui_dir.as_ref().map(|_| REDACTED),
+            desk_ui_dir: self.desk_ui_dir.as_ref().map(|_| REDACTED),
+            // Shown only once valid, like `configuration_id`.
+            desk_level_source: self
+                .desk_level_source
+                .as_deref()
+                .filter(|id| convex_core::contracts::SourceId::new(*id).is_ok()),
             limits: self.limits,
         }
     }
@@ -611,6 +647,8 @@ impl ServerConfig {
             "CONVEX_FIXINGS_FILE",
             "CONVEX_BONDS_FILE",
             "CONVEX_ADMIN_UI_DIR",
+            "CONVEX_DESK_UI_DIR",
+            "CONVEX_DESK_LEVEL_SOURCE",
             "CONVEX_LIMITS_CLEAR_HOLD_SECONDS",
             "CONVEX_LIMITS_RECORD_RETENTION_DAYS",
         ]

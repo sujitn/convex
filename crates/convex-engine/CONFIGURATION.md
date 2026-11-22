@@ -131,7 +131,10 @@ everything the repository does not hold; nothing has a default:
 ```
 
 `levels` is optional: where a desk posts the levels of bonds quoted by a yield or a
-spread, and how old one may be, such as a trading day.
+spread, and how old one may be, such as a trading day. A server whose
+`desk_level_source` names the same source takes the desk's marks through
+`POST /api/v1/market/levels` and refuses a feed's quote on it (see the server's
+README).
 
 At the cutoff, compile:
 - takes the universe from the live positions of 1 to 64 books (at most 4,096
