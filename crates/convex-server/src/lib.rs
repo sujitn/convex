@@ -102,7 +102,6 @@ pub struct Server {
     access: Arc<access::AccessControl>,
     core: Option<Arc<convex_engine::core_workflow::CoreWorkflow>>,
     quotes: Option<Arc<market::QuoteIngress>>,
-    desk_levels: Option<Arc<desk_levels::DeskLevels>>,
     limits: Option<Arc<limit_monitor::LimitMonitor>>,
 }
 
@@ -120,7 +119,6 @@ impl Server {
             access,
             core: None,
             quotes: None,
-            desk_levels: None,
             limits: None,
         }
     }
@@ -137,7 +135,6 @@ impl Server {
             access,
             core: None,
             quotes: None,
-            desk_levels: None,
             limits: None,
         }
     }
@@ -154,12 +151,6 @@ impl Server {
     /// Accept live quotes for the Live runtime over `POST /api/v1/market/quotes`.
     pub fn with_quote_ingress(mut self, quotes: Arc<market::QuoteIngress>) -> Self {
         self.quotes = Some(quotes);
-        self
-    }
-
-    /// Take the desk's levels over `POST /api/v1/market/levels`, onto the quote ingress.
-    pub fn with_desk_levels(mut self, desk: Arc<desk_levels::DeskLevels>) -> Self {
-        self.desk_levels = Some(desk);
         self
     }
 
@@ -223,9 +214,6 @@ impl Server {
         );
         if let Some(core) = &self.core {
             router = router.layer(Extension(core.clone()));
-        }
-        if let Some(desk) = &self.desk_levels {
-            router = router.layer(Extension(desk.clone()));
         }
         if let Some(quotes) = &self.quotes {
             router = router.layer(Extension(quotes.clone()));
@@ -358,11 +346,10 @@ impl Server {
         }
     }
 }
-/// The built admin app: static files outside the API access layer (they carry no data),
-/// with unknown paths falling back to its single page. The page holds a pasted bearer
-/// token in memory, so it loads scripts only from its own origin and cannot be framed.
-/// A built single-page app: its files, `index.html` for any other path, and a policy
-/// admitting only its own origin.
+/// A built app, the admin's or the desk's: static files outside the API access layer
+/// (they carry no data), with unknown paths falling back to its single page. The page
+/// holds a pasted bearer token in memory, so it loads scripts and connects only to its
+/// own origin and cannot be framed.
 fn built_app(dir: &str) -> Router {
     use axum::http::header;
     use tower_http::services::{ServeDir, ServeFile};

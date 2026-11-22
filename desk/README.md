@@ -15,7 +15,7 @@ server publishes it, from its `desk_ui_dir` setting, at `/desk`.
   CUSIP, coupon, maturity and method (`Price`, `Yield`, `Sprd 10Y`, `Z`, `DM`, `OAS`),
   then its level and its Live clean price, yield, Z-spread, G-spread and DV01.
 - **Numbers.** Right-aligned in tabular figures. Prices per 100 at three decimals, and
-  Treasuries in 32nds (`99-16+` is 99 16.5/32, `99-162` is 99 16 2/8/32). Yields in
+  US Treasury notes and bonds in 32nds (`99-16+` is 99 16.5/32, `99-162` is 99 16 2/8/32). Yields in
   percent, spreads and margins in basis points. A level is sent back exactly as
   written, never as a float.
 - **Live.** The sheet follows every row on the stream. Subscribing sends each bond's
@@ -33,10 +33,12 @@ server publishes it, from its `desk_ui_dir` setting, at `/desk`.
   - Enter types a level: a decimal yield (`0.0525`) or basis points, as the rule's
     field reads; Escape cancels.
 
-  Each mark is posted at once, and the bond's next result prices it. A refused mark
-  shows its code and reason, and the level reverts. The Mark column is its age. A
-  server restart holds no level, as the Live runtime holds none, so levels are marked
-  again after one.
+  Each mark is posted at once, and the bond's next result prices it. While one is in
+  flight, a held key's further nudges wait and only the latest level follows, since a
+  level is absolute. A refused mark shows its code and reason, and the level reverts.
+  The Mark column is its age. The sheet reads every mark again each 5 seconds, so
+  another page's marks appear. A server restart holds no level, as the Live runtime
+  holds none, so levels are marked again after one.
 
 ## The calculator
 

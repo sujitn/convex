@@ -44,15 +44,9 @@ async fn price_treasuries(server: &Running, keys: &LevelKeys, sequence: u64) {
 }
 
 async fn mark(server: &Running, body: Value) -> (StatusCode, Value) {
-    let response = server
-        .client
-        .post(format!("{}/api/v1/market/levels", server.base))
-        .json(&body)
-        .send()
+    server
+        .send(reqwest::Method::POST, "/api/v1/market/levels", Some(&body))
         .await
-        .unwrap();
-    let status = response.status();
-    (status, response.json().await.unwrap_or(Value::Null))
 }
 
 fn spread(instrument_id: &str, level: &str) -> Value {
@@ -61,14 +55,9 @@ fn spread(instrument_id: &str, level: &str) -> Value {
 
 async fn marks(server: &Running) -> Value {
     server
-        .client
-        .get(format!("{}/api/v1/market/levels", server.base))
-        .send()
+        .send(reqwest::Method::GET, "/api/v1/market/levels", None)
         .await
-        .unwrap()
-        .json()
-        .await
-        .unwrap()
+        .1
 }
 
 /// The bond's Live clean price mid once its record is newer than `after`, with that
@@ -76,15 +65,9 @@ async fn marks(server: &Running) -> Value {
 async fn clean_price_after(server: &Running, instrument_id: &str, after: u64) -> (u64, String) {
     tokio::time::timeout(Duration::from_secs(10), async {
         loop {
-            let page: Value = server
-                .client
-                .get(format!("{}/api/v1/runtime/results", server.base))
-                .send()
-                .await
-                .unwrap()
-                .json()
-                .await
-                .unwrap();
+            let (_, page) = server
+                .send(reqwest::Method::GET, "/api/v1/runtime/results", None)
+                .await;
             let record = page["results"].as_array().unwrap().iter().find(|record| {
                 record["result"]["provenance"]["subject"]["instrument_id"] == instrument_id
             });

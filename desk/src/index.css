@@ -1,3 +1,23 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* A moved clean price flashes its direction, then fades. */
+@keyframes tick-up {
+  from {
+    background-color: rgb(6 78 59);
+    color: rgb(167 243 208);
+  }
+}
+@keyframes tick-down {
+  from {
+    background-color: rgb(127 29 29);
+    color: rgb(254 202 202);
+  }
+}
+.tick-up {
+  animation: tick-up 1.5s ease-out;
+}
+.tick-down {
+  animation: tick-down 1.5s ease-out;
+}

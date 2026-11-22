@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readExact, writeExact } from '@convex/api-client'
+import { readExact, writeExact, type MasterRecord } from '@convex/api-client'
 import {
   bondEditCommand,
   configurationWriteHeaders,
@@ -9,7 +9,6 @@ import {
   masterLabel,
   newIdempotencyKey,
   restartState,
-  type MasterRecord,
 } from './admin'
 
 const calendar: MasterRecord = {

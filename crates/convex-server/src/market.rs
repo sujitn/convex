@@ -9,22 +9,24 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
+use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use async_trait::async_trait;
 use axum::extract::rejection::JsonRejection;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
+use convex_core::contracts::UtcTimestamp;
 use convex_core::ids::InstrumentId;
 use convex_engine::ports::market_data::{QuoteSource, RawQuote, SourceType, StreamReceiver};
 use convex_engine::ports::quote_event::{QuoteEvent, QuoteKey};
 use convex_engine::ports::TraitError;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 use tracing::warn;
 
+use crate::desk_levels::{DeskLevel, DeskLevels, DeskMark};
 use crate::error::ApiError;
 
 /// Events per request.
@@ -38,20 +40,12 @@ const MAX_ROW_ERRORS: usize = 64;
 pub const MAX_CLOCK_STEP_MS: i64 = 5_000;
 
 /// The Live runtime's only quote source, fed by [`QuoteIngress::submit`] and, for the
-/// desk's levels, by [`QuoteIngress::submit_desk`].
+/// desk's levels, by the desk level route.
 pub struct QuoteIngress {
     keys: HashSet<QuoteKey>,
-    /// The source only the desk's level route writes.
-    desk_source: Option<String>,
+    /// The desk's level source, which only the desk level route writes.
+    desk: Option<DeskLevels>,
     queue: Mutex<Queue>,
-}
-
-/// Who sends a batch: a feed, through `POST /api/v1/market/quotes`, or the desk's level
-/// route, the only writer of the desk's source.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Writer {
-    Feed,
-    Desk,
 }
 
 struct Queue {
@@ -59,6 +53,11 @@ struct Queue {
     last_receive_ms: i64,
     /// The clock is behind the last stamp; the step has been logged.
     stepped: bool,
+    /// The last sequence of a desk mark. An image is taken at any higher sequence, so one
+    /// counter numbers every desk bond's quotes.
+    desk_sequence: u64,
+    /// Each desk bond's last mark queued by this process.
+    desk_marks: HashMap<InstrumentId, DeskMark>,
 }
 
 impl Queue {
@@ -85,10 +84,33 @@ impl Queue {
         }
         Ok(self.last_receive_ms)
     }
+
+    /// Queue `events`, stamped `now`, as one batch, or none of them when the runtime's
+    /// queue cannot take them all.
+    fn send(&mut self, events: Vec<QuoteEvent>, now: i64) -> Result<Receipt, IngressError> {
+        if self.sender.len() + events.len() > CAPACITY {
+            return Err(IngressError::Busy);
+        }
+        let accepted = events.len();
+        for event in events {
+            self.sender
+                .send(event)
+                .map_err(|_| IngressError::Unavailable("live runtime stopped"))?;
+        }
+        self.last_receive_ms = now;
+        Ok(Receipt {
+            accepted,
+            receive_time_ms: now,
+        })
+    }
+}
+
+fn wall_clock_ms() -> i64 {
+    chrono::Utc::now().timestamp_millis()
 }
 
 /// Queued events and the server receipt time stamped on all of them.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct Receipt {
     /// Events queued for the runtime, which prices them after this returns.
     pub accepted: usize,
@@ -131,35 +153,44 @@ impl QuoteIngress {
         let (sender, _) = broadcast::channel(CAPACITY);
         Self {
             keys: keys.into_iter().collect(),
-            desk_source: None,
+            desk: None,
             queue: Mutex::new(Queue {
                 sender,
                 last_receive_ms: 0,
                 stepped: false,
+                desk_sequence: 0,
+                desk_marks: HashMap::new(),
             }),
         }
     }
 
-    /// Reserve `source` for the desk's level route: a feed's event on it is refused, so
-    /// the route alone numbers that source's quotes.
-    pub fn with_desk_source(mut self, source: impl Into<String>) -> Self {
-        self.desk_source = Some(source.into());
+    /// Reserve the desk's level source for the desk level route: a feed's event on it is
+    /// refused, so the ingress alone numbers that source's quotes.
+    pub fn with_desk_levels(mut self, desk: DeskLevels) -> Self {
+        self.desk = Some(desk);
         self
+    }
+
+    /// The desk's level source and its bonds, when this server takes desk levels.
+    pub(crate) fn desk_levels(&self) -> Option<&DeskLevels> {
+        self.desk.as_ref()
+    }
+
+    /// The queue, once a runtime is subscribed to it.
+    fn admit(&self) -> Result<MutexGuard<'_, Queue>, IngressError> {
+        let queue = self
+            .queue
+            .lock()
+            .map_err(|_| IngressError::Unavailable("quote ingress is unavailable"))?;
+        if queue.sender.receiver_count() == 0 {
+            return Err(IngressError::Unavailable("no live runtime is subscribed"));
+        }
+        Ok(queue)
     }
 
     /// Stamp server receipt time on every event and queue the whole batch, or nothing.
     pub fn submit(&self, events: Vec<QuoteEvent>) -> Result<Receipt, IngressError> {
-        self.submit_with_clock(events, Writer::Feed, || {
-            chrono::Utc::now().timestamp_millis()
-        })
-    }
-
-    /// [`Self::submit`] for the desk's marks, on the desk's source only: a mark is
-    /// observed when it is received, so its source time is its receipt time too.
-    pub(crate) fn submit_desk(&self, events: Vec<QuoteEvent>) -> Result<Receipt, IngressError> {
-        self.submit_with_clock(events, Writer::Desk, || {
-            chrono::Utc::now().timestamp_millis()
-        })
+        self.submit_with_clock(events, wall_clock_ms)
     }
 
     /// [`Self::submit`] with the wall clock read from `clock`, under the queue lock so
@@ -167,30 +198,19 @@ impl QuoteIngress {
     fn submit_with_clock(
         &self,
         mut events: Vec<QuoteEvent>,
-        writer: Writer,
         clock: impl FnOnce() -> i64,
     ) -> Result<Receipt, IngressError> {
         if events.is_empty() || events.len() > MAX_BATCH {
             return Err(IngressError::Batch);
         }
-        let mut queue = self
-            .queue
-            .lock()
-            .map_err(|_| IngressError::Unavailable("quote ingress is unavailable"))?;
-        if queue.sender.receiver_count() == 0 {
-            return Err(IngressError::Unavailable("no live runtime is subscribed"));
-        }
+        let mut queue = self.admit()?;
         // The runtime refuses receipt times out of order; its cutoffs never fall below one.
         let now = queue.stamp(clock())?;
+        let desk_source = self.desk.as_ref().map(DeskLevels::source);
         let mut rows = Vec::new();
-        let mut refused = 0usize;
         for (index, event) in events.iter_mut().enumerate() {
             event.receive_time_ms = now;
-            if writer == Writer::Desk {
-                event.source_time_ms = now;
-            }
-            let on_desk_source = self.desk_source.as_deref() == Some(event.key.source.as_str());
-            let refusal = if on_desk_source != (writer == Writer::Desk) {
+            let refusal = if desk_source == Some(event.key.source.as_str()) {
                 Some((
                     "DESK_LEVEL_SOURCE",
                     "the desk's levels are marked through /api/v1/market/levels only",
@@ -208,38 +228,69 @@ impl QuoteIngress {
                 None
             };
             if let Some((code, reason)) = refusal {
-                refused += 1;
-                if rows.len() < MAX_ROW_ERRORS {
-                    rows.push(RowError {
-                        index,
-                        code,
-                        reason,
-                    });
-                }
+                rows.push(RowError {
+                    index,
+                    code,
+                    reason,
+                });
             }
         }
-        if refused > 0 {
-            return Err(IngressError::Rejected {
-                truncated: refused > rows.len(),
-                rows,
-            });
-        }
-        if queue.sender.len() + events.len() > CAPACITY {
-            return Err(IngressError::Busy);
-        }
-        let accepted = events.len();
-        for event in events {
-            queue
-                .sender
-                .send(event)
-                .map_err(|_| IngressError::Unavailable("live runtime stopped"))?;
-        }
-        queue.last_receive_ms = now;
-        Ok(Receipt {
-            accepted,
-            receive_time_ms: now,
-        })
+        rejected(rows)?;
+        queue.send(events, now)
     }
+
+    /// Queue the desk's marks as one batch, or none of them. Each is a `manual` image of
+    /// its bond's level field on the desk's source, numbered and stamped under the queue
+    /// lock: a mark is observed when it is received, so its source time is its receipt
+    /// time. The caller has checked each mark against the plan and the bond's rule.
+    pub(crate) fn mark_desk(&self, levels: &[DeskLevel]) -> Result<Receipt, IngressError> {
+        let desk = self.desk.as_ref().ok_or(IngressError::Unavailable(
+            "this server takes no desk levels",
+        ))?;
+        if levels.is_empty() || levels.len() > MAX_BATCH {
+            return Err(IngressError::Batch);
+        }
+        let mut queue = self.admit()?;
+        let now = queue.stamp(wall_clock_ms())?;
+        let marked_at = chrono::DateTime::from_timestamp_millis(now)
+            .and_then(|at| UtcTimestamp::from_datetime(at).ok())
+            .ok_or(IngressError::Unavailable("server clock is out of range"))?;
+        let first = queue.desk_sequence + 1;
+        let quotes = levels
+            .iter()
+            .zip(first..)
+            .map(|(level, sequence)| desk.quote(level, sequence, now))
+            .collect();
+        let receipt = queue.send(quotes, now)?;
+        queue.desk_sequence += levels.len() as u64;
+        for level in levels {
+            queue.desk_marks.insert(
+                level.instrument_id.clone(),
+                DeskMark::queued(level, marked_at),
+            );
+        }
+        Ok(receipt)
+    }
+
+    /// Each desk bond's last mark queued by this process.
+    pub(crate) fn desk_marks(&self) -> Result<HashMap<InstrumentId, DeskMark>, IngressError> {
+        let queue = self
+            .queue
+            .lock()
+            .map_err(|_| IngressError::Unavailable("quote ingress is unavailable"))?;
+        Ok(queue.desk_marks.clone())
+    }
+}
+
+/// The refusal of a batch with `rows` refused, reporting the first [`MAX_ROW_ERRORS`];
+/// none when no row is.
+pub(crate) fn rejected(mut rows: Vec<RowError>) -> Result<(), IngressError> {
+    if rows.is_empty() {
+        return Ok(());
+    }
+    let truncated = rows.len() > MAX_ROW_ERRORS;
+    rows.truncate(MAX_ROW_ERRORS);
+    Err(IngressError::Rejected { rows, truncated })
 }
 
 #[async_trait]
@@ -309,16 +360,14 @@ pub async fn post_quotes(
     let submitted = ingress.submit(batch.events);
     convex_engine::telemetry::observe(convex_engine::telemetry::INGRESS_SECONDS, started);
     match submitted {
-        Ok(receipt) => (
-            StatusCode::ACCEPTED,
-            Json(serde_json::json!({
-                "accepted": receipt.accepted,
-                "receive_time_ms": receipt.receive_time_ms,
-            })),
-        )
-            .into_response(),
+        Ok(receipt) => accepted(receipt),
         Err(error) => ingress_error(error),
     }
+}
+
+/// The reply to a batch the ingress queued: 202, its count and receipt time.
+pub(crate) fn accepted(receipt: Receipt) -> Response {
+    (StatusCode::ACCEPTED, Json(receipt)).into_response()
 }
 
 /// The reply to a batch the ingress queued nothing of. A refused row is 422
@@ -463,7 +512,7 @@ mod tests {
         let t = 1_700_000_000_000;
         let stamped = |clock: i64, events| {
             ingress
-                .submit_with_clock(events, Writer::Feed, || clock)
+                .submit_with_clock(events, || clock)
                 .map(|r| r.receive_time_ms)
         };
         assert_eq!(stamped(t, vec![event(1, t)]), Ok(t));
@@ -499,6 +548,8 @@ mod tests {
             sender,
             last_receive_ms: 1_000,
             stepped: false,
+            desk_sequence: 0,
+            desk_marks: HashMap::new(),
         };
         assert_eq!(queue.stamp(900), Ok(1_000));
         assert!(queue.stepped);

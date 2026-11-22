@@ -35,10 +35,3 @@ export function addDecimal(a: string, b: string): string {
   const scale = Math.max(scaleOf(a), scaleOf(b))
   return written(scaled(a, scale) + scaled(b, scale), scale)
 }
-
-/** `a × n` for a whole `n`, exactly, at `a`'s scale. */
-export function multiplyDecimal(a: string, n: number): string {
-  if (!Number.isInteger(n)) throw new Error(`not a whole multiple: ${n}`)
-  const scale = scaleOf(a)
-  return written(scaled(a, scale) * BigInt(n), scale)
-}

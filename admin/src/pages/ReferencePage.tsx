@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { type BondPage, readExact, useSession, writeExact } from '@convex/api-client'
+import { type BondPage, type MasterPage, readExact, useSession, writeExact } from '@convex/api-client'
 import { Button, ErrorNotice, Field, JsonBlock, JsonEditor, Pager, Panel, Table, inputClass, parseJson } from '../components/ui'
 import {
   bondEditCommand,
@@ -8,7 +8,6 @@ import {
   masterEditCommand,
   masterLabel,
   newIdempotencyKey,
-  type MasterRecord,
 } from '../lib/admin'
 
 const PAGE = 50
@@ -126,11 +125,6 @@ function Bonds({ onEdit }: { onEdit: (draft: string) => void }) {
       )}
     </div>
   )
-}
-
-interface MasterPage {
-  items: MasterRecord[]
-  next: string | null
 }
 
 function Masters({ kind, onEdit }: { kind: string; onEdit: (draft: string) => void }) {

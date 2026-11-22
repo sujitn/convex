@@ -120,17 +120,15 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function Refusal({ error }: { error: unknown }) {
-  const text = error instanceof ApiFailure ? `${error.status} ${error.code}: ${error.reason}` : String(error)
+  const text = error instanceof ApiFailure ? error.message : String(error)
   return <p className="rounded border border-red-900 bg-red-950 px-3 py-2 text-sm text-red-300">{text}</p>
 }
 
-/** Members of the reply that are not measures. */
-const READ_MEMBERS = new Set(['input', 'pricing_rule', 'workouts', 'worst', 'snapshot', 'option_model', 'measure_errors'])
-
 function Reply({ reply }: { reply: CalculationReply }) {
+  // The measures are the reply's numeric members; the rest is what was read.
   const measures = Object.entries(reply).filter(
     (entry): entry is [string, number | string] =>
-      !READ_MEMBERS.has(entry[0]) && (typeof entry[1] === 'number' || typeof entry[1] === 'string'),
+      typeof entry[1] === 'number' || (typeof entry[1] === 'string' && isDecimal(entry[1])),
   )
   return (
     <>

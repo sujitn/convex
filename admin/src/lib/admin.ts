@@ -1,3 +1,5 @@
+import type { MasterRecord } from '@convex/api-client'
+
 type Json = Record<string, unknown>
 
 // Pure helpers the admin screens share. Nothing here validates domain data: the
@@ -34,12 +36,6 @@ export function restartState(health: RuntimeSelection, active: number | null): R
   return 'pending_restart'
 }
 
-/** A master resource as `GET /api/v1/reference/masters/:kind` lists it. */
-export interface MasterRecord {
-  version: number
-  recorded_at: string
-  definition: { kind: string; definition: Json }
-}
 
 /** A complete replacement of one master resource at its current version. */
 export function masterEditCommand(record: MasterRecord, key: string): Json {

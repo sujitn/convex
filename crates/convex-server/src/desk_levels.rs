@@ -2,24 +2,24 @@
 //! yield or a spread, and `GET /api/v1/market/levels` reads every mark back.
 //!
 //! A mark is a `manual` quote on the desk's level source, the source the Live plan reads
-//! those bonds' levels from. This route is that source's only writer: the quote ingress
-//! refuses a feed's event on it. The route numbers each bond's quotes in one session per
-//! process, so two pages marking at once cannot interleave. A Live runtime keeps no quote
-//! across a restart, and neither does this route, so the marks it reads back are the
-//! levels the runtime holds.
+//! those bonds' levels from. The quote ingress owns that source: it refuses a feed's event
+//! on it, and stamps each mark's session, sequence and times under the lock that orders
+//! every quote, so two pages marking at once cannot interleave. A Live runtime keeps no
+//! quote across a restart, and neither does the ingress, so the marks it reads back are
+//! the levels the runtime holds.
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use axum::extract::rejection::JsonRejection;
 use axum::extract::State;
-use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use convex_core::contracts::{ExactDecimal, UtcTimestamp};
 use convex_core::ids::InstrumentId;
+use convex_engine::level_pricing::check_level;
 use convex_engine::ports::quote_event::{
     FieldUpdate, QuoteChange, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality,
     QuoteValue,
@@ -27,16 +27,13 @@ use convex_engine::ports::quote_event::{
 use convex_engine::ports::reference_master::ReferenceLookup;
 use convex_engine::ports::snapshot::QuoteRequirement;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 use crate::error::ApiError;
 use crate::handlers::AppState;
-use crate::market::{IngressError, QuoteIngress, RowError, MAX_BATCH};
+use crate::market::{accepted, ingress_error, rejected, QuoteIngress, RowError, MAX_BATCH};
 
 /// The session every mark of this process is sent in.
 const DESK_SESSION: &str = "desk";
-/// Refused marks reported per response.
-const MAX_ROW_ERRORS: usize = 64;
 
 /// Why a plan cannot take the desk's levels.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -49,25 +46,19 @@ pub enum DeskLevelsError {
     NotALevel(String),
 }
 
-/// One bond the desk marks: its level's field, and the marks this process sent.
-struct DeskBond {
-    field: QuoteField,
-    /// The last sequence sent; 0 before the first mark.
-    sequence: u64,
-    last: Option<DeskMark>,
-}
-
-/// A mark as queued for the runtime, its level as sent.
-#[derive(Clone, Serialize)]
-struct DeskMark {
-    level: ExactDecimal,
-    marked_at: UtcTimestamp,
-}
-
-/// The desk's level source and the bonds whose levels it carries.
+/// The desk's level source and the level field of each bond the plan reads from it.
 pub struct DeskLevels {
     source: String,
-    bonds: Mutex<HashMap<InstrumentId, DeskBond>>,
+    fields: HashMap<InstrumentId, QuoteField>,
+    /// The same bonds in instrument id order, as they are read back.
+    order: Vec<InstrumentId>,
+}
+
+/// A mark as the ingress queued it, its level as sent.
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct DeskMark {
+    level: ExactDecimal,
+    marked_at: UtcTimestamp,
 }
 
 impl DeskLevels {
@@ -75,28 +66,24 @@ impl DeskLevels {
     /// spread field. A plan with none, or with another quote on it, is refused: a typo
     /// would otherwise mark nothing, and a price on the source is not the desk's level.
     pub fn from_plan(source: &str, quotes: &[QuoteRequirement]) -> Result<Self, DeskLevelsError> {
-        let mut bonds = HashMap::new();
+        let mut fields = HashMap::new();
         for quote in quotes.iter().filter(|quote| quote.key.source == source) {
             let instrument_id = quote.key.instrument_id.clone();
             let field = match quote.fields.as_slice() {
                 [field @ (QuoteField::MidYield | QuoteField::MidSpread)] => *field,
                 _ => return Err(DeskLevelsError::NotALevel(instrument_id.as_str().into())),
             };
-            bonds.insert(
-                instrument_id,
-                DeskBond {
-                    field,
-                    sequence: 0,
-                    last: None,
-                },
-            );
+            fields.insert(instrument_id, field);
         }
-        if bonds.is_empty() {
+        if fields.is_empty() {
             return Err(DeskLevelsError::Unused(source.into()));
         }
+        let mut order: Vec<_> = fields.keys().cloned().collect();
+        order.sort_by(|a, b| a.as_str().cmp(b.as_str()));
         Ok(Self {
             source: source.into(),
-            bonds: Mutex::new(bonds),
+            fields,
+            order,
         })
     }
 
@@ -105,64 +92,43 @@ impl DeskLevels {
         &self.source
     }
 
-    /// Queue `marks` as one batch, numbering each bond's next quote, or queue nothing.
-    /// The lock is held across the submit, so sequences follow queue order.
-    fn mark(
-        &self,
-        ingress: &QuoteIngress,
-        marks: &[(InstrumentId, QuoteField, ExactDecimal)],
-    ) -> Result<(usize, i64), MarkError> {
-        let mut bonds = self.bonds.lock().map_err(|_| MarkError::Unavailable)?;
-        let mut events = Vec::with_capacity(marks.len());
-        for (instrument_id, field, level) in marks {
-            let bond = bonds.get(instrument_id).ok_or(MarkError::Unavailable)?;
-            events.push(QuoteEvent {
-                schema_version: 1,
-                key: QuoteKey {
-                    instrument_id: instrument_id.clone(),
-                    source: self.source.clone(),
-                },
-                session: DESK_SESSION.into(),
-                sequence: bond.sequence + 1,
-                source_time_ms: 0,
-                receive_time_ms: 0,
-                quality: QuoteQuality::Manual,
-                entitled: true,
-                entitlement_tags: Vec::new(),
-                evidence_reference: None,
-                event: QuoteEventKind::Image {
-                    fields: vec![QuoteChange {
-                        field: *field,
-                        update: FieldUpdate::Set(QuoteValue {
-                            value: level.decimal(),
-                            unit: field.unit(),
-                        }),
-                    }],
-                },
-            });
+    /// The mark `level` as the desk's quote, numbered `sequence` and observed `at`.
+    pub(crate) fn quote(&self, level: &DeskLevel, sequence: u64, at_ms: i64) -> QuoteEvent {
+        QuoteEvent {
+            schema_version: 1,
+            key: QuoteKey {
+                instrument_id: level.instrument_id.clone(),
+                source: self.source.clone(),
+            },
+            session: DESK_SESSION.into(),
+            sequence,
+            source_time_ms: at_ms,
+            receive_time_ms: at_ms,
+            quality: QuoteQuality::Manual,
+            entitled: true,
+            entitlement_tags: Vec::new(),
+            evidence_reference: None,
+            event: QuoteEventKind::Image {
+                fields: vec![QuoteChange {
+                    field: level.field,
+                    update: FieldUpdate::Set(QuoteValue {
+                        value: level.level.decimal(),
+                        unit: level.field.unit(),
+                    }),
+                }],
+            },
         }
-        let receipt = ingress.submit_desk(events).map_err(MarkError::Ingress)?;
-        let marked_at = UtcTimestamp::from_datetime(
-            chrono::DateTime::from_timestamp_millis(receipt.receive_time_ms)
-                .ok_or(MarkError::Unavailable)?,
-        )
-        .map_err(|_| MarkError::Unavailable)?;
-        for (instrument_id, _, level) in marks {
-            if let Some(bond) = bonds.get_mut(instrument_id) {
-                bond.sequence += 1;
-                bond.last = Some(DeskMark {
-                    level: *level,
-                    marked_at,
-                });
-            }
-        }
-        Ok((receipt.accepted, receipt.receive_time_ms))
     }
 }
 
-enum MarkError {
-    Ingress(IngressError),
-    Unavailable,
+impl DeskMark {
+    /// The mark `level` records once queued at `marked_at`.
+    pub(crate) fn queued(level: &DeskLevel, marked_at: UtcTimestamp) -> Self {
+        Self {
+            level: level.level,
+            marked_at,
+        }
+    }
 }
 
 /// `POST /api/v1/market/levels` body.
@@ -178,8 +144,8 @@ pub struct DeskLevelBatch {
 /// One bond's level, absolute: sending it twice marks it twice at the same level.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct DeskLevel {
-    instrument_id: InstrumentId,
+pub(crate) struct DeskLevel {
+    pub(crate) instrument_id: InstrumentId,
     /// The rule's field, `mid_yield` or `mid_spread`, so a level in the wrong unit is
     /// refused rather than read as the other.
     field: QuoteField,
@@ -193,15 +159,17 @@ struct DeskLevel {
 /// level outside its method's range refuses the whole batch with 422 `QUOTES_REJECTED`.
 pub(crate) async fn post_levels(
     State(state): State<Arc<AppState>>,
-    desk: Option<Extension<Arc<DeskLevels>>>,
     ingress: Option<Extension<Arc<QuoteIngress>>>,
     payload: Result<Json<DeskLevelBatch>, JsonRejection>,
 ) -> Response {
     let batch = match payload {
         Ok(Json(batch)) => batch,
-        Err(rejection) => return ApiError::invalid(rejection.body_text()).into_response(),
+        Err(rejection) => return ApiError::from(rejection).into_response(),
     };
-    let (Some(Extension(desk)), Some(Extension(ingress))) = (desk, ingress) else {
+    let Some((ingress, desk)) = ingress
+        .as_ref()
+        .and_then(|Extension(ingress)| Some((ingress, ingress.desk_levels()?)))
+    else {
         return ApiError::unavailable("this server takes no desk levels").into_response();
     };
     if batch.source != desk.source {
@@ -219,134 +187,123 @@ pub(crate) async fn post_levels(
     {
         return ApiError::invalid("a batch marks each bond once").into_response();
     }
-    let fields: HashMap<InstrumentId, QuoteField> = match desk.bonds.lock() {
-        Ok(bonds) => bonds
-            .iter()
-            .map(|(id, bond)| (id.clone(), bond.field))
-            .collect(),
-        Err(_) => return ApiError::unavailable("desk levels are unavailable").into_response(),
-    };
-    let now = match UtcTimestamp::from_datetime(chrono::Utc::now()) {
+    let now = match crate::curves::known_at_or_now(None) {
         Ok(now) => now,
-        Err(_) => return ApiError::unavailable("the server clock is unreadable").into_response(),
+        Err(error) => return error.into_response(),
     };
     let lookup = ReferenceLookup {
         as_of: now,
         known_at: now,
     };
     let mut rows = Vec::new();
-    let mut refused_count = 0usize;
-    let mut marks = Vec::with_capacity(batch.levels.len());
     for (index, level) in batch.levels.iter().enumerate() {
-        let refusal = match fields.get(&level.instrument_id) {
-            None => Some((
-                "NOT_DESK_QUOTED",
-                "the plan does not read this bond's level from the desk",
-            )),
-            Some(field) if *field != level.field => Some((
-                "WRONG_LEVEL_FIELD",
-                "the bond's rule quotes it by its other level field",
-            )),
-            Some(_) => match in_range(&state, &level.instrument_id, lookup, level).await {
-                Ok(()) => None,
-                Err(LevelCheck::OutOfRange) => Some((
-                    "LEVEL_OUT_OF_RANGE",
-                    "the level is outside its method's range",
-                )),
-                Err(LevelCheck::NoRule) => Some((
-                    "NOT_DESK_QUOTED",
-                    "the bond's rule in force does not quote it by a level",
-                )),
-                Err(LevelCheck::Unavailable) => {
-                    return ApiError::unavailable("the bond's rule could not be read")
-                        .into_response()
-                }
-            },
-        };
-        match refusal {
-            Some((code, reason)) => {
-                refused_count += 1;
-                if rows.len() < MAX_ROW_ERRORS {
-                    rows.push(RowError {
-                        index,
-                        code,
-                        reason,
-                    });
-                }
-            }
-            None => marks.push((level.instrument_id.clone(), level.field, level.level)),
+        match refusal(&state, desk, lookup, level).await {
+            Ok(None) => {}
+            Ok(Some((code, reason))) => rows.push(RowError {
+                index,
+                code,
+                reason,
+            }),
+            Err(error) => return error.into_response(),
         }
     }
-    if refused_count > 0 {
-        return crate::market::ingress_error(IngressError::Rejected {
-            truncated: refused_count > rows.len(),
-            rows,
-        });
+    if let Err(error) = rejected(rows) {
+        return ingress_error(error);
     }
-    match desk.mark(&ingress, &marks) {
-        Ok((accepted, receive_time_ms)) => (
-            StatusCode::ACCEPTED,
-            Json(json!({"accepted": accepted, "receive_time_ms": receive_time_ms})),
-        )
-            .into_response(),
-        Err(MarkError::Ingress(error)) => crate::market::ingress_error(error),
-        Err(MarkError::Unavailable) => {
-            ApiError::unavailable("desk levels are unavailable").into_response()
-        }
+    match ingress.mark_desk(&batch.levels) {
+        Ok(receipt) => accepted(receipt),
+        Err(error) => ingress_error(error),
     }
 }
 
-enum LevelCheck {
-    OutOfRange,
-    NoRule,
-    Unavailable,
-}
-
-/// Whether `level` is within the range of the method the bond's rule in force quotes it
-/// by, as a request pricing it would check.
-async fn in_range(
+/// Why `level` is refused, if it is: a bond the plan does not read from the desk, a field
+/// other than the plan's, or a level outside the range of the method its rule in force
+/// quotes it by, as a request pricing it would check.
+async fn refusal(
     state: &AppState,
-    instrument_id: &InstrumentId,
+    desk: &DeskLevels,
     lookup: ReferenceLookup,
     level: &DeskLevel,
-) -> Result<(), LevelCheck> {
-    let reference = state
-        .engine
-        .reference_at_for_pricing(instrument_id, lookup)
-        .await
-        .map_err(|_| LevelCheck::Unavailable)?
-        .ok_or(LevelCheck::NoRule)?;
-    let method = reference
-        .pricing_rule
-        .map(|rule| rule.method)
-        .ok_or(LevelCheck::NoRule)?;
-    if method.level_field() != Some(level.field) {
-        return Err(LevelCheck::NoRule);
+) -> Result<Option<(&'static str, &'static str)>, ApiError> {
+    match desk.fields.get(&level.instrument_id) {
+        None => {
+            return Ok(Some((
+                "NOT_DESK_QUOTED",
+                "the plan does not read this bond's level from the desk",
+            )))
+        }
+        Some(field) if *field != level.field => {
+            return Ok(Some((
+                "WRONG_LEVEL_FIELD",
+                "the bond's rule quotes it by its other level field",
+            )))
+        }
+        Some(_) => {}
     }
-    convex_engine::level_pricing::check_level(&method, level.level.decimal())
-        .map_err(|_| LevelCheck::OutOfRange)
+    let rule = state
+        .engine
+        .reference_repository()
+        .pricing_rule_for_valuation(&level.instrument_id, lookup)
+        .await
+        .map_err(|_| ApiError::unavailable("the bond's rule could not be read"))?;
+    let Some(method) = rule
+        .map(|rule| rule.method)
+        .filter(|method| method.level_field() == Some(level.field))
+    else {
+        return Ok(Some((
+            "NOT_DESK_QUOTED",
+            "the bond's rule in force does not quote it by a level",
+        )));
+    };
+    Ok(check_level(&method, level.level.decimal()).err().map(|_| {
+        (
+            "LEVEL_OUT_OF_RANGE",
+            "the level is outside its method's range",
+        )
+    }))
+}
+
+/// One bond as `GET /api/v1/market/levels` reads it back.
+#[derive(Serialize)]
+struct MarkedBond<'a> {
+    instrument_id: &'a InstrumentId,
+    field: QuoteField,
+    mark: Option<&'a DeskMark>,
+}
+
+#[derive(Serialize)]
+struct DeskLevelsReply<'a> {
+    source: &'a str,
+    levels: Vec<MarkedBond<'a>>,
 }
 
 /// `GET /api/v1/market/levels`: the desk's source and each bond's last mark in this
-/// process, `null` before its first.
-pub(crate) async fn get_levels(desk: Option<Extension<Arc<DeskLevels>>>) -> Response {
-    let Some(Extension(desk)) = desk else {
+/// process, in instrument id order, `null` before its first.
+pub(crate) async fn get_levels(ingress: Option<Extension<Arc<QuoteIngress>>>) -> Response {
+    let Some((ingress, desk)) = ingress
+        .as_ref()
+        .and_then(|Extension(ingress)| Some((ingress, ingress.desk_levels()?)))
+    else {
         return ApiError::unavailable("this server takes no desk levels").into_response();
     };
-    let Ok(bonds) = desk.bonds.lock() else {
-        return ApiError::unavailable("desk levels are unavailable").into_response();
+    let marks = match ingress.desk_marks() {
+        Ok(marks) => marks,
+        Err(error) => return ingress_error(error),
     };
-    let mut levels: Vec<_> = bonds.iter().collect();
-    levels.sort_by(|(a, _), (b, _)| a.as_str().cmp(b.as_str()));
-    let levels: Vec<_> = levels
-        .into_iter()
-        .map(|(instrument_id, bond)| {
-            json!({
-                "instrument_id": instrument_id,
-                "field": bond.field,
-                "mark": bond.last,
+    let levels = desk
+        .order
+        .iter()
+        .filter_map(|instrument_id| {
+            Some(MarkedBond {
+                instrument_id,
+                field: *desk.fields.get(instrument_id)?,
+                mark: marks.get(instrument_id),
             })
         })
         .collect();
-    Json(json!({"source": desk.source, "levels": levels})).into_response()
+    Json(DeskLevelsReply {
+        source: &desk.source,
+        levels,
+    })
+    .into_response()
 }

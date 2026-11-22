@@ -1,6 +1,6 @@
 // Wire shapes both apps read: the Live runtime's published results, as
-// `GET /api/v1/runtime/results` pages them and the stream sends them, and a page of
-// stored bonds. Only the fields the screens read are named.
+// `GET /api/v1/runtime/results` pages them and the stream sends them, a page of stored
+// bonds, and a page of master resources. Only the fields the screens read are named.
 
 export interface Measure {
   value: { value: number | string; unit: string }
@@ -55,4 +55,17 @@ export async function readAllPages(
     if (!page.more || page.next_after === null) return results
     after = page.next_after
   }
+}
+
+/** A master resource as `GET /api/v1/reference/masters/:kind` lists it. */
+export interface MasterRecord<Definition = Record<string, unknown>> {
+  version: number
+  recorded_at: string
+  definition: { kind: string; definition: Definition }
+}
+
+/** One page of `GET /api/v1/reference/masters/:kind`, resumed after `next`. */
+export interface MasterPage<Definition = Record<string, unknown>> {
+  items: MasterRecord<Definition>[]
+  next: string | null
 }

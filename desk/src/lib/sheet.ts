@@ -1,5 +1,5 @@
 import type { Measure, PublishedValuation } from '@convex/api-client'
-import { addDecimal, multiplyDecimal } from './decimal'
+import { addDecimal } from './decimal'
 
 // The pricing sheet's model: one row a bond with a pricing rule, its desk mark when the
 // desk quotes it, and its latest Live result. Pure, so the merge and the nudge are
@@ -30,6 +30,7 @@ export interface Bond {
   description: string
   issuer_name: string
   issuer_type: string
+  bond_type: string
   currency: string
   coupon_rate: number | string | null
   maturity_date: string
@@ -48,6 +49,12 @@ export interface DeskLevels {
   levels: { instrument_id: string; field: LevelField; mark: DeskMark | null }[]
 }
 
+/** The way a row's clean price moved at its last result, and when that result arrived. */
+export interface Tick {
+  move: 'up' | 'down'
+  at: number
+}
+
 export interface SheetRow {
   instrumentId: string
   bond: Bond | null
@@ -56,10 +63,7 @@ export interface SheetRow {
   deskField: LevelField | null
   mark: DeskMark | null
   valuation: PublishedValuation | null
-  /** The way the clean price moved at the last result, for the tick colour. */
-  move: 'up' | 'down' | null
-  /** When that result arrived, by the page's clock. */
-  movedAt: number | null
+  tick: Tick | null
 }
 
 /** The rule's method as a column label: `Price`, `Yield`, `Sprd 10Y`, `Z`, `DM`, `OAS`. */
@@ -80,35 +84,41 @@ export function methodLabel(method: PricingMethod): string {
   }
 }
 
-/** The quote field a level of `method` is read from; none for a price. */
-export function levelField(method: PricingMethod): LevelField | null {
-  if (method.kind === 'price') return null
-  return method.kind === 'yield' ? 'mid_yield' : 'mid_spread'
+/**
+ * The published measures that equal a level of each method, first found first: a
+ * callable on its workouts publishes its yield to worst, a bullet its yield to maturity.
+ * A benchmark spread is published by no measure.
+ */
+const LEVEL_MEASURES: Record<MethodKind, string[]> = {
+  price: ['clean_price_mid'],
+  yield: ['ytw_mid', 'ytm_mid'],
+  benchmark_spread: [],
+  z_spread: ['z_spread_mid'],
+  discount_margin: ['discount_margin_mid'],
+  oas: ['oas_mid'],
 }
 
-/** The published measure that equals a level of `method`, where there is one. */
-const LEVEL_MEASURE: Partial<Record<MethodKind, string>> = {
-  price: 'clean_price_mid',
-  yield: 'ytm_mid',
-  z_spread: 'z_spread_mid',
-  discount_margin: 'discount_margin_mid',
-  oas: 'oas_mid',
-}
+/** The unit a desk mark's field is in. */
+const FIELD_UNIT: Record<LevelField, string> = { mid_yield: 'decimal_rate', mid_spread: 'bp' }
 
-/** A Treasury, quoted and shown in 32nds. */
+/**
+ * A US Treasury note or bond, quoted and shown in 32nds. Bills are quoted on discount
+ * and floating rate notes in decimals.
+ */
 export function isQuotedInThirtySeconds(bond: Bond | null): boolean {
-  return bond?.issuer_type === 'Sovereign' && bond.currency === 'USD'
+  return bond?.issuer_type === 'Sovereign' && bond.currency === 'USD' && bond.bond_type === 'FixedBullet'
 }
 
 /** One basis point in a field's unit, or a quarter of one when `fine`. */
-export function nudgeStep(field: LevelField, fine: boolean): string {
+function nudgeStep(field: LevelField, fine: boolean): string {
   if (field === 'mid_yield') return fine ? '0.000025' : '0.0001'
   return fine ? '0.25' : '1'
 }
 
-/** `level` moved by `steps` nudges, exactly: positive widens a spread or raises a yield. */
-export function nudgedLevel(level: string, field: LevelField, steps: number, fine = false): string {
-  return addDecimal(level, multiplyDecimal(nudgeStep(field, fine), steps))
+/** `level` moved one nudge, exactly: up widens a spread or raises a yield. */
+export function nudgedLevel(level: string, field: LevelField, direction: 1 | -1, fine = false): string {
+  const step = nudgeStep(field, fine)
+  return addDecimal(level, direction < 0 ? `-${step}` : step)
 }
 
 export function instrumentOf(valuation: PublishedValuation): string | undefined {
@@ -142,17 +152,19 @@ export function withValuation(row: SheetRow, incoming: PublishedValuation, recei
   if (valuation === row.valuation) return row
   const before = cleanPrice(row.valuation)
   const after = cleanPrice(valuation)
-  const move = before === null || after === null || before === after ? null : after > before ? 'up' : 'down'
-  return { ...row, valuation, move, movedAt: receivedAt }
+  const tick: Tick | null =
+    before === null || after === null || before === after ? null : { move: after > before ? 'up' : 'down', at: receivedAt }
+  return { ...row, valuation, tick }
 }
 
-/** The level the Level column shows: the desk's mark, or the measure that equals it. */
-export function shownLevel(row: SheetRow): { value: string | number; field: LevelField | 'price' } | null {
-  if (row.deskField && row.mark) return { value: row.mark.level, field: row.deskField }
-  const name = LEVEL_MEASURE[row.rule.method.kind]
-  const published = name ? measure(row.valuation, name) : undefined
-  if (!published) return null
-  return { value: published.value.value, field: levelField(row.rule.method) ?? 'price' }
+/** The level the Level column shows, with its unit: the desk's mark, or the measure that equals it. */
+export function shownLevel(row: SheetRow): { value: string | number; unit: string } | null {
+  if (row.deskField && row.mark) return { value: row.mark.level, unit: FIELD_UNIT[row.deskField] }
+  for (const name of LEVEL_MEASURES[row.rule.method.kind]) {
+    const published = measure(row.valuation, name)
+    if (published) return published.value
+  }
+  return null
 }
 
 export type RowState = 'awaiting' | 'valid' | 'partial' | 'failed' | 'expired' | 'stale'
@@ -169,23 +181,23 @@ export function rowState(valuation: PublishedValuation | null, now: number): Row
   return valuation.result.status === 'Partial' ? 'partial' : 'valid'
 }
 
-/** One row a rule, in instrument id order, with the desk's marks where it quotes the bond. */
+/**
+ * One row a rule, in the server's instrument id order, with the desk's marks where it
+ * quotes the bond.
+ */
 export function sheetRows(rules: PricingRule[], bonds: Bond[], desk: DeskLevels | null): SheetRow[] {
   const byId = new Map(bonds.map((bond) => [bond.instrument_id, bond]))
   const marks = new Map(desk?.levels.map((level) => [level.instrument_id, level]) ?? [])
-  return [...rules]
-    .sort((a, b) => a.instrument_id.localeCompare(b.instrument_id))
-    .map((rule) => {
-      const level = marks.get(rule.instrument_id)
-      return {
-        instrumentId: rule.instrument_id,
-        bond: byId.get(rule.instrument_id) ?? null,
-        rule,
-        deskField: level?.field ?? null,
-        mark: level?.mark ?? null,
-        valuation: null,
-        move: null,
-        movedAt: null,
-      }
-    })
+  return rules.map((rule) => {
+    const level = marks.get(rule.instrument_id)
+    return {
+      instrumentId: rule.instrument_id,
+      bond: byId.get(rule.instrument_id) ?? null,
+      rule,
+      deskField: level?.field ?? null,
+      mark: level?.mark ?? null,
+      valuation: null,
+      tick: null,
+    }
+  })
 }

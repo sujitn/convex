@@ -57,15 +57,7 @@ async fn connect(
     path: &str,
     token: Option<&str>,
 ) -> Result<Socket, tokio_tungstenite::tungstenite::Error> {
-    let mut request = format!("ws://{address}{path}")
-        .into_client_request()
-        .unwrap();
-    if let Some(token) = token {
-        request
-            .headers_mut()
-            .insert("authorization", format!("Bearer {token}").parse().unwrap());
-    }
-    tokio_tungstenite::connect_async(request)
+    connect_offering(address, path, &[], token)
         .await
         .map(|(socket, _)| socket)
 }
@@ -226,8 +218,8 @@ async fn websocket_aliases_subscription_scopes_delivery_and_quota_release_use_cu
     issuer.finish().await;
 }
 
-/// A browser page's stream request: `protocols` offered, and no `Authorization` unless
-/// `header_token` is given.
+/// A stream request offering `protocols`, none when empty, and sending `Authorization`
+/// when `header_token` is given.
 async fn connect_offering(
     address: std::net::SocketAddr,
     path: &str,
@@ -243,10 +235,12 @@ async fn connect_offering(
     let mut request = format!("ws://{address}{path}")
         .into_client_request()
         .unwrap();
-    request.headers_mut().insert(
-        "sec-websocket-protocol",
-        protocols.join(", ").parse().unwrap(),
-    );
+    if !protocols.is_empty() {
+        request.headers_mut().insert(
+            "sec-websocket-protocol",
+            protocols.join(", ").parse().unwrap(),
+        );
+    }
     if let Some(token) = header_token {
         request
             .headers_mut()

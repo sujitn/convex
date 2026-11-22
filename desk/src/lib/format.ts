@@ -36,9 +36,14 @@ export function formatYieldPercent(value: WireNumber): string {
   return (numeric(value) * 100).toFixed(3)
 }
 
-/** Basis points at one decimal, signed when negative. */
+/**
+ * Basis points, signed when negative: a model output at one decimal, and an exact
+ * decimal, such as a desk mark of 140.25, as written to at most two.
+ */
 export function formatBasisPoints(value: WireNumber): string {
-  return numeric(value).toFixed(1)
+  if (typeof value === 'number') return value.toFixed(1)
+  const decimals = value.includes('.') ? value.length - value.indexOf('.') - 1 : 0
+  return Number(value).toFixed(Math.min(2, Math.max(1, decimals)))
 }
 
 /** A coupon rate held as a decimal (0.04125) as percent, trailing zeros trimmed (4.125). */
@@ -63,12 +68,13 @@ export function formatMeasure(value: WireNumber, unit: string, thirtySeconds = f
 
 /**
  * The unit a reply's flat measure is in, by the server's names: prices and accrued per
- * 100, yields as decimal rates, spreads and margins in basis points; null for a model
- * output such as a duration, shown as it is.
+ * 100, yields as decimal rates, spreads and margins in basis points; null for a risk
+ * measure such as a duration or DV01, shown as it is.
  */
 export function measureUnit(name: string): 'price_per_100' | 'decimal_rate' | 'bp' | null {
+  if (/duration|convexity|dv01|pv01|cs01/.test(name)) return null
   if (/price|accrued/.test(name)) return 'price_per_100'
-  if (/^(ytm|ytw|yield|current_yield)/.test(name)) return 'decimal_rate'
+  if (/^(ytm|ytw|ytc|yield|current_yield)/.test(name)) return 'decimal_rate'
   if (/spread|margin|^oas|asw/.test(name)) return 'bp'
   return null
 }

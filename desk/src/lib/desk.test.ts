@@ -1,9 +1,9 @@
 import type { PublishedValuation } from '@convex/api-client'
 import { describe, expect, it } from 'vitest'
-import { addDecimal, isDecimal, multiplyDecimal } from './decimal'
+import { addDecimal, isDecimal } from './decimal'
 import { formatAge, formatCoupon, formatMeasure, formatThirtySeconds, measureUnit } from './format'
 import {
-  levelField,
+  isQuotedInThirtySeconds,
   methodLabel,
   newerValuation,
   nudgedLevel,
@@ -46,6 +46,7 @@ const corporate: Bond = {
   description: 'ACME 5.25 2035',
   issuer_name: 'ACME',
   issuer_type: 'Corporate',
+  bond_type: 'FixedBullet',
   currency: 'USD',
   coupon_rate: 0.0525,
   maturity_date: '2035-06-15',
@@ -54,14 +55,12 @@ const corporate: Bond = {
 }
 
 describe('exact decimals', () => {
-  it('adds and multiplies at the larger scale, never through a float', () => {
+  it('add at the larger scale, never through a float', () => {
     expect(addDecimal('0.0525', '0.0001')).toBe('0.0526')
     expect(addDecimal('0.1', '0.2')).toBe('0.3')
     expect(addDecimal('125', '-0.25')).toBe('124.75')
     expect(addDecimal('0.5', '-1')).toBe('-0.5')
     expect(addDecimal('-0.0001', '0.0001')).toBe('0.0000')
-    expect(multiplyDecimal('0.0001', -3)).toBe('-0.0003')
-    expect(() => multiplyDecimal('1', 0.5)).toThrow()
   })
   it('takes only plain decimals', () => {
     for (const text of ['125', '-0.25', '0.0525']) expect(isDecimal(text)).toBe(true)
@@ -73,19 +72,24 @@ describe('nudges', () => {
   it('move a spread by a basis point or a quarter, and a yield by a basis point of yield', () => {
     expect(nudgedLevel('125', 'mid_spread', 1)).toBe('126')
     expect(nudgedLevel('125', 'mid_spread', -1, true)).toBe('124.75')
-    expect(nudgedLevel('0.0525', 'mid_yield', 2)).toBe('0.0527')
+    expect(nudgedLevel('0.0525', 'mid_yield', 1)).toBe('0.0526')
     expect(nudgedLevel('0.0525', 'mid_yield', -1, true)).toBe('0.052475')
+    expect(nudgedLevel('0.5', 'mid_spread', -1)).toBe('-0.5')
   })
-  it('read each method from its field', () => {
-    expect(levelField({ kind: 'yield' })).toBe('mid_yield')
-    expect(levelField({ kind: 'benchmark_spread', tenor: '10Y' })).toBe('mid_spread')
-    expect(levelField({ kind: 'oas' })).toBe('mid_spread')
-    expect(levelField({ kind: 'price' })).toBeNull()
+  it('label each method', () => {
     expect(methodLabel({ kind: 'benchmark_spread', tenor: '10Y' })).toBe('Sprd 10Y')
+    expect(methodLabel({ kind: 'discount_margin' })).toBe('DM')
   })
 })
 
 describe('formats', () => {
+  it('show only Treasury notes and bonds in 32nds', () => {
+    const treasury = { ...corporate, issuer_type: 'Sovereign' }
+    expect(isQuotedInThirtySeconds(treasury)).toBe(true)
+    expect(isQuotedInThirtySeconds(corporate)).toBe(false)
+    expect(isQuotedInThirtySeconds({ ...treasury, bond_type: 'ZeroCoupon' })).toBe(false)
+    expect(isQuotedInThirtySeconds({ ...treasury, currency: 'EUR' })).toBe(false)
+  })
   it('show Treasury prices in 32nds, halves and eighths', () => {
     expect(formatThirtySeconds('99.5')).toBe('99-16')
     expect(formatThirtySeconds('99.515625')).toBe('99-16+')
@@ -96,6 +100,8 @@ describe('formats', () => {
   it('show yields in percent and spreads in basis points', () => {
     expect(formatMeasure(0.0525, 'decimal_rate')).toBe('5.250')
     expect(formatMeasure(125.04, 'bp')).toBe('125.0')
+    expect(formatMeasure('140.25', 'bp')).toBe('140.25')
+    expect(formatMeasure('-0.5', 'bp')).toBe('-0.5')
     expect(formatMeasure('99.24373766953476661001332101', 'price_per_100')).toBe('99.244')
     expect(formatMeasure('99.5', 'price_per_100', true)).toBe('99-16')
     expect(formatCoupon(0.04125)).toBe('4.125')
@@ -108,7 +114,10 @@ describe('formats', () => {
     expect(measureUnit('z_spread_mid')).toBe('bp')
     expect(measureUnit('discount_margin_mid')).toBe('bp')
     expect(measureUnit('oas_mid')).toBe('bp')
+    expect(measureUnit('ytc')).toBe('decimal_rate')
     expect(measureUnit('modified_duration_mid')).toBeNull()
+    expect(measureUnit('spread_duration_mid')).toBeNull()
+    expect(measureUnit('dv01_mid')).toBeNull()
   })
   it('show a mark age coarsely', () => {
     const now = Date.parse('2026-11-22T12:00:00Z')
@@ -129,11 +138,11 @@ describe('results', () => {
   it('colour a row by the way its clean price moved, and ignore an older result', () => {
     const [row] = sheetRows([{ instrument_id: 'BOND-001', method: { kind: 'price' } }], [corporate], null)
     const first = withValuation(row!, valuation(1, '99.5'), 10)
-    expect(first.move).toBeNull()
+    expect(first.tick).toBeNull()
     const down = withValuation(first, valuation(2, '99.25'), 20)
-    expect([down.move, down.movedAt]).toEqual(['down', 20])
+    expect(down.tick).toEqual({ move: 'down', at: 20 })
     expect(withValuation(down, valuation(1, '100'), 30)).toBe(down)
-    expect(withValuation(down, valuation(3, '99.75'), 40).move).toBe('up')
+    expect(withValuation(down, valuation(3, '99.75'), 40).tick).toEqual({ move: 'up', at: 40 })
   })
   it('judge a row by the server: status, quality and the stamped validity', () => {
     const now = Date.parse('2026-11-22T12:00:00Z')
@@ -147,9 +156,10 @@ describe('results', () => {
 })
 
 describe('rows', () => {
+  // The server lists rules in instrument id order, and the sheet keeps it.
   const rules: PricingRule[] = [
-    { instrument_id: 'BOND-002', method: { kind: 'yield' } },
     { instrument_id: 'BOND-001', method: { kind: 'benchmark_spread', tenor: '10Y' }, benchmark_set_id: 'UST-OTR' },
+    { instrument_id: 'BOND-002', method: { kind: 'yield' } },
   ]
   it('list each rule once, in instrument order, with the desk marks where the desk quotes it', () => {
     const desk = {
@@ -158,15 +168,18 @@ describe('rows', () => {
     }
     const rows = sheetRows(rules, [corporate], desk)
     expect(rows.map((row) => row.instrumentId)).toEqual(['BOND-001', 'BOND-002'])
+    expect(sheetRows(rules, [], null).map((row) => row.deskField)).toEqual([null, null])
     expect(rows[0]!.deskField).toBe('mid_spread')
-    expect(shownLevel(rows[0]!)).toEqual({ value: '125', field: 'mid_spread' })
+    expect(shownLevel(rows[0]!)).toEqual({ value: '125', unit: 'bp' })
     expect(rows[1]!.bond).toBeNull()
     expect(rows[1]!.deskField).toBeNull()
   })
   it('show a level the desk does not mark from the measure that equals it', () => {
-    const [, yieldRow] = sheetRows(rules, [], null)
+    const [spreadRow, yieldRow] = sheetRows(rules, [], null)
     expect(shownLevel(yieldRow!)).toBeNull()
-    expect(shownLevel(withValuation(yieldRow!, valuation(1, '99'), 0))).toEqual({ value: 0.0525, field: 'mid_yield' })
+    expect(shownLevel(withValuation(yieldRow!, valuation(1, '99'), 0))).toEqual({ value: 0.0525, unit: 'decimal_rate' })
+    // A benchmark spread is published by no measure.
+    expect(shownLevel(withValuation(spreadRow!, valuation(1, '99'), 0))).toBeNull()
   })
 })
 

@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { ApiFailure, useSession, type PublishedValuation } from '@convex/api-client'
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react'
 import { isDecimal } from '../lib/decimal'
-import { formatAge, formatCoupon, formatMeasure, formatThirtySeconds, formatYieldPercent, formatBasisPoints, formatPrice } from '../lib/format'
+import { formatAge, formatCoupon, formatMeasure } from '../lib/format'
 import { readBonds, readDeskLevels, readPricingRules } from '../lib/reads'
 import {
   instrumentOf,
@@ -14,7 +14,9 @@ import {
   sheetRows,
   shownLevel,
   withValuation,
+  type DeskLevels,
   type DeskMark,
+  type RowState,
   type SheetRow,
 } from '../lib/sheet'
 import { followValuations, type StreamStatus } from '../lib/stream'
@@ -23,39 +25,53 @@ import { followValuations, type StreamStatus } from '../lib/stream'
 // moves the selection and nudges the selected bond's level when the desk quotes it:
 // a mark is posted to the server, and the bond's next result prices it.
 
-/** How long a moved price keeps its tick colour. */
-const TICK_MS = 1500
-
-interface SheetData {
-  rows: SheetRow[]
-  /** The desk's level source; none when this server takes no desk levels. */
-  deskSource: string | null
-}
+/** How often the desk's marks are read again, so another page's marks appear. */
+const MARKS_REFRESH_MS = 5000
 
 export function PricingSheet() {
   const { call, token } = useSession()
-  const sheet = useQuery({
+  const universe = useQuery({
     queryKey: ['pricing-sheet'],
-    queryFn: async (): Promise<SheetData> => {
-      const [rules, bonds, desk] = await Promise.all([readPricingRules(call), readBonds(call), readDeskLevels(call)])
-      return { rows: sheetRows(rules, bonds, desk), deskSource: desk?.source ?? null }
+    queryFn: async () => {
+      const [rules, bonds] = await Promise.all([readPricingRules(call), readBonds(call)])
+      return { rules, bonds }
     },
   })
-  const [rows, setRows] = useState<Map<string, SheetRow>>(new Map())
-  const [order, setOrder] = useState<string[]>([])
+  const desk = useQuery({
+    queryKey: ['desk-levels'],
+    queryFn: () => readDeskLevels(call),
+    refetchInterval: MARKS_REFRESH_MS,
+  })
+  const [rows, setRows] = useState<SheetRow[]>([])
   const [status, setStatus] = useState<StreamStatus | 'idle'>('idle')
   const [notice, setNotice] = useState<string | null>(null)
   const [selected, setSelected] = useState(0)
-  const [editing, setEditing] = useState<string | null>(null)
-  const [now, setNow] = useState(() => Date.now())
+  const [editing, setEditing] = useState<number | null>(null)
+  const rowsRef = useRef(rows)
+  rowsRef.current = rows
   const pending = useRef<PublishedValuation[]>([])
   const frame = useRef<number | null>(null)
+  /** Bonds with a mark in flight, and the latest level waiting to follow it. */
+  const inFlight = useRef(new Map<string, string | null>())
+  const deskData = desk.data ?? null
+  const deskSource = deskData?.source ?? null
+  const deskRef = useRef(deskData)
+  deskRef.current = deskData
+  const hasDesk = desk.isSuccess
+
+  // Rows are built once the rules, the bonds and the desk's marks are read; the marks
+  // read again later are merged into them.
+  useEffect(() => {
+    if (universe.data && hasDesk) setRows(sheetRows(universe.data.rules, universe.data.bonds, deskRef.current))
+  }, [universe.data, hasDesk])
 
   useEffect(() => {
-    if (!sheet.data) return
-    setRows(new Map(sheet.data.rows.map((row) => [row.instrumentId, row])))
-    setOrder(sheet.data.rows.map((row) => row.instrumentId))
-  }, [sheet.data])
+    if (deskData) setRows((current) => withMarks(current, deskData, inFlight.current))
+  }, [deskData])
+
+  // Rows keep the rules' order, so a bond's row is found by its rule's position.
+  const instrumentIds = useMemo(() => universe.data?.rules.map((rule) => rule.instrument_id) ?? [], [universe.data])
+  const indexById = useMemo(() => new Map(instrumentIds.map((id, index) => [id, index])), [instrumentIds])
 
   // Results arrive in bursts; they are merged once a frame.
   const flush = useCallback(() => {
@@ -64,79 +80,94 @@ export function PricingSheet() {
     pending.current = []
     const receivedAt = Date.now()
     setRows((current) => {
-      const next = new Map(current)
+      let next = current
       for (const valuation of arrived) {
-        const id = instrumentOf(valuation)
-        const row = id === undefined ? undefined : next.get(id)
-        if (row && id !== undefined) next.set(id, withValuation(row, valuation, receivedAt))
+        const index = indexById.get(instrumentOf(valuation) ?? '')
+        const row = index === undefined ? undefined : next[index]
+        if (index === undefined || row === undefined) continue
+        const merged = withValuation(row, valuation, receivedAt)
+        if (merged === row) continue
+        if (next === current) next = [...current]
+        next[index] = merged
       }
+      return next
+    })
+  }, [indexById])
+
+  useEffect(() => {
+    if (instrumentIds.length === 0) return
+    return followValuations(token, instrumentIds, {
+      onValuation: (valuation) => {
+        pending.current.push(valuation)
+        if (frame.current === null) frame.current = requestAnimationFrame(flush)
+      },
+      onStatus: setStatus,
+      onRefusal: (code, message) => setNotice(`${code}: ${message}`),
+    })
+  }, [instrumentIds, token, flush])
+
+  const setMark = useCallback((index: number, mark: DeskMark | null) => {
+    setRows((current) => {
+      const row = current[index]
+      if (!row) return current
+      const next = [...current]
+      next[index] = { ...row, mark }
       return next
     })
   }, [])
 
-  useEffect(() => {
-    if (!sheet.data) return
-    return followValuations(
-      token,
-      sheet.data.rows.map((row) => row.instrumentId),
-      {
-        onValuation: (valuation) => {
-          pending.current.push(valuation)
-          if (frame.current === null) frame.current = requestAnimationFrame(flush)
-        },
-        onStatus: setStatus,
-        onRefusal: (code, message) => setNotice(`${code}: ${message}`),
-      },
-    )
-  }, [sheet.data, token, flush])
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(timer)
-  }, [])
-
-  const deskSource = sheet.data?.deskSource ?? null
-
+  // One mark in flight a bond: a level set meanwhile waits, and only the latest is sent.
   const mark = useCallback(
-    async (row: SheetRow, level: string) => {
-      if (!deskSource || !row.deskField) return
-      const previous = row.mark
-      const optimistic: DeskMark = { level, marked_at: new Date().toISOString() }
-      setRows((current) => new Map(current).set(row.instrumentId, { ...row, mark: optimistic }))
-      try {
-        const reply = await call<{ receive_time_ms: number }>('/api/v1/market/levels', {
-          method: 'POST',
-          body: { source: deskSource, levels: [{ instrument_id: row.instrumentId, field: row.deskField, level }] },
-        })
-        const marked: DeskMark = { level, marked_at: new Date(reply.data.receive_time_ms).toISOString() }
-        setRows((current) => {
-          const latest = current.get(row.instrumentId)
-          return latest ? new Map(current).set(row.instrumentId, { ...latest, mark: marked }) : current
-        })
-        setNotice(null)
-      } catch (error) {
-        setRows((current) => {
-          const latest = current.get(row.instrumentId)
-          return latest ? new Map(current).set(row.instrumentId, { ...latest, mark: previous }) : current
-        })
-        setNotice(error instanceof ApiFailure ? `${error.code}: ${error.reason}` : String(error))
+    (index: number, level: string) => {
+      const row = rowsRef.current[index]
+      if (!deskSource || !row?.deskField) return
+      const field = row.deskField
+      const id = row.instrumentId
+      setMark(index, { level, marked_at: new Date().toISOString() })
+      if (inFlight.current.has(id)) {
+        inFlight.current.set(id, level)
+        return
       }
+      const send = async (sent: string, previous: DeskMark | null) => {
+        inFlight.current.set(id, null)
+        try {
+          await call('/api/v1/market/levels', {
+            method: 'POST',
+            body: { source: deskSource, levels: [{ instrument_id: id, field, level: sent }] },
+          })
+          setNotice(null)
+        } catch (error) {
+          setMark(index, previous)
+          setNotice(error instanceof ApiFailure ? error.message : String(error))
+        }
+        const next = inFlight.current.get(id)
+        inFlight.current.delete(id)
+        if (next) void send(next, rowsRef.current[index]?.mark ?? null)
+      }
+      void send(level, row.mark)
     },
-    [call, deskSource],
+    [call, deskSource, setMark],
+  )
+
+  const onMark = useCallback(
+    (index: number, level: string | null) => {
+      setEditing(null)
+      if (level !== null) mark(index, level)
+    },
+    [mark],
   )
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (editing !== null) return
-    const row = rows.get(order[selected] ?? '')
-    const fine = event.altKey
-    const nudge = (steps: number) => {
+    const row = rows[selected]
+    const nudge = (direction: 1 | -1) => {
       if (!row?.deskField || !row.mark) return
       event.preventDefault()
-      void mark(row, nudgedLevel(row.mark.level, row.deskField, steps, fine))
+      mark(selected, nudgedLevel(row.mark.level, row.deskField, direction, event.altKey))
     }
     if (event.key === 'ArrowDown' && !event.shiftKey) {
       event.preventDefault()
-      setSelected((index) => Math.min(order.length - 1, index + 1))
+      setSelected((index) => Math.min(rows.length - 1, index + 1))
     } else if (event.key === 'ArrowUp' && !event.shiftKey) {
       event.preventDefault()
       setSelected((index) => Math.max(0, index - 1))
@@ -146,20 +177,18 @@ export function PricingSheet() {
       nudge(-1)
     } else if (event.key === 'Enter' && row?.deskField) {
       event.preventDefault()
-      setEditing(row.instrumentId)
+      setEditing(selected)
     }
   }
 
-  const ordered = useMemo(() => order.map((id) => rows.get(id)).filter((row): row is SheetRow => row !== undefined), [order, rows])
-
-  if (sheet.isPending) return <p className="text-sm text-slate-400">Reading pricing rules and bonds…</p>
-  if (sheet.error) return <p className="text-sm text-red-400">{String(sheet.error)}</p>
+  if (universe.isPending || desk.isPending) return <p className="text-sm text-slate-400">Reading pricing rules and bonds…</p>
+  if (universe.error) return <p className="text-sm text-red-400">{String(universe.error)}</p>
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
         <span>
-          {ordered.length} bonds · stream <StreamBadge status={status} />
+          {rows.length} bonds · stream <StreamBadge status={status} />
         </span>
         <span>
           {deskSource
@@ -186,18 +215,15 @@ export function PricingSheet() {
             </tr>
           </thead>
           <tbody>
-            {ordered.map((row, index) => (
+            {rows.map((row, index) => (
               <Row
                 key={row.instrumentId}
                 row={row}
+                index={index}
                 selected={index === selected}
-                editing={editing === row.instrumentId}
-                now={now}
-                onSelect={() => setSelected(index)}
-                onMark={(level) => {
-                  setEditing(null)
-                  if (level !== null) void mark(row, level)
-                }}
+                editing={editing === index}
+                onSelect={setSelected}
+                onMark={onMark}
               />
             ))}
           </tbody>
@@ -207,12 +233,55 @@ export function PricingSheet() {
   )
 }
 
+/** `rows` with the desk's latest marks, except where a mark of this page is in flight. */
+function withMarks(rows: SheetRow[], desk: DeskLevels, inFlight: Map<string, string | null>): SheetRow[] {
+  const marks = new Map(desk.levels.map((level) => [level.instrument_id, level]))
+  let next = rows
+  rows.forEach((row, index) => {
+    const level = marks.get(row.instrumentId)
+    if (!level || inFlight.has(row.instrumentId)) return
+    const mark = level.mark
+    if (row.deskField === level.field && row.mark?.level === mark?.level && row.mark?.marked_at === mark?.marked_at) return
+    if (next === rows) next = [...rows]
+    next[index] = { ...row, deskField: level.field, mark }
+  })
+  return next
+}
+
 function StreamBadge({ status }: { status: StreamStatus | 'idle' }) {
   const tone = status === 'open' ? 'text-emerald-400' : status === 'idle' ? 'text-slate-500' : 'text-amber-300'
   return <span className={tone}>{status}</span>
 }
 
-const STATE_TONE: Record<string, string> = {
+// One clock for every cell that reads the time, so a second's tick re-renders those cells only.
+const clock = (() => {
+  let now = Date.now()
+  const listeners = new Set<() => void>()
+  let timer: ReturnType<typeof setInterval> | undefined
+  return {
+    subscribe(listener: () => void) {
+      listeners.add(listener)
+      timer ??= setInterval(() => {
+        now = Date.now()
+        listeners.forEach((notify) => notify())
+      }, 1000)
+      return () => {
+        listeners.delete(listener)
+        if (listeners.size === 0) {
+          clearInterval(timer)
+          timer = undefined
+        }
+      }
+    },
+    now: () => now,
+  }
+})()
+
+function useNow(): number {
+  return useSyncExternalStore(clock.subscribe, clock.now)
+}
+
+const STATE_TONE: Record<RowState, string> = {
   valid: 'text-emerald-400',
   partial: 'text-amber-300',
   stale: 'text-amber-300',
@@ -221,34 +290,41 @@ const STATE_TONE: Record<string, string> = {
   awaiting: 'text-slate-500',
 }
 
+function StateCell({ valuation }: { valuation: PublishedValuation | null }) {
+  const state = rowState(valuation, useNow())
+  return <td className={`px-2 py-0.5 ${STATE_TONE[state]}`}>{state}</td>
+}
+
+function AgeCell({ markedAt }: { markedAt: string | null }) {
+  const now = useNow()
+  return <td className="px-2 py-0.5 font-mono text-slate-500">{markedAt ? formatAge(markedAt, now) : ''}</td>
+}
+
 const Row = memo(function Row({
   row,
+  index,
   selected,
   editing,
-  now,
   onSelect,
   onMark,
 }: {
   row: SheetRow
+  index: number
   selected: boolean
   editing: boolean
-  now: number
-  onSelect: () => void
-  onMark: (level: string | null) => void
+  onSelect: (index: number) => void
+  onMark: (index: number, level: string | null) => void
 }) {
   const thirtySeconds = isQuotedInThirtySeconds(row.bond)
-  const state = rowState(row.valuation, now)
-  const ticking = row.move !== null && row.movedAt !== null && now - row.movedAt < TICK_MS
   const cell = (name: string) => {
     const value = measure(row.valuation, name)
     return value ? formatMeasure(value.value.value, value.value.unit, thirtySeconds) : ''
   }
   const level = shownLevel(row)
-  const levelText = level === null ? '' : levelDisplay(level.value, level.field, thirtySeconds)
   const firstError = row.valuation?.result.errors[0] as { message?: string } | undefined
   return (
     <tr
-      onClick={onSelect}
+      onClick={() => onSelect(index)}
       className={`border-t border-slate-900 ${selected ? 'bg-slate-800' : 'hover:bg-slate-900'}`}
       title={firstError?.message}
     >
@@ -258,30 +334,30 @@ const Row = memo(function Row({
       <td className="px-2 py-0.5 font-mono tabular-nums text-slate-400">{row.bond?.maturity_date ?? ''}</td>
       <td className="px-2 py-0.5 text-slate-400">{methodLabel(row.rule.method)}</td>
       <td className={`px-2 py-0.5 text-right font-mono tabular-nums ${row.deskField ? 'text-sky-300' : ''}`}>
-        {editing ? <LevelInput initial={row.mark?.level ?? ''} onDone={onMark} /> : levelText}
+        {editing ? (
+          <LevelInput initial={row.mark?.level ?? ''} onDone={(text) => onMark(index, text)} />
+        ) : level === null ? (
+          ''
+        ) : (
+          formatMeasure(level.value, level.unit, thirtySeconds)
+        )}
       </td>
+      {/* Keyed by the tick, so each move restarts its colour's fade. */}
       <td
-        className={`px-2 py-0.5 text-right font-mono tabular-nums ${
-          ticking ? (row.move === 'up' ? 'bg-emerald-900 text-emerald-200' : 'bg-red-900 text-red-200') : ''
-        }`}
+        key={row.tick?.at ?? 'still'}
+        className={`px-2 py-0.5 text-right font-mono tabular-nums ${row.tick ? `tick-${row.tick.move}` : ''}`}
       >
         {cell('clean_price_mid')}
       </td>
-      <td className="px-2 py-0.5 text-right font-mono tabular-nums">{cell('ytm_mid')}</td>
+      <td className="px-2 py-0.5 text-right font-mono tabular-nums">{cell('ytm_mid') || cell('ytw_mid')}</td>
       <td className="px-2 py-0.5 text-right font-mono tabular-nums">{cell('z_spread_mid')}</td>
       <td className="px-2 py-0.5 text-right font-mono tabular-nums">{cell('g_spread_mid')}</td>
       <td className="px-2 py-0.5 text-right font-mono tabular-nums">{cell('dv01_mid')}</td>
-      <td className={`px-2 py-0.5 ${STATE_TONE[state] ?? ''}`}>{state}</td>
-      <td className="px-2 py-0.5 font-mono text-slate-500">{row.mark ? formatAge(row.mark.marked_at, now) : ''}</td>
+      <StateCell valuation={row.valuation} />
+      <AgeCell markedAt={row.mark?.marked_at ?? null} />
     </tr>
   )
 })
-
-function levelDisplay(value: string | number, field: 'mid_yield' | 'mid_spread' | 'price', thirtySeconds: boolean): string {
-  if (field === 'mid_yield') return formatYieldPercent(value)
-  if (field === 'mid_spread') return formatBasisPoints(value)
-  return thirtySeconds ? formatThirtySeconds(value) : formatPrice(value)
-}
 
 /** A typed level, sent as written: a decimal yield or basis points, as the field reads. */
 function LevelInput({ initial, onDone }: { initial: string; onDone: (level: string | null) => void }) {

@@ -725,17 +725,18 @@ so they must name the same source.
   image of the bond's one field on the desk's source, which the runtime judges as the
   desk's own mark (`Valid`). 202 means queued: the bond's result arrives on the stream.
   A level is absolute, so a retry marks the same level again.
-- **One writer.** The route numbers each bond's quotes in one session for the process,
-  so two pages marking at once cannot interleave. The quote ingress refuses a feed's
-  event on the desk's source (422, row code `DESK_LEVEL_SOURCE`).
+- **One writer.** The quote ingress owns the desk's source: it refuses a feed's event on
+  it (422, row code `DESK_LEVEL_SOURCE`), and numbers and stamps each mark under the lock
+  that orders every quote, in one session for the process, so two pages marking at once
+  cannot interleave.
 - **Checked against the rule in force.** Each level must be for a bond the plan reads
   from the desk (`NOT_DESK_QUOTED`), in its rule's field, `mid_yield` for a decimal
   yield or `mid_spread` for basis points (`WRONG_LEVEL_FIELD`), and within its method's
   range, as a quote by level checks it (`LEVEL_OUT_OF_RANGE`). Any refused row refuses
   the batch with 422 `QUOTES_REJECTED`, listing the first 64 rows; nothing is marked.
 - **400** for a body that is not this shape, a level that is not an exact decimal
-  string, another source, no level or more than 256, or a bond twice. **503** when the
-  server takes no desk levels.
+  string, another source, no level or more than 256, or a bond twice. **413** for a body
+  over the request bound. **503** when the server takes no desk levels.
 - **Reading back.** `GET /api/v1/market/levels` lists every bond the desk quotes, in
   instrument id order, with its `field` and its last `mark` (`level` as sent and
   `marked_at`), `null` before the first. A Live runtime keeps no quote across a restart,

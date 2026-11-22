@@ -106,6 +106,22 @@ impl Running {
         }
     }
 
+    /// `method` on `path` with a JSON `body`, its status and JSON reply (`null` if none).
+    pub async fn send(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        body: Option<&Value>,
+    ) -> (reqwest::StatusCode, Value) {
+        let mut request = self.client.request(method, format!("{}{path}", self.base));
+        if let Some(body) = body {
+            request = request.json(body);
+        }
+        let response = request.send().await.unwrap();
+        let status = response.status();
+        (status, response.json().await.unwrap_or(Value::Null))
+    }
+
     pub async fn post_quotes(&self, events: Vec<QuoteEvent>) -> reqwest::Response {
         self.client
             .post(format!("{}/api/v1/market/quotes", self.base))
