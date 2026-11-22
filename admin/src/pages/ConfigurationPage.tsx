@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type ChangeEvent } from 'react'
+import { ApiFailure, rawObject, useSession } from '@convex/api-client'
 import { PendingRestart } from '../components/PendingRestart'
 import { Badge, Button, ErrorNotice, Field, JsonBlock, JsonEditor, Panel, Table, inputClass, parseJson } from '../components/ui'
-import { ApiFailure, configurationWriteHeaders, newIdempotencyKey, rawObject } from '../lib/admin'
+import { configurationWriteHeaders, newIdempotencyKey } from '../lib/admin'
 import { useRecentActivations, useRuntimeHealth } from '../lib/queries'
-import { useSession } from '../lib/session'
 import type { ActivationOutcome, StagedVersion, VersionDiff } from '../lib/types'
 
 export function ConfigurationPage() {

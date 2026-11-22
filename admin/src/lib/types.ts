@@ -26,43 +26,6 @@ export interface Dependencies {
   dependencies: { name: string; required: boolean; state: string }[]
 }
 
-export interface Measure {
-  value: { value: number | string; unit: string }
-  quality: string
-  method: string
-}
-
-export interface PublishedValuation {
-  runtime_id: string
-  revision: number
-  generation: number
-  live_valid_until: string | null
-  result: {
-    request_id: string
-    status: string
-    quality: string
-    configuration_version: number
-    results: Record<string, Measure>
-    errors: unknown[]
-    provenance: { subject: { instrument_id?: string; version?: number } }
-  }
-}
-
-/** One page of `GET /api/v1/runtime/results`, in instrument ID order. */
-export interface RuntimeResultsPage {
-  results: PublishedValuation[]
-  next_after: string | null
-  more: boolean
-}
-
-export interface BondPage {
-  bonds: Record<string, unknown>[]
-  versions: { instrument_id: string; version: number }[]
-  total: number
-  offset: number
-  limit: number
-}
-
 export interface CurvePage {
   curves: { curve_id: string; version: number; recorded_at: string }[]
   next: string | null

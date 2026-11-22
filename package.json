@@ -1,0 +1,8 @@
+{
+  "name": "convex-web",
+  "private": true,
+  "workspaces": [
+    "api-client",
+    "admin"
+  ]
+}

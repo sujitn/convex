@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useSession } from '@convex/api-client'
 import { PendingRestart } from '../components/PendingRestart'
 import { Badge, ErrorNotice, JsonBlock, Panel, Table } from '../components/ui'
 import { formatMeasure } from '../lib/admin'
 import { useRuntimeHealth, useRuntimeResults } from '../lib/queries'
-import { useSession } from '../lib/session'
 import type { Dependencies } from '../lib/types'
 
 export function RuntimePage() {

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { useSession } from '@convex/api-client'
 import { Button, inputClass } from './components/ui'
 import { BooksPage } from './pages/BooksPage'
 import { ConfigurationPage } from './pages/ConfigurationPage'
@@ -7,7 +8,6 @@ import { CurvesPage } from './pages/CurvesPage'
 import { ImportPage } from './pages/ImportPage'
 import { ReferencePage } from './pages/ReferencePage'
 import { RuntimePage } from './pages/RuntimePage'
-import { useSession } from './lib/session'
 
 const PAGES = [
   { path: 'runtime', label: 'Runtime', element: <RuntimePage /> },

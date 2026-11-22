@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { ApiFailure, useSession } from '@convex/api-client'
 import { Button, ErrorNotice, Field, JsonBlock, Panel } from '../components/ui'
-import { ApiFailure, MAX_IMPORT_BYTES } from '../lib/admin'
-import { useSession } from '../lib/session'
+import { MAX_IMPORT_BYTES } from '../lib/admin'
 
 /** Upload one reference import file; it commits as one atomic transaction or not at all. */
 export function ImportPage() {
