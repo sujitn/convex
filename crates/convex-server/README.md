@@ -273,6 +273,17 @@ the stream. A bad `limit` or `after`, or any other query parameter, is 400. The 
 the `ResultRead` action and wildcard grants on instruments, curves and sources; its output
 is not inspected again, since a runtime record names only instruments and curves.
 
+Each Live record also carries `quote_input`, the field of its quote the bond was valued
+from, with its observation exactly as the runtime held it:
+`{"field":"mid_spread","observation":{"value":{"value":"125","unit":"spread_basis_points"},"source_time_ms":…,"receive_time_ms":…,"sequence":…}}`.
+Under a rule that quotes the bond by a level it is that level, a benchmark spread
+included, and otherwise its price. Live keeps no snapshot, so this is how a reader knows
+which quote of the bond's own a result was priced from; the curves and benchmark prices
+it also read are the curves' and benchmarks' own. It is absent when the attempt read no
+quote: a bond refused whatever its market data, one with no quote yet, or a record whose
+delivery continuity was lost. It names no source, so reading it needs no grant beyond the
+result's. A `POST /api/v1/runtime/valuation` reply carries it too.
+
 Send `{"type":"subscribe_limits","book_ids":[...]}` to receive a `limit_status` message
 for each change the limit monitor records for those books (see
 [book limits](#book-limits)). A session follows at most 64 books; listing one it already

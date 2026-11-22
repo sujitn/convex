@@ -326,6 +326,18 @@ pub struct FieldObservation {
     pub sequence: u64,
 }
 
+/// The field of its quote a valuation read the bond's mark from, as observed: the level
+/// under a rule that quotes the bond by one, else its price. A Live result carries it, as
+/// Live keeps no snapshot: the bond's own quote, not the curves or benchmarks it also read.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QuoteInput {
+    /// The field read.
+    pub field: QuoteField,
+    /// Its value, exact with its unit, its source and receipt times, and its sequence.
+    pub observation: FieldObservation,
+}
+
 /// Last retained quote with explicit status. Only Live is admitted to the current graph.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -84,22 +84,12 @@ export function methodLabel(method: PricingMethod): string {
   }
 }
 
-/**
- * The published measures that equal a level of each method, first found first: a
- * callable on its workouts publishes its yield to worst, a bullet its yield to maturity.
- * A benchmark spread is published by no measure.
- */
-const LEVEL_MEASURES: Record<MethodKind, string[]> = {
-  price: ['clean_price_mid'],
-  yield: ['ytw_mid', 'ytm_mid'],
-  benchmark_spread: [],
-  z_spread: ['z_spread_mid'],
-  discount_margin: ['discount_margin_mid'],
-  oas: ['oas_mid'],
+/** The unit each quote field a bond is marked by is shown in: a desk mark's or its result's. */
+const FIELD_UNIT: Record<string, string> = {
+  mid_price: 'price_per_100',
+  mid_yield: 'decimal_rate',
+  mid_spread: 'bp',
 }
-
-/** The unit a desk mark's field is in. */
-const FIELD_UNIT: Record<LevelField, string> = { mid_yield: 'decimal_rate', mid_spread: 'bp' }
 
 /**
  * A US Treasury note or bond, quoted and shown in 32nds. Bills are quoted on discount
@@ -157,14 +147,15 @@ export function withValuation(row: SheetRow, incoming: PublishedValuation, recei
   return { ...row, valuation, tick }
 }
 
-/** The level the Level column shows, with its unit: the desk's mark, or the measure that equals it. */
-export function shownLevel(row: SheetRow): { value: string | number; unit: string } | null {
-  if (row.deskField && row.mark) return { value: row.mark.level, unit: FIELD_UNIT[row.deskField] }
-  for (const name of LEVEL_MEASURES[row.rule.method.kind]) {
-    const published = measure(row.valuation, name)
-    if (published) return published.value
-  }
-  return null
+/**
+ * The level the Level column shows, with its unit: the desk's mark, else the quote the
+ * bond's result was priced from, a feed's level or price.
+ */
+export function shownLevel(row: SheetRow): { value: string; unit: string } | null {
+  if (row.deskField && row.mark) return { value: row.mark.level, unit: FIELD_UNIT[row.deskField]! }
+  const quoted = row.valuation?.quote_input
+  const unit = quoted && FIELD_UNIT[quoted.field]
+  return unit ? { value: quoted.observation.value.value, unit } : null
 }
 
 export type RowState = 'awaiting' | 'valid' | 'partial' | 'failed' | 'expired' | 'stale'

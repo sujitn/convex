@@ -237,6 +237,12 @@ Neither its calculation time nor its original snapshot changes. Restart restores
 this retention in both graph and result state. Required invalid input never
 becomes zero, par, Empty-success or a current timestamp on an old value.
 
+Each record also carries `quote_input`, the field of its quote the current attempt was
+valued from (the level under a rule that quotes the bond by one, else its price) with its
+exact observation. A Live runtime stores no snapshot, so the record says which quote of
+the bond's own it was priced from. An attempt that read no quote, such as a refused bond or a record whose
+delivery continuity was lost, carries none.
+
 ## Bounds and local recovery
 
 | Resource | Bound |
