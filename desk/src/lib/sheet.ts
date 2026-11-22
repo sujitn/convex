@@ -203,23 +203,21 @@ export function sheetRows(rules: PricingRule[], bonds: Bond[], desk: DeskLevels 
 }
 
 /**
- * `rows` with the desk's marks as read back, except a bond with a mark of this page in
- * flight, and except where the row holds a newer mark than the read, which may have been
- * issued before that mark was queued.
+ * `rows` with the desk's marks as read back, except the bonds the read may not reflect:
+ * a mark of this page in flight, or taken after the read was issued. Every other bond
+ * takes the read's mark, none included, as after a restart.
  */
-export function withMarks(rows: SheetRow[], desk: DeskLevels, inFlight: ReadonlySet<string>): SheetRow[] {
+export function withMarks(rows: SheetRow[], desk: DeskLevels, unread: ReadonlySet<string>): SheetRow[] {
   const marks = new Map(desk.levels.map((level) => [level.instrument_id, level]))
   let next = rows
   rows.forEach((row, index) => {
     const level = marks.get(row.instrumentId)
-    if (!level || inFlight.has(row.instrumentId)) return
+    if (!level || unread.has(row.instrumentId)) return
     const read = level.mark
-    const held = row.mark
-    const isOlder = read !== null && held !== null && Date.parse(read.marked_at) < Date.parse(held.marked_at)
-    const isSame = read?.level === held?.level && read?.marked_at === held?.marked_at
-    if (row.deskField === level.field && (isOlder || isSame)) return
+    const isSame = read?.level === row.mark?.level && read?.marked_at === row.mark?.marked_at
+    if (row.deskField === level.field && isSame) return
     if (next === rows) next = [...rows]
-    next[index] = { ...row, deskField: level.field, mark: isOlder ? held : read }
+    next[index] = { ...row, deskField: level.field, mark: read }
   })
   return next
 }
