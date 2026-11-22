@@ -1,5 +1,6 @@
 import type { PublishedValuation } from '@convex/api-client'
 import { describe, expect, it } from 'vitest'
+import { calculatedMeasures } from './calculation'
 import { addDecimal, isDecimal } from './decimal'
 import { formatAge, formatCoupon, formatMeasure, formatThirtySeconds, measureUnit } from './format'
 import {
@@ -10,6 +11,7 @@ import {
   rowState,
   sheetRows,
   shownLevel,
+  withMarks,
   withValuation,
   type Bond,
   type PricingRule,
@@ -196,5 +198,76 @@ describe('stream', () => {
     const messages = subscriptionMessages(ids).map((text) => JSON.parse(text) as { instrument_ids: string[] })
     expect(messages.map((message) => message.instrument_ids.length)).toEqual([256, 256, 88])
     expect(messages.flatMap((message) => message.instrument_ids)).toEqual(ids)
+  })
+})
+
+describe('calculator reply', () => {
+  // Members of a real reply to a benchmark spread of 125 on a fixture bullet.
+  const reply = {
+    accrued_interest: 1.2222602739726027,
+    asw_mid: null,
+    clean_price_mid: 99.24351871676679,
+    currency: 'USD',
+    dv01: 0.02943454874710283,
+    g_spread_mid: 161.0,
+    input: { benchmark: { instrument_id: 'UST-10Y', tenor: '10Y', ytm: 0.0437 } },
+    instrument_id: 'BOND-001',
+    is_stale: false,
+    key_rate_durations: [['3M', -0.0046]],
+    measure_errors: [{ code: 'MISSING_MARKET_DATA', field: 'i_spread_mid', message: 'invalid input' }],
+    pricing_spec: 'DiscountToMaturity',
+    quality: 75,
+    settlement_date: '2026-10-06',
+    source: 'convex-library',
+    spread_duration: 3.0137265511949796,
+    timestamp: 1795339212890,
+    workouts: [{ date: '2030-01-15', kind: 'maturity', yield: 0.0563 }],
+    ytm_mid: 0.056269218012215454,
+    z_spread_mid: 252.4181,
+  }
+  it('lists the measures only, in reply order', () => {
+    expect(calculatedMeasures(reply).map(([name]) => name)).toEqual([
+      'accrued_interest',
+      'clean_price_mid',
+      'dv01',
+      'g_spread_mid',
+      'spread_duration',
+      'ytm_mid',
+      'z_spread_mid',
+    ])
+  })
+  it('reads each measure in its unit', () => {
+    const shown = Object.fromEntries(calculatedMeasures(reply).map(([name, value]) => [name, formatMeasure(value, measureUnit(name) ?? '')]))
+    expect(shown).toEqual({
+      accrued_interest: '1.222',
+      clean_price_mid: '99.244',
+      dv01: '0.029434549',
+      g_spread_mid: '161.0',
+      spread_duration: '3.0137266',
+      ytm_mid: '5.627',
+      z_spread_mid: '252.4',
+    })
+  })
+})
+
+describe('marks read back', () => {
+  const rules: PricingRule[] = [{ instrument_id: 'BOND-001', method: { kind: 'z_spread' } }]
+  const read = (level: string, at: string) => ({
+    source: 'desk',
+    levels: [{ instrument_id: 'BOND-001', field: 'mid_spread' as const, mark: { level, marked_at: at } }],
+  })
+  const [row] = sheetRows(rules, [], read('125', '2026-11-22T12:00:00.000Z'))
+  it("take another page's newer mark", () => {
+    const [next] = withMarks([row!], read('130', '2026-11-22T12:00:05.000Z'), new Set())
+    expect(next!.mark?.level).toBe('130')
+  })
+  it('keep a newer mark of this page over a read issued before it was queued', () => {
+    const held = { ...row!, mark: { level: '127', marked_at: '2026-11-22T12:00:09.000Z' } }
+    expect(withMarks([held], read('125', '2026-11-22T12:00:00.000Z'), new Set())[0]).toBe(held)
+  })
+  it('leave a bond with a mark in flight, and change nothing when nothing changed', () => {
+    const rows = [row!]
+    expect(withMarks(rows, read('130', '2026-11-22T12:00:05.000Z'), new Set(['BOND-001']))).toBe(rows)
+    expect(withMarks(rows, read('125', '2026-11-22T12:00:00.000Z'), new Set())).toBe(rows)
   })
 })

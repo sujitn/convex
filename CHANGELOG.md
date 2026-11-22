@@ -185,16 +185,17 @@ the changes that matter when you upgrade.
     startup checks.
   - `desk_level_source` names the Live plan's level source as the desk's.
     `POST /api/v1/market/levels` marks a level-quoted bond's level there as a `manual`
-    quote, checked against its rule's field and its method's range; the route numbers
-    each bond's quotes and is the source's only writer, so `POST /api/v1/market/quotes`
-    now refuses a feed's event on that source (`DESK_LEVEL_SOURCE`).
+    quote, checked against its rule's field and its method's range. The quote ingress
+    owns that source: it numbers and stamps each mark under the lock that orders every
+    quote, and `POST /api/v1/market/quotes` now refuses a feed's event on it
+    (`DESK_LEVEL_SOURCE`).
     `GET /api/v1/market/levels` reads back each bond's last mark. Startup refuses the
     setting without a Live runtime or when the plan reads no level, or anything else,
     from the source.
 - **A browser opens the stream with its token.** A page offers `convex.v1`, which the
   server selects, and `convex.bearer.<token>`, the bearer token base64url-encoded, as
   WebSocket subprotocols, since a browser cannot send `Authorization` on a WebSocket.
-  Only the stream reads it, it never reaches a handler or the reply, and a request
+  Only the stream reads it, it is removed before the handler and never echoed, and a request
   sending a token both ways is refused (400). Clients sending `Authorization` are
   unchanged.
 

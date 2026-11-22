@@ -14,7 +14,7 @@ import {
   sheetRows,
   shownLevel,
   withValuation,
-  type DeskLevels,
+  withMarks,
   type DeskMark,
   type RowState,
   type SheetRow,
@@ -57,16 +57,17 @@ export function PricingSheet() {
   const deskSource = deskData?.source ?? null
   const deskRef = useRef(deskData)
   deskRef.current = deskData
-  const hasDesk = desk.isSuccess
+  // A failed read of the marks leaves the sheet read-only, saying why.
+  const isDeskRead = desk.isSuccess || desk.isError
 
   // Rows are built once the rules, the bonds and the desk's marks are read; the marks
   // read again later are merged into them.
   useEffect(() => {
-    if (universe.data && hasDesk) setRows(sheetRows(universe.data.rules, universe.data.bonds, deskRef.current))
-  }, [universe.data, hasDesk])
+    if (universe.data && isDeskRead) setRows(sheetRows(universe.data.rules, universe.data.bonds, deskRef.current))
+  }, [universe.data, isDeskRead])
 
   useEffect(() => {
-    if (deskData) setRows((current) => withMarks(current, deskData, inFlight.current))
+    if (deskData) setRows((current) => withMarks(current, deskData, new Set(inFlight.current.keys())))
   }, [deskData])
 
   // Rows keep the rules' order, so a bond's row is found by its rule's position.
@@ -131,10 +132,14 @@ export function PricingSheet() {
       const send = async (sent: string, previous: DeskMark | null) => {
         inFlight.current.set(id, null)
         try {
-          await call('/api/v1/market/levels', {
+          const reply = await call<{ receive_time_ms: number }>('/api/v1/market/levels', {
             method: 'POST',
             body: { source: deskSource, levels: [{ instrument_id: id, field, level: sent }] },
           })
+          // The server's receipt time orders this mark against the marks read back later.
+          if (inFlight.current.get(id) === null) {
+            setMark(index, { level: sent, marked_at: new Date(reply.data.receive_time_ms).toISOString() })
+          }
           setNotice(null)
         } catch (error) {
           setMark(index, previous)
@@ -193,7 +198,9 @@ export function PricingSheet() {
         <span>
           {deskSource
             ? `Desk levels on ${deskSource}: ↑↓ select · + / − nudge 1 bp (Alt: ¼ bp) · Enter types a level`
-            : 'This server takes no desk levels: levels are read-only.'}
+            : desk.error
+              ? `Desk levels could not be read (${desk.error instanceof ApiFailure ? desk.error.message : String(desk.error)}): levels are read-only.`
+              : 'This server takes no desk levels: levels are read-only.'}
         </span>
         {notice && <span className="text-amber-300">{notice}</span>}
       </div>
@@ -231,21 +238,6 @@ export function PricingSheet() {
       </div>
     </div>
   )
-}
-
-/** `rows` with the desk's latest marks, except where a mark of this page is in flight. */
-function withMarks(rows: SheetRow[], desk: DeskLevels, inFlight: Map<string, string | null>): SheetRow[] {
-  const marks = new Map(desk.levels.map((level) => [level.instrument_id, level]))
-  let next = rows
-  rows.forEach((row, index) => {
-    const level = marks.get(row.instrumentId)
-    if (!level || inFlight.has(row.instrumentId)) return
-    const mark = level.mark
-    if (row.deskField === level.field && row.mark?.level === mark?.level && row.mark?.marked_at === mark?.marked_at) return
-    if (next === rows) next = [...rows]
-    next[index] = { ...row, deskField: level.field, mark }
-  })
-  return next
 }
 
 function StreamBadge({ status }: { status: StreamStatus | 'idle' }) {

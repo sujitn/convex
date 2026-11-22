@@ -3,8 +3,12 @@ import type { Bond, DeskLevels, PricingRule } from './sheet'
 
 // The sheet's reads: every pricing rule and bond, a page at a time, and the desk's marks.
 
-/** The most records the server returns a reference page. */
-const PAGE = 1000
+/**
+ * Records a page. In required access mode the server checks every bond a reply names
+ * against the caller's grants, up to 1,024 names a reply, and a bond page names each bond
+ * twice, so a page stays well under that.
+ */
+const PAGE = 200
 
 type Call = <T>(path: string) => Promise<Reply<T>>
 

@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { ApiFailure, useSession } from '@convex/api-client'
 import { useState, type ReactNode } from 'react'
 import { isDecimal } from '../lib/decimal'
+import { calculatedMeasures } from '../lib/calculation'
 import { formatMeasure, measureUnit } from '../lib/format'
 import type { MethodKind, PricingMethod } from '../lib/sheet'
 
@@ -125,11 +126,7 @@ function Refusal({ error }: { error: unknown }) {
 }
 
 function Reply({ reply }: { reply: CalculationReply }) {
-  // The measures are the reply's numeric members; the rest is what was read.
-  const measures = Object.entries(reply).filter(
-    (entry): entry is [string, number | string] =>
-      typeof entry[1] === 'number' || (typeof entry[1] === 'string' && isDecimal(entry[1])),
-  )
+  const measures = calculatedMeasures(reply)
   return (
     <>
       <table className="w-full max-w-xl text-sm">
