@@ -386,7 +386,8 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
             "settlement_date": chrono::Utc::now().date_naive().to_string(),
             "measures": ["clean_price_mid", "ytm_mid"],
             "numerical_settings": {"policy_id": "convex-bond-router-v1", "bump_bps": 1.0},
-            "max_concurrent_calcs": 4
+            "max_concurrent_calcs": 4,
+            "client_tiers": [{"client_tier": "1", "width_factor": "0.75"}]
         }),
     );
     let document = config_cli(&path, &["compile".as_ref(), selection.as_os_str()]);

@@ -23,6 +23,7 @@
 
 pub mod access;
 mod analytics;
+mod audit_writer;
 mod books;
 mod calculator;
 mod composition;
@@ -40,6 +41,8 @@ pub mod limit_monitor;
 mod limits;
 pub mod market;
 mod reference;
+pub mod rfq_desk;
+mod rfqs;
 pub mod routes;
 pub mod telemetry;
 pub mod websocket;
@@ -103,6 +106,7 @@ pub struct Server {
     core: Option<Arc<convex_engine::core_workflow::CoreWorkflow>>,
     quotes: Option<Arc<market::QuoteIngress>>,
     limits: Option<Arc<limit_monitor::LimitMonitor>>,
+    rfqs: Option<Arc<rfq_desk::RfqDesk>>,
 }
 
 impl Server {
@@ -120,6 +124,7 @@ impl Server {
             core: None,
             quotes: None,
             limits: None,
+            rfqs: None,
         }
     }
 
@@ -136,6 +141,7 @@ impl Server {
             core: None,
             quotes: None,
             limits: None,
+            rfqs: None,
         }
     }
 
@@ -154,19 +160,22 @@ impl Server {
         self
     }
 
-    /// Monitor each book's limits while serving, recording each status change in `audit`
-    /// and publishing it to `subscribe_limits` sessions, under the
-    /// configuration's clear hold and record retention.
-    pub fn with_limit_monitor(
+    /// Record in `audit` while serving: monitor each book's limits, recording each status
+    /// change and publishing it to `subscribe_limits` sessions, under the configuration's
+    /// clear hold and record retention; and take clients' requests for quote, recording
+    /// each transition. Both write through one writer, so entries commit in ID order.
+    pub fn with_audit_records(
         mut self,
         audit: Arc<dyn convex_engine::ports::storage::AuditStore>,
     ) -> Self {
+        let writer = audit_writer::AuditWriter::new(audit);
         let hold = std::time::Duration::from_secs(self.config.limits.clear_hold_seconds);
         self.limits = Some(limit_monitor::LimitMonitor::new(
-            audit,
+            writer.clone(),
             hold,
             self.config.limits.record_retention_days,
         ));
+        self.rfqs = Some(rfq_desk::RfqDesk::new(writer));
         self
     }
 
@@ -222,6 +231,9 @@ impl Server {
             router = router
                 .layer(Extension(limits.feed()))
                 .layer(Extension(limits.records()));
+        }
+        if let Some(rfqs) = &self.rfqs {
+            router = router.layer(Extension(rfqs.clone()));
         }
         // HTTP configuration fixtures must prefix the replay this composition runs.
         if let Some(quotes) = &self.config.quotes_file {
@@ -300,7 +312,15 @@ impl Server {
         let monitor = self.limits.clone().map(|limits| {
             let engine = self.engine.clone();
             let handle = tokio::runtime::Handle::current();
+            let monitor_rx = monitor_rx.clone();
             tokio::task::spawn_blocking(move || handle.block_on(limits.run(engine, monitor_rx)))
+        });
+        // The RFQ desk expires what the last run left open before it takes a request, then
+        // each request at its deadline, on a thread of its own as the monitor does: its
+        // restart scan and expiry commits would otherwise hold a worker.
+        let rfq_desk = self.rfqs.clone().map(|rfqs| {
+            let handle = tokio::runtime::Handle::current();
+            tokio::task::spawn_blocking(move || handle.block_on(rfqs.run(monitor_rx)))
         });
         let engine = self.engine.clone();
         let shutdown_error = Arc::new(tokio::sync::Mutex::new(None));
@@ -321,6 +341,11 @@ impl Server {
         if let Some(task) = monitor {
             if let Err(error) = task.await {
                 tracing::error!(%error, "Limit monitor task failed");
+            }
+        }
+        if let Some(task) = rfq_desk {
+            if let Err(error) = task.await {
+                tracing::error!(%error, "RFQ desk task failed");
             }
         }
         self.engine.shutdown().await?;

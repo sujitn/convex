@@ -43,7 +43,7 @@ use convex_engine::limits::{evaluate_limits, LimitBook, LimitPosition, LimitTerm
 use convex_engine::ports::limits::{
     excess_expiry, validate_limits, LimitAcknowledgement, LimitDefinition, LimitEvaluation,
     LimitExcess, LimitId, LimitMeasure, LimitMember, LimitProposalClosure, LimitProposalDefinition,
-    LimitSetDefinition, UnknownReason,
+    LimitSetDefinition, LimitStatus, UnknownReason,
 };
 use convex_engine::ports::output::BondQuoteOutput;
 use convex_engine::ports::reference_data::BondReferenceData;
@@ -56,7 +56,7 @@ use serde::{Deserialize, Serialize};
 use crate::access::{recorded_subject, AccessContext, Action, DataScope, Resource, ResourceKind};
 use crate::books::{
     accepted_runtime_results, book_id, book_of, in_force, optional_expected, resolve_rows,
-    rows_rejected, too_large, typed_error, Resolved, RowError, RowRequest, MAX_ROW_ERRORS,
+    rows_rejected, too_large, typed_error, RowError, RowRequest, MAX_ROW_ERRORS,
 };
 use crate::handlers::AppState;
 use crate::limit_monitor::{AcknowledgementInForce, LIMIT_STATUS_ENTITY, LIMIT_STATUS_EVENT};
@@ -155,15 +155,7 @@ pub(crate) fn authorize(
             resources.push(Resource::new(ResourceKind::Instrument, id));
         }
     }
-    let Some(Extension(ctx)) = ctx else {
-        return Err(crate::access::http::response(
-            crate::access::AccessError::Forbidden,
-        ));
-    };
-    state
-        .access
-        .authorize(ctx, action, data, &resources)
-        .map_err(crate::access::http::response)
+    crate::access::http::authorize_resources(&state.access, ctx, action, data, &resources)
 }
 
 /// Reading limits needs `BookRead` on the book, each position's instrument and each
@@ -1154,6 +1146,8 @@ async fn status(
         book,
         &acknowledgements,
         evaluated_at,
+        &mut PricedTerms::new(),
+        |view| Json(view).into_response(),
     )
     .await
 }
@@ -1165,20 +1159,31 @@ pub(crate) async fn evaluate_now(
     limits: &[LimitDefinition],
     at: UtcTimestamp,
 ) -> Result<BookEvaluation, Response> {
+    evaluate_with(state, book, limits, at, &mut PricedTerms::new()).await
+}
+
+/// [`evaluate_now`] reading the priced terms it lacks into `terms`, which a caller
+/// evaluating several books keeps between them: a version never changes.
+async fn evaluate_with(
+    state: &AppState,
+    book: &BookDefinition,
+    limits: &[LimitDefinition],
+    at: UtcTimestamp,
+    terms: &mut PricedTerms,
+) -> Result<BookEvaluation, Response> {
     let accepted = accepted_runtime_results(state, book);
-    let mut terms = PricedTerms::new();
     read_priced_terms(
         state.engine.reference_repository().as_ref(),
         book,
         &accepted,
-        &mut terms,
+        terms,
     )
     .await;
     evaluate_book(
         book,
         limits,
         &accepted,
-        &terms,
+        terms,
         state.engine.runtime_settlement_date(),
         at,
     )
@@ -1210,18 +1215,22 @@ pub(crate) async fn acknowledgements_of(
     }
 }
 
-/// Evaluate `limits` on `book` against the current Live results, and answer in the status
-/// route's shape, with the acknowledgement in force for each `breach` or `unknown` limit.
-/// `versions` are the book and limit set versions read.
-async fn evaluated(
+/// Evaluate `limits` on `book` against the current Live results, in the status route's
+/// shape, with the acknowledgement in force for each `breach` or `unknown` limit, and give
+/// the view to `answer`. `versions` are the book and limit set versions read; `terms` are
+/// the priced terms read so far.
+#[allow(clippy::too_many_arguments)]
+async fn evaluated<T>(
     state: &AppState,
     versions: (Version, Version),
     limits: &[LimitDefinition],
     book: &BookDefinition,
     acknowledgements: &[LimitAcknowledgement],
     evaluated_at: UtcTimestamp,
-) -> Result<Response, Response> {
-    let evaluation = evaluate_now(state, book, limits, evaluated_at).await?;
+    terms: &mut PricedTerms,
+    answer: impl FnOnce(StatusView<'_>) -> T,
+) -> Result<T, Response> {
+    let evaluation = evaluate_with(state, book, limits, evaluated_at, terms).await?;
     let items = limits
         .iter()
         .zip(&evaluation.evaluations)
@@ -1250,7 +1259,7 @@ async fn evaluated(
         snapshot_ids: evaluation.snapshot_ids,
         limits: items,
     };
-    Ok(Json(view).into_response())
+    Ok(answer(view))
 }
 
 // =============================================================================
@@ -1626,7 +1635,8 @@ async fn check(
         .iter()
         .map(|row| row.position.instrument_id.as_str().to_owned());
     authorize(state, ctx, Action::BookRead, STATUS_DATA, &id, proposed)?;
-    let book = applied(held, &resolved, &units)?;
+    let changes: Vec<BookPosition> = resolved.into_iter().map(|row| row.position).collect();
+    let book = applied(held, &changes, &units).map_err(NotApplied::into_response)?;
     let acknowledgements = acknowledgements_of(state, &id).await?;
     let versions = (book_record.version, set_record.version);
     evaluated(
@@ -1636,8 +1646,147 @@ async fn check(
         &book,
         &acknowledgements,
         evaluated_at,
+        &mut PricedTerms::new(),
+        |view| Json(view).into_response(),
     )
     .await
+}
+
+/// A book a trade would go to, with what checking the trade reads of it: read once for
+/// every trade on the book one batch checks.
+pub(crate) struct TradedBook {
+    book: MasterRecord,
+    /// The current limit set, if the book has one.
+    set: Option<MasterRecord>,
+    acknowledgements: Vec<LimitAcknowledgement>,
+}
+
+/// Why a trade cannot go to a book.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NoTradedBook {
+    /// No book by the id is stored.
+    Unknown,
+    /// The book is retired.
+    Retired,
+    /// The book or its limits could not be read.
+    Unreadable,
+}
+
+/// The book `book_id` with its current limit set and acknowledgements, a book in force.
+pub(crate) async fn traded_book(
+    state: &AppState,
+    book_id: &BookId,
+) -> Result<TradedBook, NoTradedBook> {
+    let repo: &dyn ReferenceRepository = state.engine.reference_repository().as_ref();
+    let book = current(repo, MasterKey::Book(book_id.clone()))
+        .await
+        .map_err(|_| NoTradedBook::Unreadable)?
+        .ok_or(NoTradedBook::Unknown)?;
+    if book_of(&book)
+        .map_err(|_| NoTradedBook::Unreadable)?
+        .is_retired()
+    {
+        return Err(NoTradedBook::Retired);
+    }
+    let set = current(repo, MasterKey::LimitSet(book_id.clone()))
+        .await
+        .map_err(|_| NoTradedBook::Unreadable)?;
+    let acknowledgements = match &set {
+        Some(_) => acknowledgements_of(state, book_id)
+            .await
+            .map_err(|_| NoTradedBook::Unreadable)?,
+        None => Vec::new(),
+    };
+    Ok(TradedBook {
+        book,
+        set,
+        acknowledgements,
+    })
+}
+
+/// A trade's pre-trade check: the check route's answer, and how many limits it put in
+/// each status.
+pub(crate) struct TradeCheck {
+    pub(crate) status: serde_json::Value,
+    pub(crate) statuses: BTreeMap<LimitStatus, usize>,
+}
+
+/// The pre-trade check of one trade, in the check route's shape: the current limit set of
+/// `traded`, evaluated at `evaluated_at` against the current Live results with `change`
+/// added. `terms` are the priced terms read so far. Nothing is authorized here: what it
+/// answers is read back under status's read rule. A book with no limits, or a change the
+/// book cannot take, says why.
+pub(crate) async fn check_trade(
+    state: &AppState,
+    traded: &TradedBook,
+    change: BookPosition,
+    evaluated_at: UtcTimestamp,
+    terms: &mut PricedTerms,
+) -> Result<TradeCheck, &'static str> {
+    const UNREADABLE: &str = "the book's limits could not be read or evaluated";
+    const NO_LIMITS: &str = "the book has no limits";
+    let held = book_of(&traded.book).map_err(|_| UNREADABLE)?;
+    let set_record = traded.set.as_ref().ok_or(NO_LIMITS)?;
+    let set = set_of(set_record).map_err(|_| UNREADABLE)?;
+    if set.limits.is_empty() {
+        return Err(NO_LIMITS);
+    }
+    if held.positions.iter().any(|position| {
+        position.instrument_id == change.instrument_id && position.unit != change.unit
+    }) {
+        return Err("the book holds the bond in another unit than the trade's size");
+    }
+    let unit = Some(change.unit);
+    let applied =
+        applied(held, std::slice::from_ref(&change), &[unit]).map_err(|refused| match refused {
+            NotApplied::Rows(rows) => rows.first().map_or(UNREADABLE, |row| row.reason),
+            NotApplied::TooLarge => "the trade would take the book past its position bound",
+            NotApplied::Invalid(_) => UNREADABLE,
+        })?;
+    evaluated(
+        state,
+        (traded.book.version, set_record.version),
+        &set.limits,
+        &applied,
+        &traded.acknowledgements,
+        evaluated_at,
+        terms,
+        |view| {
+            let mut statuses = BTreeMap::new();
+            for item in &view.limits {
+                *statuses.entry(item.evaluation.status).or_default() += 1;
+            }
+            serde_json::to_value(view).map(|status| TradeCheck { status, statuses })
+        },
+    )
+    .await
+    .map_err(|_| UNREADABLE)?
+    .map_err(|_| UNREADABLE)
+}
+
+/// Why changes cannot be applied to a book.
+enum NotApplied {
+    /// Rows that change a held position other than in quantity, or past exact
+    /// representation.
+    Rows(Vec<RowError>),
+    /// The changed book holds too many positions.
+    TooLarge,
+    /// The changed book is invalid.
+    Invalid(ReferenceError),
+}
+
+impl NotApplied {
+    fn into_response(self) -> Response {
+        match self {
+            Self::Rows(mut errors) => {
+                let truncated = errors.len() > MAX_ROW_ERRORS;
+                errors.truncate(MAX_ROW_ERRORS);
+                rows_rejected(CHECK_REJECTED, &errors, truncated)
+            }
+            Self::TooLarge => too_large(),
+            Self::Invalid(error) => reference_error(error),
+        }
+    }
 }
 
 /// Why a row may not change a held position, if it may not: a row changes only the
@@ -1667,9 +1816,9 @@ fn differs(
 /// follows the held positions in row order. `units` are the units the rows stated.
 fn applied(
     held: &BookDefinition,
-    rows: &[Resolved],
+    rows: &[BookPosition],
     units: &[Option<QuantityUnit>],
-) -> Result<BookDefinition, Response> {
+) -> Result<BookDefinition, NotApplied> {
     let index: HashMap<&str, usize> = held
         .positions
         .iter()
@@ -1681,13 +1830,12 @@ fn applied(
     let mut added = Vec::new();
     let mut errors = Vec::new();
     for (row_index, (row, unit)) in rows.iter().zip(units).enumerate() {
-        let row = &row.position;
         let Some(&at) = index.get(row.instrument_id.as_str()) else {
             added.push(row.clone());
             continue;
         };
         let (Some(position), Some(flag)) = (book.positions.get_mut(at), changed.get_mut(at)) else {
-            return Err(reference_error(ReferenceError::Unavailable));
+            return Err(NotApplied::Invalid(ReferenceError::Unavailable));
         };
         let refused = differs(position, row, *unit).or_else(|| {
             match position
@@ -1712,9 +1860,7 @@ fn applied(
         }
     }
     if !errors.is_empty() {
-        let truncated = errors.len() > MAX_ROW_ERRORS;
-        errors.truncate(MAX_ROW_ERRORS);
-        return Err(rows_rejected(CHECK_REJECTED, &errors, truncated));
+        return Err(NotApplied::Rows(errors));
     }
     let mut positions: Vec<BookPosition> = std::mem::take(&mut book.positions)
         .into_iter()
@@ -1728,10 +1874,10 @@ fn applied(
             .filter(|position| !position.quantity.decimal().is_zero()),
     );
     if positions.len() > MAX_BOOK_POSITIONS {
-        return Err(too_large());
+        return Err(NotApplied::TooLarge);
     }
     book.positions = positions;
-    book.validate().map_err(reference_error)?;
+    book.validate().map_err(NotApplied::Invalid)?;
     Ok(book)
 }
 

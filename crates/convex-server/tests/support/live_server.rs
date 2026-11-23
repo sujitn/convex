@@ -122,6 +122,24 @@ impl Running {
         (status, response.json().await.unwrap_or(Value::Null))
     }
 
+    /// `PUT` `body` on `path` with an idempotency key of its path, which must succeed.
+    pub async fn put(&self, path: &str, body: &Value) {
+        let response = self
+            .client
+            .put(format!("{}{path}", self.base))
+            .header("idempotency-key", format!("put{}", path.replace('/', "-")))
+            .json(body)
+            .send()
+            .await
+            .unwrap();
+        let status = response.status();
+        assert!(
+            status.is_success(),
+            "{path}: {status} {}",
+            response.text().await.unwrap_or_default()
+        );
+    }
+
     pub async fn post_quotes(&self, events: Vec<QuoteEvent>) -> reqwest::Response {
         self.client
             .post(format!("{}/api/v1/market/quotes", self.base))
@@ -372,4 +390,59 @@ pub async fn level_live_setup_from(
     }
     let (dir, database, live) = live_config(s, &plan);
     (dir, database, live, LevelKeys { bonds, treasuries })
+}
+
+/// Stage and activate, in the database at `database` before the server opens it, the
+/// document of the Live plan beside it, over the stored pricing configuration, with
+/// `tiers` as its client tiers: request-time pricing and requests for quote resolve it,
+/// and the runtime starts under it.
+pub async fn activate_client_tiers(database: &Path, tiers: Value) {
+    use convex_engine::ports::configuration::*;
+    let plan: RuntimePlan =
+        serde_json::from_slice(&std::fs::read(database.with_file_name("runtime.json")).unwrap())
+            .unwrap();
+    let storage = convex_ext_redb::open_redb_storage(database)
+        .unwrap()
+        .storage;
+    let config = storage
+        .configs
+        .get_version("CONFIG-RESTORE", 1)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut staged = configuration_fixture::staged(1);
+    let document = &mut staged.document;
+    document.pricing = config;
+    document.process.result_transport =
+        convex_core::contracts::SourceId::new("display-only").unwrap();
+    document.providers = Vec::new();
+    for quote in &plan.assembly.quotes {
+        let source = convex_core::contracts::SourceId::new(&quote.key.source).unwrap();
+        if document.providers.iter().all(|p| p.source != source) {
+            document.providers.push(ProviderBinding {
+                source,
+                capabilities: vec![
+                    ProviderCapability::CanonicalQuotes,
+                    ProviderCapability::LiveImages,
+                ],
+                credential: None,
+            });
+        }
+    }
+    document.runtime = RuntimeSettings {
+        runtime_id: plan.runtime_id,
+        mode: plan.mode,
+        settlement_date: plan.settlement_date,
+        build_id: plan.build_id,
+        measures: plan.measures,
+        numerical_settings: plan.numerical_settings,
+    };
+    document.assembly = plan.assembly;
+    document.client_tiers = serde_json::from_value(tiers).unwrap();
+    storage.configuration.stage(&staged).await.unwrap();
+    storage
+        .configuration
+        .activate(&configuration_fixture::activate(1, 0, "client-tiers"))
+        .await
+        .unwrap();
 }

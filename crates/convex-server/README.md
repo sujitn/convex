@@ -219,7 +219,7 @@ These process settings require a restart. Versioned quantitative/integration/pol
 | desk_ui_dir | CONVEX_DESK_UI_DIR | Optional built desk app served at `/desk`; must hold `index.html` |
 | desk_level_source | CONVEX_DESK_LEVEL_SOURCE | Optional, Live only: the plan's level source, written only through [`/api/v1/market/levels`](#desk-levels) |
 | limits.clear_hold_seconds | CONVEX_LIMITS_CLEAR_HOLD_SECONDS | Integer 0–300; default 5. How long the [limit monitor](#the-monitor) waits before recording a change to a less severe status; 0 records every change at once |
-| limits.record_retention_days | CONVEX_LIMITS_RECORD_RETENTION_DAYS | Integer 8–3,650; unset by default, which keeps every limit record. How long the [limit monitor](#retention) keeps its records before pruning them |
+| limits.record_retention_days | CONVEX_LIMITS_RECORD_RETENTION_DAYS | Integer 8–3,650; unset by default, which keeps every limit and RFQ record. How long the [limit monitor](#retention) keeps them before pruning them |
 | access.mode | CONVEX_ACCESS_MODE | Required by default; explicit local_development only for isolated loopback |
 | access.policy_file | CONVEX_ACCESS_POLICY_FILE | Bounded versioned grants, atomically reloaded each second |
 | access.tls_boundary | CONVEX_TLS_BOUNDARY | local_only or proxy; executable upstream stays loopback |
@@ -755,8 +755,8 @@ so they must name the same source.
   for the desk's next.
 - **Startup** refuses `desk_level_source` without a Live runtime, a source the plan reads
   no level from, and one it reads anything else from, such as a price.
-- **Access.** A mark needs `CurveWrite` on market data, scoped to each bond and to the
-  source the body names, as a feed's quote is. Reading the marks back lists every
+- **Access.** A mark needs the `trader` role (`LevelWrite`) on market data, scoped to each
+  bond and to the source the body names, as a feed's quote is. Reading the marks back lists every
   desk-quoted bond, so it needs `MarketRead` with wildcard grants on instruments and
   sources, as runtime results do.
 
@@ -1082,7 +1082,8 @@ status and the breach), since no return lasted the hold.
 #### Retention
 
 With `limits.record_retention_days` set (8 to 3,650 days), the monitor prunes
-`limit_status` records older than the period. Unset, every record is kept.
+`limit_status` and `rfq` records older than the period. Unset, every record is kept. A
+request for quote is open for 300 seconds at most, so no open one's record is pruned.
 
 - **At start**, after it reads the limit sets and acknowledgements and before it records
   any book, it prunes every record older than the period except those an acknowledgement
@@ -1298,6 +1299,89 @@ changes equals the status of the book once they are committed, while no quote ar
 between. The caller needs what status needs, plus `BookRead` on each instrument a row names,
 including one reached through an identifier (D91; see [access](ACCESS.md)).
 
+## Requests for quote
+
+A source, a venue's adapter or its simulator, sends clients' requests for quote on stored
+bonds. The server prices each at receipt and checks it against its book's limits as if
+done; a trader sends a quote or passes; the source reports the client's outcome. The
+server does not book a trade: `done` is recorded, and the book's owning system sends the
+new position through `PUT /api/v1/books/:book_id`.
+
+```json
+{"rfqs": [{
+  "source_id": "venue-sim", "rfq_id": "RFQ-0001",
+  "client_id": "CLIENT-17", "client_tier": "2",
+  "instrument_id": "BOND-001", "side": "sell", "face": "5000000",
+  "settlement_date": "2026-11-25", "book_id": "BOOK-IG",
+  "deadline": "2026-11-23T12:00:30Z"
+}]}
+```
+
+- **Ingest.** `POST /api/v1/rfqs` takes 1 to 64 requests in a body of at most 128 KiB
+  (413 `RFQ_BODY_TOO_LARGE`). Each is answered on its own, in order: `accepted` with its
+  `rfq_key` and state `priced`, `retry` when the source sent the same `rfq_id` before with
+  the same content (its state now), or `refused` with a code and reason. The reply is 200
+  when any was taken, 429 when none was and one was refused for capacity, and 422
+  otherwise. 503 `UNAVAILABLE`, which may be retried, means the server takes no requests
+  now: no activated configuration, or the desk is still expiring what its last run left
+  open.
+- **Refusals.** A request names its bond by `instrument_id` or by an `identifier`
+  (ISIN, CUSIP or provider id, resolved through the identifier mappings at receipt, as a
+  book row is). Codes: `RFQ_ID`, `RFQ_CLIENT_ID`, `RFQ_CLIENT_TIER` (also a tier the active
+  configuration does not list), `RFQ_INSTRUMENT`, `RFQ_FACE`, `RFQ_DEADLINE` (1 to 300
+  seconds after receipt), `RFQ_BOOK` (no such book, or retired), `UNKNOWN_IDENTIFIER`,
+  `NOT_AN_INSTRUMENT`, `AMBIGUOUS_IDENTIFIER`, `RFQ_DUPLICATE` (an id twice in one
+  batch), `RFQ_CONFLICT` (an id sent before with other content), `RFQ_CAPACITY` (256 open)
+  and `FORBIDDEN`.
+- **Its key.** `rfq_key` is a digest of the source and its id, 64 hexadecimal digits; the
+  routes below take it. A source's id stays taken once received, so a retry after the
+  request is final, after its deadline or after a restart is still recognised; one whose
+  receipt retention has removed is taken as new.
+- **The auto price.** Under the active configuration, at receipt: the bond's level in its
+  Live record, through its rule's stage at the request's settlement date, at the width of
+  the rule for the trade's size bucket scaled by the client tier's factor
+  (`client_tiers` in the configuration). The price is the side of the desk's quote the
+  client trades on: a client buy lifts the ask, a client sell hits the bid. A bond whose
+  rule sets no width, a callable and a floating rate note are priced at the mid, with
+  `mid_only` saying why. A bond that cannot be priced (no rule, no usable Live level, a
+  benchmark unavailable, a size past the schedule) is `unpriced` with the reason, and the
+  trader sets the price.
+- **The check.** The pre-trade check of the trade: its book's current limits evaluated
+  against the current Live results with the face added (a client sell) or taken off (a
+  client buy), in the check route's shape. A bond outside the Live universe makes the
+  limits that read market data `unknown` with the reason, and a `face` limit still
+  evaluates. A book without limits records why there is no check.
+- **Answers.** `POST /api/v1/rfqs/:rfq_key/quote` with `{"clean_price": "99.53"}` sends the
+  desk's price, the auto price or the trader's; `/pass` declines. One quote, and only on a
+  priced request. `POST /api/v1/rfqs/:rfq_key/outcome` with `{"outcome": "done"}` (or
+  `traded_away`, `covered`, `cancelled`) is the source's. A request moves only as the
+  state table allows (409 `RFQ_TRANSITION`), and a final one not at all (409 `RFQ_FINAL`);
+  an unknown key is 404 `RFQ_UNKNOWN`.
+- **Deadlines.** A request open at its deadline is expired, once: by the desk's timer, or
+  by an answer that arrives after it, which is then refused. At start the desk records
+  every request its last run left open as expired, reason `restart`, before it takes a
+  request; no quote is sent again.
+- **Records.** Each transition is an audit entry (`rfq`, the request's key) written before
+  it applies, through the writer the limit monitor shares, so entry ids commit in order.
+  It carries what it was made from: the request and the bond it resolved to; the
+  configuration, its version and activation, the tier's factor; the Live level read, the
+  rule as read with each benchmark's price and snapshot, the curves a Z-spread read; the
+  desk side's level and price and the mid; the check, with how many limits it put in each
+  status; the quote sent; who sent each event (`server`, `trader`, `source`, with the
+  caller's recorded subject) and when. Retention prunes them as it prunes limit records.
+- **Reading.** `GET /api/v1/rfqs` lists the open requests by deadline, `?state=` one open
+  state: each row has the request, the desk side's auto price and how many of the book's
+  limits the check put in each status, so 256 rows fit one response.
+  `GET /api/v1/rfqs/:rfq_key` returns every entry of one request, with what each was made
+  from and who sent it (`user`: `access:` and the caller's audit fingerprint, as limit
+  and configuration records name a subject). Each needs what the book's limit status
+  needs, since it carries the check, and its bond; the list leaves out what the caller
+  cannot read and counts it in `withheld`. Answering a request needs the same grants
+  whether it is open or final, so a key says nothing to anyone else.
+- **Access.** Sending requests and outcomes needs the `rfq_source` role (`RfqIngest`) with
+  the source, each book and each bond; answering needs the `trader` role (`RfqRespond`)
+  on the request's book and bond.
+
 ## Reference schema and Rust migration
 
 The redb reference tables are `reference_current_v2`, `reference_history_v2`, `reference_commits_v2`, `reference_master_current_v2` and `reference_master_history_v2`. Terms without `contractual_terms` require an explicit verified update before valuation. Back up before upgrade and restore into isolation to roll back. A nonempty unversioned `bonds` table fails startup.
@@ -1351,7 +1435,14 @@ reads 0.
 | `convex_limit_status_changes_total` | Status changes recorded |
 | `convex_limit_status_append_failures_total` | Status changes that could not be recorded, and so were not published |
 | `convex_audit_entries` | Entries the audit store holds, read when the monitor starts, after each write and after each prune call that removes any; every write is refused at 1,000,000 |
-| `convex_audit_pruned_total` | Limit records removed by [retention](#retention) |
+| `convex_audit_pruned_total` | Limit and RFQ records removed by [retention](#retention) |
+
+The RFQ desk keeps these:
+
+| Metric | Meaning |
+|---|---|
+| `convex_rfqs_open` | Requests for quote open |
+| `convex_rfq_pricing_seconds` | One request's receipt to its `priced` entry: the ingest's checks, the auto price, the check and the record |
 
 On-demand fixed and zero-coupon quotes use the [shared bond quote route](../../docs/BOND-QUOTES.md). Supply an observed price; the curves come from the activated configuration, or from discount, swap and government inputs you pass in for a what-if. No demo curves, assumed volatility or model/par price are generated. Missing optional measures return structured errors. Not yet covered: full historical contexts and live provider feeds.
 

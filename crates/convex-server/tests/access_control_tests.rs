@@ -1169,7 +1169,7 @@ async fn live_quote_ingress_needs_writer_market_and_each_event_scope() {
 }
 
 #[tokio::test]
-async fn desk_levels_need_writer_market_and_each_bond_and_source_scope() {
+async fn desk_levels_need_the_trader_market_and_each_bond_and_source_scope() {
     let issuer = IssuerFixture::start().await;
     let router = |document: PolicyDocument| async {
         let access = AccessControl::new(issuer.verifier.clone(), document).unwrap();
@@ -1187,6 +1187,9 @@ async fn desk_levels_need_writer_market_and_each_bond_and_source_scope() {
     document.grants[0]
         .resources
         .insert(ResourceKind::Source, vec!["desk".into()]);
+    // A reference writer marks no level: the trader does.
+    let writer = router(document.clone()).await;
+    document.grants[0].roles.push(Role::Trader);
     let scoped = router(document).await;
     let marks = |source: &str, instrument_id: &str| {
         Some(json!({"source": source,
@@ -1203,7 +1206,16 @@ async fn desk_levels_need_writer_market_and_each_bond_and_source_scope() {
     .await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
     assert_eq!(body["error"], "this server takes no desk levels");
-    // Another source, an ungranted bond, or a reader without a writer role.
+    let (status, _, body) = request(
+        writer,
+        "POST",
+        "/api/v1/market/levels",
+        Some(HUMAN_TOKEN),
+        marks("desk", "BOND-001"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    // Another source, an ungranted bond, or a reader without the trader role.
     for (token, body) in [
         (HUMAN_TOKEN, marks("feed-b", "BOND-001")),
         (HUMAN_TOKEN, marks("desk", "BOND-002")),
@@ -1242,6 +1254,82 @@ async fn desk_levels_need_writer_market_and_each_bond_and_source_scope() {
     )
     .await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
+    issuer.finish().await;
+}
+
+#[tokio::test]
+async fn rfqs_need_the_source_role_to_send_and_the_trader_role_to_answer() {
+    let issuer = IssuerFixture::start().await;
+    let router = |document: PolicyDocument| async {
+        let access = AccessControl::new(issuer.verifier.clone(), document).unwrap();
+        let s = support::setup().await;
+        let engine = support::make_engine(
+            &s,
+            support::archive(&s),
+            s.plan.clone(),
+            s.store.clone(),
+            convex_engine::RuntimeInput::Captured,
+        );
+        convex_server::routes::create_router_with_access(engine, true, access)
+    };
+    let batch = |book_id: &str| {
+        Some(json!({"rfqs": [{
+            "source_id": "venue-sim", "rfq_id": "RFQ-1", "client_id": "CLIENT-17",
+            "client_tier": "2", "instrument_id": "BOND-001", "side": "buy",
+            "face": "1000000", "settlement_date": "2026-11-25", "book_id": book_id,
+            "deadline": "2099-01-01T00:00:00Z",
+        }]}))
+    };
+    let key = "0".repeat(64);
+    let quote = Some(json!({"clean_price": "99.5"}));
+    let outcome = Some(json!({"outcome": "done"}));
+    // Without the source's role a grant sends nothing, and without the trader's it answers
+    // nothing; the reader reads.
+    let plain = router(policy()).await;
+    for (method, path, body) in [
+        ("POST", "/api/v1/rfqs".to_owned(), batch("BOOK-A")),
+        (
+            "POST",
+            format!("/api/v1/rfqs/{key}/outcome"),
+            outcome.clone(),
+        ),
+        ("POST", format!("/api/v1/rfqs/{key}/quote"), quote.clone()),
+        ("POST", format!("/api/v1/rfqs/{key}/pass"), None),
+    ] {
+        let (status, _, reply) =
+            request(plain.clone(), method, &path, Some(HUMAN_TOKEN), body).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{path}: {reply}");
+    }
+    // The router composes no desk, so an admitted request is answered 503.
+    for path in ["/api/v1/rfqs".to_owned(), format!("/api/v1/rfqs/{key}")] {
+        let (status, _, reply) =
+            request(plain.clone(), "GET", &path, Some(HUMAN_TOKEN), None).await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{path}: {reply}");
+    }
+    let mut document = policy();
+    document.grants[0].roles = vec![Role::RfqSource, Role::Trader];
+    let both = router(document).await;
+    for (method, path, body) in [
+        ("POST", "/api/v1/rfqs".to_owned(), batch("BOOK-A")),
+        ("POST", format!("/api/v1/rfqs/{key}/outcome"), outcome),
+        ("POST", format!("/api/v1/rfqs/{key}/quote"), quote),
+        ("POST", format!("/api/v1/rfqs/{key}/pass"), None),
+    ] {
+        let (status, _, reply) =
+            request(both.clone(), method, &path, Some(HUMAN_TOKEN), body).await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{path}: {reply}");
+    }
+    // Each request's book is the handler's to check, so a batch naming an ungranted book
+    // is admitted here and answered by the handler (503: no desk).
+    let (status, _, reply) = request(
+        both,
+        "POST",
+        "/api/v1/rfqs",
+        Some(HUMAN_TOKEN),
+        batch("BOOK-B"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{reply}");
     issuer.finish().await;
 }
 

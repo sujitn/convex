@@ -43,7 +43,7 @@ pub struct LimitSettings {
     /// the monitor records the change. A more severe status is recorded at once. 0
     /// records every change at once; at most [`MAX_CLEAR_HOLD_SECONDS`].
     pub clear_hold_seconds: u64,
-    /// How many days the monitor keeps limit records: it prunes older ones at
+    /// How many days the monitor keeps limit and RFQ records: it prunes older ones at
     /// start and then hourly, keeping each watched limit's latest record and every record
     /// an acknowledgement in force names. Unset keeps every record;
     /// [`MIN_RECORD_RETENTION_DAYS`] to [`MAX_RECORD_RETENTION_DAYS`].

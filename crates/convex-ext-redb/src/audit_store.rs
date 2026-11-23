@@ -149,7 +149,9 @@ impl RedbAuditStore {
                     break;
                 }
                 pruned.next_after = id.value();
-                if entry.event_type == prune.event_type && !prune.keep.contains(&id.value()) {
+                if prune.event_types.contains(&entry.event_type.as_str())
+                    && !prune.keep.contains(&id.value())
+                {
                     removals.push(Removal {
                         id: id.value(),
                         entity_type: entry.entity_type,
@@ -308,6 +310,34 @@ impl AuditStore for RedbAuditStore {
         Ok(page)
     }
 
+    /// The range below `before`, read backwards.
+    async fn entries_before(
+        &self,
+        before: u64,
+        limit: usize,
+    ) -> Result<Vec<AuditEntry>, TraitError> {
+        if limit > MAX_ENTITY_PAGE {
+            return Err(TraitError::InvalidInput("page limit exceeds 1000"));
+        }
+        let read = self.db.begin_read().map_err(database_error)?;
+        let table = match read.open_table(AUDIT) {
+            Ok(t) => t,
+            Err(redb::TableError::TableDoesNotExist(_)) => return Ok(Vec::new()),
+            Err(e) => return Err(database_error(e)),
+        };
+        let mut entries = Vec::with_capacity(limit);
+        for item in table
+            .range(..before)
+            .map_err(database_error)?
+            .rev()
+            .take(limit)
+        {
+            let (_, data) = item.map_err(database_error)?;
+            entries.push(decode(data.value())?);
+        }
+        Ok(entries)
+    }
+
     async fn last_id(&self) -> Result<Option<u64>, TraitError> {
         let read = self.db.begin_read().map_err(database_error)?;
         let table = match read.open_table(AUDIT) {
@@ -445,7 +475,7 @@ mod tests {
 
     fn pruning(before: i64, after: u64, keep: &std::collections::BTreeSet<u64>) -> AuditPrune<'_> {
         AuditPrune {
-            event_type: "limit_status",
+            event_types: &["limit_status"],
             before,
             after,
             keep,

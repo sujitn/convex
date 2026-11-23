@@ -92,6 +92,32 @@ pub(crate) fn response(error: AccessError) -> Response {
     }
     response
 }
+/// A handler's check that its caller holds `action` with `data` on `resources`, for what
+/// the request names only once it is read. No access context is forbidden.
+pub(crate) fn authorize_caller(
+    access: &AccessControl,
+    ctx: &Option<axum::Extension<AccessContext>>,
+    action: Action,
+    data: &[DataScope],
+    resources: &[Resource],
+) -> Result<(), AccessError> {
+    let Some(axum::Extension(ctx)) = ctx else {
+        return Err(AccessError::Forbidden);
+    };
+    access.authorize(ctx, action, data, resources)
+}
+/// [`authorize_caller`], refused as the access layer refuses: a handler's refusal is its
+/// response.
+#[allow(clippy::result_large_err)]
+pub(crate) fn authorize_resources(
+    access: &AccessControl,
+    ctx: &Option<axum::Extension<AccessContext>>,
+    action: Action,
+    data: &[DataScope],
+    resources: &[Resource],
+) -> Result<(), Response> {
+    authorize_caller(access, ctx, action, data, resources).map_err(response)
+}
 /// The stream's two paths.
 pub(crate) fn is_stream_path(path: &str) -> bool {
     matches!(path, "/ws" | "/api/v1/ws")
@@ -337,8 +363,37 @@ fn requirement(
                     Resource::new(R::Source, "*"),
                 ]);
             } else {
-                req.action = CurveWrite;
+                req.action = LevelWrite;
             }
+        }
+        // Clients' requests for quote. Reading them needs the book: each handler also
+        // checks each request's book and bond, and leaves out what the caller cannot read.
+        // A source sends requests and outcomes: the handler checks each request's source,
+        // book and bond, so one the caller may not send refuses only itself.
+        "/api/v1/rfqs" => {
+            req.data = vec![D::Books, D::Reference];
+            if read {
+                req.action = BookRead;
+                req.data.extend([D::Market, D::Results]);
+                req.body_required = false;
+            } else {
+                req.action = RfqIngest;
+            }
+        }
+        "/api/v1/rfqs/:rfq_key" => {
+            req.action = BookRead;
+            req.data = vec![D::Books, D::Reference, D::Market, D::Results];
+            req.body_required = false;
+        }
+        "/api/v1/rfqs/:rfq_key/outcome" => {
+            req.action = RfqIngest;
+            req.data = vec![D::Books, D::Reference];
+        }
+        // A trader's answer reads what the request was priced from.
+        "/api/v1/rfqs/:rfq_key/quote" | "/api/v1/rfqs/:rfq_key/pass" => {
+            req.action = RfqRespond;
+            req.data = vec![D::Books, D::Reference, D::Market, D::Results];
+            req.body_required = path.ends_with("/quote");
         }
         "/api/v1/analytics"
         | "/api/v1/analytics/snapshots"
@@ -825,6 +880,11 @@ async fn enforce_inner(
         };
         if path == "/api/v1/curves/bootstrap" {
             scopes.retain(|s| s.kind != ResourceKind::Curve);
+        }
+        // Ingest answers each request for quote on its own, its source, book and bond
+        // included, so one the caller may not send refuses only itself.
+        if path == "/api/v1/rfqs" {
+            scopes.retain(|s| !matches!(s.kind, ResourceKind::Book | ResourceKind::Instrument));
         }
         // An import file wraps the same transaction in its envelope's `command`.
         let command = match path {

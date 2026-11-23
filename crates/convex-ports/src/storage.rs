@@ -873,16 +873,20 @@ pub const MAX_PRUNE_BATCH: usize = 4096;
 /// each record an acknowledgement in force names, 64 books of at most 64 limits each.
 pub const MAX_PRUNE_KEEP: usize = 8192;
 
+/// The most event types one [`AuditStore::prune`] removes.
+pub const MAX_PRUNE_EVENT_TYPES: usize = 4;
+
 /// The most entries one [`AuditStore::prune`] reads, removed or not, so a call's
 /// transaction is bounded however many entries it passes over.
 pub const MAX_PRUNE_READ: usize = 16_384;
 
-/// One call of [`AuditStore::prune`]: remove entries of `event_type` older than `before`,
+/// One call of [`AuditStore::prune`]: remove entries of `event_types` older than `before`,
 /// after the cursor `after`, except those `keep` names.
 #[derive(Debug, Clone, Copy)]
 pub struct AuditPrune<'a> {
-    /// The event type removed; entries of any other type are passed over.
-    pub event_type: &'a str,
+    /// The event types removed, 1 to [`MAX_PRUNE_EVENT_TYPES`]; entries of any other type
+    /// are passed over.
+    pub event_types: &'a [&'a str],
     /// Unix milliseconds: an entry whose timestamp is below this is older than the period.
     pub before: i64,
     /// The walk starts after this ID: 0 for a pass's first call, then the last call's
@@ -905,10 +909,14 @@ impl AuditPrune<'_> {
         if self.keep.len() > MAX_PRUNE_KEEP {
             return Err(TraitError::InvalidInput("prune keeps at most 8192 IDs"));
         }
-        if self.event_type.is_empty()
-            || self.event_type.len() > 1024
-            || self.event_type.chars().any(char::is_control)
-        {
+        if self.event_types.is_empty() || self.event_types.len() > MAX_PRUNE_EVENT_TYPES {
+            return Err(TraitError::InvalidInput("prune removes 1 to 4 event types"));
+        }
+        if self.event_types.iter().any(|event_type| {
+            event_type.is_empty()
+                || event_type.len() > 1024
+                || event_type.chars().any(char::is_control)
+        }) {
             return Err(TraitError::InvalidInput("invalid audit event type"));
         }
         Ok(())
@@ -1014,6 +1022,46 @@ pub trait AuditStore: Send + Sync {
             }
             if count < MAX_ENTITY_PAGE {
                 return Ok(page);
+            }
+            offset += count;
+        }
+    }
+
+    /// Up to `limit` (at most [`MAX_ENTITY_PAGE`]) entries with IDs below `before`, newest
+    /// first. A reader walking back from the log's end passes the smallest ID it has, so it
+    /// reads only as far back as it needs.
+    ///
+    /// A store ordered by ID should read the range below `before` backwards, in one read
+    /// snapshot; redb does. The default reads every entry through [`query`](Self::query), a
+    /// page at a time, each page its own snapshot: a prune between pages can shift the
+    /// pages and leave entries out.
+    async fn entries_before(
+        &self,
+        before: u64,
+        limit: usize,
+    ) -> Result<Vec<AuditEntry>, TraitError> {
+        if limit > MAX_ENTITY_PAGE {
+            return Err(TraitError::InvalidInput("page limit exceeds 1000"));
+        }
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+        let all = AuditFilter::default();
+        let mut below = std::collections::VecDeque::with_capacity(limit);
+        let mut offset = 0;
+        loop {
+            let read = self
+                .query(&all, &Pagination::new(offset, MAX_ENTITY_PAGE))
+                .await?;
+            let count = read.items.len();
+            for entry in read.items.into_iter().filter(|entry| entry.id < before) {
+                if below.len() == limit {
+                    below.pop_front();
+                }
+                below.push_back(entry);
+            }
+            if count < MAX_ENTITY_PAGE {
+                return Ok(below.into_iter().rev().collect());
             }
             offset += count;
         }

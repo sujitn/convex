@@ -109,7 +109,7 @@ pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> 
 
     let mut server = Server::with_access_control(config, engine.clone(), access)
         .with_core_workflow(core)
-        .with_limit_monitor(storage.audit.clone());
+        .with_audit_records(storage.audit.clone());
     if let Some(ingress) = ingress {
         server = server.with_quote_ingress(ingress);
     }

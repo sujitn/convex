@@ -1594,7 +1594,7 @@ async fn a_limit_status_frame_needs_what_the_status_route_needs() {
         ..Default::default()
     };
     let server =
-        Server::with_access_control(config, engine, access).with_limit_monitor(audit.clone());
+        Server::with_access_control(config, engine, access).with_audit_records(audit.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
@@ -1875,7 +1875,7 @@ async fn serve(
         ..Default::default()
     };
     let server = Server::with_access_control(config, engine, AccessControl::local_development())
-        .with_limit_monitor(audit);
+        .with_audit_records(audit);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
     let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
