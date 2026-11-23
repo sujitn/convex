@@ -15,7 +15,7 @@ categories = ["mathematics", "science"]
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 # Existing locked bounded integer arithmetic, shared by portfolio consumers.
-num-bigint = "=0.4.6"
+num-bigint = "=0.5.1"
 
 # Error handling
 thiserror = { workspace = true }
