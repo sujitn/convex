@@ -347,7 +347,7 @@ impl LimitMonitor {
             ledger: Ledger {
                 writer: self.writer.clone(),
                 feed: self.feed.clone(),
-                opened: false,
+                counted: false,
                 started_at,
                 halt: halt.clone(),
                 full_reported: false,
@@ -897,10 +897,10 @@ impl Task {
     }
 
     async fn work(&mut self) {
-        if !self.ledger.opened {
+        if !self.ledger.counted {
             match self.ledger.writer.hold().await {
                 Ok(_) => {
-                    self.ledger.opened = true;
+                    self.ledger.counted = true;
                     self.ledger.count_entries().await;
                 }
                 Err(error) => {
@@ -1234,8 +1234,8 @@ enum Recorded {
 struct Ledger {
     writer: Arc<AuditWriter>,
     feed: broadcast::Sender<Arc<LimitFrame>>,
-    /// The store's last entry has been read, so IDs can be taken.
-    opened: bool,
+    /// The store's last entry has been read and its entries counted.
+    counted: bool,
     started_at: UtcTimestamp,
     halt: Stop,
     /// A capacity refusal has been logged since the last append that succeeded.
@@ -1541,7 +1541,7 @@ mod tests {
             ledger: Ledger {
                 writer: AuditWriter::new(audit),
                 feed: broadcast::channel(16).0,
-                opened: false,
+                counted: false,
                 started_at: stamp("2026-01-01T00:00:00Z"),
                 halt: halt.clone(),
                 full_reported: false,

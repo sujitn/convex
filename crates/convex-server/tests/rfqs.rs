@@ -119,23 +119,23 @@ async fn desk() -> Desk {
         config,
         server,
     };
-    put(
-        &desk.server,
-        &format!("/api/v1/books/{BOOK}"),
-        json!({"currency": "USD", "positions": [
-            {"instrument_id": BOND, "quantity": "1000000"},
-        ]}),
-    )
-    .await;
-    put(
-        &desk.server,
-        &format!("/api/v1/books/{BOOK}/limits"),
-        json!({"limits": [
-            {"limit_id": "face", "measure": {"kind": "face", "instrument": "each"}, "upper": "3000000"},
-            {"limit_id": "net", "measure": {"kind": "market_value"}, "upper": "1000000000"},
-        ]}),
-    )
-    .await;
+    desk.server
+        .put(
+            &format!("/api/v1/books/{BOOK}"),
+            &json!({"currency": "USD", "positions": [
+                {"instrument_id": BOND, "quantity": "1000000"},
+            ]}),
+        )
+        .await;
+    desk.server
+        .put(
+            &format!("/api/v1/books/{BOOK}/limits"),
+            &json!({"limits": [
+                {"limit_id": "face", "measure": {"kind": "face", "instrument": "each"}, "upper": "3000000"},
+                {"limit_id": "net", "measure": {"kind": "market_value"}, "upper": "1000000000"},
+            ]}),
+        )
+        .await;
     desk
 }
 
@@ -160,23 +160,6 @@ async fn priced_in_live(server: &Running) {
     })
     .await
     .unwrap();
-}
-
-async fn put(server: &Running, path: &str, body: Value) {
-    let response = server
-        .client
-        .put(format!("{}{path}", server.base))
-        .header("idempotency-key", format!("put{}", path.replace('/', "-")))
-        .json(&body)
-        .send()
-        .await
-        .unwrap();
-    let status = response.status();
-    assert!(
-        status.is_success(),
-        "{path}: {status} {}",
-        response.text().await.unwrap()
-    );
 }
 
 fn stamp(after: Duration) -> String {
@@ -237,6 +220,13 @@ async fn open_rfq(server: &Running, key: &str) -> Value {
         .unwrap_or_else(|| panic!("{key} is not open"))
 }
 
+/// The request's `priced` entry: its configuration, auto price and check.
+async fn priced(server: &Running, key: &str) -> Value {
+    let recorded = entries(server, key).await;
+    assert_eq!(recorded[1]["event"], "priced", "{recorded:?}");
+    recorded[1].clone()
+}
+
 async fn entries(server: &Running, key: &str) -> Vec<Value> {
     let (status, reply) = server
         .send(Method::GET, &format!("/api/v1/rfqs/{key}"), None)
@@ -290,14 +280,18 @@ async fn a_request_is_priced_at_its_size_and_tier_on_the_desk_side_and_checked_a
     let server = &desk.server;
     // A client sell of 5,000,000 hits the desk's bid: the 4 bp bucket, half each side.
     let full = accepted(server, rfq("RFQ-1", "sell", "5000000", "2", MINUTE)).await;
-    let rfq_1 = open_rfq(server, &full).await;
-    let price = &rfq_1["pricing"]["auto_price"];
+    let rfq_1 = priced(server, &full).await;
+    let price = &rfq_1["auto_price"];
     assert_eq!(price["kind"], "priced", "{rfq_1}");
     assert_eq!(price["desk_side"], "bid");
     assert_eq!(number(&price["level"]), 127.0, "{price}");
     assert!(price.get("mid_only").is_none(), "{price}");
     assert!(number(&price["clean_price"]) < number(&price["clean_price_mid"]));
-    assert_eq!(number(&price["pricing_rule"]["two_way"]["width"]), 4.0, "{price}");
+    assert_eq!(
+        number(&price["pricing_rule"]["two_way"]["width"]),
+        4.0,
+        "{price}"
+    );
     assert_eq!(price["quote_input"]["field"], "mid_spread");
     assert_eq!(
         price["quote_input"]["observation"]["value"]["value"], "125",
@@ -308,11 +302,11 @@ async fn a_request_is_priced_at_its_size_and_tier_on_the_desk_side_and_checked_a
         json!([]),
         "a benchmark spread reads no curve"
     );
-    let configuration = &rfq_1["pricing"]["configuration"];
+    let configuration = &rfq_1["configuration"];
     assert_eq!(configuration["configuration_id"], "CONFIG-RESTORE");
     assert_eq!(configuration["width_factor"], "1");
     // 1,000,000 held and 5,000,000 bought from the client pass the face limit.
-    let check = &rfq_1["pricing"]["check"];
+    let check = &rfq_1["check"];
     assert_eq!(check["kind"], "evaluated", "{check}");
     assert_eq!(limit(check, "face")["status"], "breach", "{check}");
     assert_eq!(number(&limit(check, "face")["value"]), 6_000_000.0);
@@ -321,24 +315,31 @@ async fn a_request_is_priced_at_its_size_and_tier_on_the_desk_side_and_checked_a
     // A better tier halves the width; a client buy lifts the ask; a small size takes the
     // first bucket.
     let halved = accepted(server, rfq("RFQ-2", "sell", "5000000", "1", MINUTE)).await;
-    let halved = open_rfq(server, &halved).await;
-    assert_eq!(number(&halved["pricing"]["auto_price"]["level"]), 126.0);
+    let halved = priced(server, &halved).await;
+    assert_eq!(number(&halved["auto_price"]["level"]), 126.0);
     let bought = accepted(server, rfq("RFQ-3", "buy", "500000", "2", MINUTE)).await;
-    let bought = open_rfq(server, &bought).await;
-    let price = &bought["pricing"]["auto_price"];
+    let bought = priced(server, &bought).await;
+    let price = &bought["auto_price"];
     assert_eq!(price["desk_side"], "ask");
     assert_eq!(number(&price["level"]), 124.0, "{price}");
     assert!(number(&price["clean_price"]) > number(&price["clean_price_mid"]));
     // Selling the client 500,000 shortens the book to 500,000: within.
-    assert_eq!(
-        limit(&bought["pricing"]["check"], "face")["status"],
-        "within"
-    );
+    assert_eq!(limit(&bought["check"], "face")["status"], "within");
     // Past the schedule's 10,000,000 bucket, the last takes it.
     let large = accepted(server, rfq("RFQ-4", "buy", "25000000", "2", MINUTE)).await;
-    let large = open_rfq(server, &large).await;
-    assert_eq!(number(&large["pricing"]["auto_price"]["level"]), 121.0);
+    let large = priced(server, &large).await;
+    assert_eq!(number(&large["auto_price"]["level"]), 121.0);
 
+    // The list shows each open request's desk side price and how many limits the check
+    // put in each status; its entries carry what each was made from.
+    let row = open_rfq(server, &full).await;
+    assert_eq!(row["state"], "priced");
+    assert_eq!(number(&row["auto_price"]["level"]), 127.0, "{row}");
+    assert!(row["auto_price"].get("pricing_rule").is_none(), "{row}");
+    assert_eq!(
+        row["check"],
+        json!({"kind": "evaluated", "statuses": {"breach": 1, "within": 1}})
+    );
     // The open requests come by deadline, and only in the state asked for.
     assert_eq!(open_rfqs(server).await.len(), 4);
     let (status, reply) = server
@@ -513,8 +514,8 @@ async fn a_bond_outside_the_live_universe_is_priced_for_the_trader_with_unknown_
     let mut request = rfq("RFQ-X", "sell", "4000000", "2", MINUTE);
     request["instrument_id"] = json!(OUTSIDE);
     let key = accepted(server, request).await;
-    let rfq = open_rfq(server, &key).await;
-    let price = &rfq["pricing"]["auto_price"];
+    let rfq = priced(server, &key).await;
+    let price = &rfq["auto_price"];
     assert_eq!(price["kind"], "unpriced", "{price}");
     assert!(
         price["reason"]
@@ -523,7 +524,7 @@ async fn a_bond_outside_the_live_universe_is_priced_for_the_trader_with_unknown_
             .contains("the Live runtime does not value it"),
         "{price}"
     );
-    let check = &rfq["pricing"]["check"];
+    let check = &rfq["check"];
     // A face limit reads no market data: 4,000,000 of the bond passes 3,000,000.
     assert_eq!(limit(check, "face")["status"], "breach", "{check}");
     assert_eq!(limit(check, "face")["member"], OUTSIDE, "{check}");
@@ -542,11 +543,8 @@ async fn a_bond_outside_the_live_universe_is_priced_for_the_trader_with_unknown_
 async fn a_deadline_expires_a_request_once_and_a_restart_expires_every_open_one() {
     let desk = desk().await;
     let server = &desk.server;
-    let soon = accepted(
-        server,
-        rfq("RFQ-1", "sell", "1000000", "2", Duration::from_millis(1500)),
-    )
-    .await;
+    let late = rfq("RFQ-1", "sell", "1000000", "2", Duration::from_millis(1500));
+    let soon = accepted(server, late.clone()).await;
     tokio::time::timeout(Duration::from_secs(10), async {
         while states(&entries(server, &soon).await).last() != Some(&"expired") {
             tokio::time::sleep(Duration::from_millis(50)).await;
@@ -601,6 +599,13 @@ async fn a_deadline_expires_a_request_once_and_a_restart_expires_every_open_one(
         );
     }
     assert!(open_rfqs(&server).await.is_empty());
+    // The source's retry, past its deadline, is recognised, not refused.
+    let (status, answers) = ingest(&server, vec![late.clone()]).await;
+    assert_eq!(status, StatusCode::OK, "{answers:?}");
+    assert_eq!(
+        (answers[0]["result"].as_str(), answers[0]["state"].as_str()),
+        (Some("retry"), Some("expired"))
+    );
     // A second restart finds nothing open, and records nothing more.
     server.stop().await;
     let server = Running::start(config).await;

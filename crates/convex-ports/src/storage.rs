@@ -1027,6 +1027,41 @@ pub trait AuditStore: Send + Sync {
         }
     }
 
+    /// Up to `limit` (at most [`MAX_ENTITY_PAGE`]) entries with IDs below `before`, newest
+    /// first, in one read snapshot. A reader walking back from the log's end passes the
+    /// smallest ID it has, so it reads only as far back as it needs.
+    ///
+    /// A store ordered by ID should read the range below `before` backwards; redb does.
+    /// The default reads every entry through [`query`](Self::query), a page at a time.
+    async fn entries_before(
+        &self,
+        before: u64,
+        limit: usize,
+    ) -> Result<Vec<AuditEntry>, TraitError> {
+        if limit > MAX_ENTITY_PAGE {
+            return Err(TraitError::InvalidInput("page limit exceeds 1000"));
+        }
+        let all = AuditFilter::default();
+        let mut below = std::collections::VecDeque::with_capacity(limit);
+        let mut offset = 0;
+        loop {
+            let read = self
+                .query(&all, &Pagination::new(offset, MAX_ENTITY_PAGE))
+                .await?;
+            let count = read.items.len();
+            for entry in read.items.into_iter().filter(|entry| entry.id < before) {
+                if below.len() == limit {
+                    below.pop_front();
+                }
+                below.push_back(entry);
+            }
+            if count < MAX_ENTITY_PAGE {
+                return Ok(below.into_iter().rev().collect());
+            }
+            offset += count;
+        }
+    }
+
     /// The largest entry ID in one read snapshot, or `None` when the log is empty: a
     /// writer that assigns IDs takes the next one from it at start. The default reads it
     /// through `query`; a store ordered by ID should read its last key instead.

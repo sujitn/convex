@@ -30,32 +30,32 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use convex_core::contracts::{DataQuality, ExactDecimal, InstrumentId, UtcTimestamp};
-use convex_engine::level_pricing::{
-    live_price, live_quote_input, BidAsk, QuotedInput, RulePricing, TradeSize,
-};
-use convex_engine::ports::level_pricing::PricingMethod;
+use convex_core::types::WidthFactor;
+use convex_engine::level_pricing::{live_price, live_quote_input, BidAsk, QuotedInput, TradeSize};
 use convex_engine::ports::quote_event::QuoteField;
 use convex_engine::ports::reference_master::{
-    BookId, BookPosition, MasterKey, MasterRecord, QuantityUnit, ReferenceLookup,
-    ResolvedBondReference,
+    BookId, BookPosition, QuantityUnit, ReferenceLookup, ResolvedBondReference,
 };
 use convex_engine::ports::reference_repository::ReferenceRepository;
 use convex_engine::ports::rfq::{
-    DeskSide, RfqBatch, RfqEvent, RfqRequest, RfqState, RfqTransitionError, SourceOutcome,
-    MAX_RFQ_BATCH,
+    DeskSide, RfqBatch, RfqRequest, RfqState, SourceOutcome, MAX_RFQ_BATCH, MAX_RFQ_BODY_BYTES,
 };
-use convex_engine::ports::storage::MAX_ENTITY_PAGE;
-use convex_engine::{PricingEngine, RequestContext};
+use convex_engine::RequestContext;
 use serde::{Deserialize, Serialize};
 
-use crate::access::{AccessContext, Action, DataScope, Resource, ResourceKind};
-use crate::books::{book_of, resolve_identifier, typed_error};
+use crate::access::http::authorize_caller;
+use crate::access::{recorded_subject, AccessContext, Action, DataScope, Resource, ResourceKind};
+use crate::books::{resolve_identifier, typed_error};
+use crate::error::ApiError;
 use crate::handlers::AppState;
 use crate::level_pricing::pricing_rule_json;
-use crate::limits::{authorize, check_trade, current, limited_book_record, STATUS_DATA};
+use crate::limits::{
+    authorize, check_trade, limited_book_record, traded_book, NoTradedBook, PricedTerms,
+    TradedBook, STATUS_DATA,
+};
 use crate::rfq_desk::{
-    Admission, AutoPrice, CurveRead, LimitCheck, OpenRfq, PricedSide, PricedUnder, Receipt,
-    Refused, RfqDesk, RfqKey, RfqPricing, SentQuote, MAX_OPEN_RFQS, RFQ_ENTITY,
+    receipt_of, Admission, Admitted, AutoPrice, CurveRead, LimitCheck, OpenRfq, PricedSide,
+    PricedUnder, Receipt, Recorded, Refused, RfqDesk, RfqKey, RfqPricing, SentQuote, MAX_OPEN_RFQS,
     RFQ_PRICING_SECONDS,
 };
 
@@ -68,12 +68,12 @@ struct Answer {
     index: usize,
     rfq_id: String,
     #[serde(flatten)]
-    outcome: Outcome,
+    result: IngestResult,
 }
 
 #[derive(Serialize)]
 #[serde(tag = "result", rename_all = "snake_case")]
-enum Outcome {
+enum IngestResult {
     /// Received and priced.
     Accepted {
         rfq_key: RfqKey,
@@ -90,27 +90,15 @@ enum Outcome {
     },
 }
 
-impl Outcome {
-    fn refused(code: &'static str, reason: impl Into<String>) -> Self {
-        Self::Refused {
-            code,
-            reason: reason.into(),
-        }
+fn refused(code: &'static str, reason: impl Into<String>) -> IngestResult {
+    IngestResult::Refused {
+        code,
+        reason: reason.into(),
     }
 }
 
-/// A request checked, resolved and priced, or answered without being admitted.
-enum Taken {
-    Admit(Box<Admission>),
-    Answered(Outcome),
-}
-
-fn answered(code: &'static str, reason: impl Into<String>) -> Taken {
-    Taken::Answered(Outcome::refused(code, reason))
-}
-
 fn unavailable(message: &str) -> Response {
-    typed_error(StatusCode::SERVICE_UNAVAILABLE, "RFQ_UNAVAILABLE", message)
+    ApiError::unavailable(message).into_response()
 }
 
 /// `POST /api/v1/rfqs`.
@@ -124,25 +112,28 @@ pub(crate) async fn ingest(
     let Some(Extension(desk)) = desk else {
         return unavailable("this server takes no requests for quote");
     };
-    let Ok(body) = body else {
-        return typed_error(
-            StatusCode::PAYLOAD_TOO_LARGE,
-            "RFQ_BODY_TOO_LARGE",
-            "an ingest body is at most 128 KiB",
-        );
+    let body = match body {
+        Ok(body) => body,
+        Err(rejection) if rejection.status() == StatusCode::PAYLOAD_TOO_LARGE => {
+            return typed_error(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "RFQ_BODY_TOO_LARGE",
+                &format!(
+                    "an ingest body is at most {} KiB",
+                    MAX_RFQ_BODY_BYTES / 1024
+                ),
+            )
+        }
+        Err(rejection) => return ApiError::invalid(rejection.body_text()).into_response(),
     };
     let Ok(batch) = serde_json::from_slice::<RfqBatch>(&body) else {
-        return typed_error(
-            StatusCode::BAD_REQUEST,
-            "INVALID_INPUT",
-            "invalid RFQ batch JSON",
-        );
+        return ApiError::invalid("invalid RFQ batch JSON").into_response();
     };
     if batch.rfqs.is_empty() || batch.rfqs.len() > MAX_RFQ_BATCH {
         return typed_error(
             StatusCode::UNPROCESSABLE_ENTITY,
             "RFQ_BATCH",
-            "a batch carries 1 to 64 requests",
+            &format!("a batch carries 1 to {MAX_RFQ_BATCH} requests"),
         );
     }
     if !desk.is_ready() {
@@ -151,77 +142,82 @@ pub(crate) async fn ingest(
     let Ok(received_at) = crate::reference::now() else {
         return unavailable("the clock is outside the supported range");
     };
-    let _ingest = desk.hold_ingest().await;
-    let Ok(mut context) = state.engine.request_context(None, received_at).await else {
+    let Ok(context) = state.engine.request_context(None, received_at).await else {
         return unavailable("no activated configuration prices requests for quote");
     };
-    let mut room = MAX_OPEN_RFQS.saturating_sub(desk.open_count().await);
-    let mut keys = HashSet::new();
-    let mut answers: Vec<Option<Answer>> = Vec::with_capacity(batch.rfqs.len());
-    let mut admitted = Vec::new();
+    let mut intake = Intake {
+        state: &state,
+        ctx: &ctx,
+        desk: &desk,
+        received_at,
+        context,
+        room: MAX_OPEN_RFQS.saturating_sub(desk.open_count().await),
+        keys: HashSet::new(),
+        books: BTreeMap::new(),
+        terms: PricedTerms::new(),
+    };
+    let mut answers = Vec::with_capacity(batch.rfqs.len());
+    let mut admissions = Vec::new();
     for (index, request) in batch.rfqs.into_iter().enumerate() {
         let rfq_id = request.rfq_id.clone();
-        let taken = Intake {
-            state: &state,
-            ctx: &ctx,
-            desk: &desk,
-            received_at,
-            room,
-        }
-        .take(&mut context, request, &mut keys)
-        .await;
-        match taken {
-            Taken::Admit(admission) => {
-                room = room.saturating_sub(1);
-                admitted.push((index, rfq_id, *admission));
-                answers.push(None);
+        let result = match intake.take(request).await {
+            Ok(admission) => {
+                let rfq_key = admission.rfq_key.clone();
+                admissions.push((index, *admission));
+                IngestResult::Accepted {
+                    rfq_key,
+                    state: RfqState::Priced,
+                }
             }
-            Taken::Answered(outcome) => answers.push(Some(Answer {
-                index,
-                rfq_id,
-                outcome,
-            })),
-        }
+            Err(result) => result,
+        };
+        answers.push(Answer {
+            index,
+            rfq_id,
+            result,
+        });
     }
-    let (named, admissions): (Vec<_>, Vec<_>) = admitted
-        .into_iter()
-        .map(|(index, rfq_id, admission)| ((index, rfq_id, admission.rfq_key.clone()), admission))
-        .unzip();
-    let recorded = desk.admit(admissions).await;
-    for ((index, rfq_id, rfq_key), recorded) in named.into_iter().zip(recorded) {
-        let outcome = match recorded {
-            Ok(state) => {
+    let (indices, admissions): (Vec<usize>, Vec<Admission>) = admissions.into_iter().unzip();
+    for (index, admitted) in indices.into_iter().zip(desk.admit(admissions).await) {
+        let Some(Answer {
+            result: IngestResult::Accepted { rfq_key, .. },
+            ..
+        }) = answers.get(index)
+        else {
+            continue;
+        };
+        let rfq_key = rfq_key.clone();
+        let result = match admitted {
+            Admitted::Accepted => {
                 metrics::histogram!(RFQ_PRICING_SECONDS).record(started.elapsed().as_secs_f64());
-                Outcome::Accepted { rfq_key, state }
+                continue;
             }
-            Err(error) => {
+            Admitted::Retry(state) => IngestResult::Retry { rfq_key, state },
+            Admitted::Conflict => conflict(),
+            Admitted::Full => full(),
+            Admitted::Unrecorded(error) => {
                 tracing::warn!(%error, "RFQ desk: a request could not be recorded");
-                Outcome::refused(
+                refused(
                     "RFQ_UNRECORDED",
                     "the request could not be recorded; send it again",
                 )
             }
         };
-        if let Some(slot) = answers.get_mut(index) {
-            *slot = Some(Answer {
-                index,
-                rfq_id,
-                outcome,
-            });
+        if let Some(answer) = answers.get_mut(index) {
+            answer.result = result;
         }
     }
-    let answers: Vec<Answer> = answers.into_iter().flatten().collect();
     let status = if answers.iter().any(|answer| {
         matches!(
-            answer.outcome,
-            Outcome::Accepted { .. } | Outcome::Retry { .. }
+            answer.result,
+            IngestResult::Accepted { .. } | IngestResult::Retry { .. }
         )
     }) {
         StatusCode::OK
     } else if answers.iter().any(|answer| {
         matches!(
-            answer.outcome,
-            Outcome::Refused {
+            answer.result,
+            IngestResult::Refused {
                 code: "RFQ_CAPACITY",
                 ..
             }
@@ -234,95 +230,97 @@ pub(crate) async fn ingest(
     (status, Json(serde_json::json!({ "rfqs": answers }))).into_response()
 }
 
-/// What one ingest reads each request against.
+fn conflict() -> IngestResult {
+    refused(
+        "RFQ_CONFLICT",
+        "the source sent this RFQ id before with other content",
+    )
+}
+
+fn full() -> IngestResult {
+    refused(
+        "RFQ_CAPACITY",
+        format!("the desk holds {MAX_OPEN_RFQS} open requests"),
+    )
+}
+
+/// One ingest: what each request is read against, and what the batch has read so far.
 struct Intake<'a> {
     state: &'a AppState,
     ctx: &'a Option<Extension<AccessContext>>,
     desk: &'a RfqDesk,
     received_at: UtcTimestamp,
+    /// The active configuration, read once for the batch.
+    context: RequestContext,
     /// Requests the desk can still open.
     room: usize,
+    /// The batch's keys so far.
+    keys: HashSet<RfqKey>,
+    /// Each book the batch's requests trade into, read once.
+    books: BTreeMap<BookId, Result<Arc<TradedBook>, NoTradedBook>>,
+    /// The priced terms the batch's checks have read; a version never changes.
+    terms: PricedTerms,
 }
 
 impl Intake<'_> {
-    /// Check, resolve and price `request`, or answer it. `keys` are the batch's keys so far.
-    async fn take(
-        &self,
-        context: &mut RequestContext,
-        request: RfqRequest,
-        keys: &mut HashSet<RfqKey>,
-    ) -> Taken {
-        if let Err(refusal) = request.validate(self.received_at) {
-            return answered(refusal.code(), refusal.reason());
-        }
+    /// Check, resolve, price and check `request`, or answer it.
+    async fn take(&mut self, request: RfqRequest) -> Result<Box<Admission>, IngestResult> {
         let rfq_key = RfqKey::of(&request);
-        if !keys.insert(rfq_key.clone()) {
-            return answered(
+        if !self.keys.insert(rfq_key.clone()) {
+            return Err(refused(
                 "RFQ_DUPLICATE",
                 "a batch sends each of a source's RFQ ids once",
-            );
+            ));
         }
         let source = Resource::new(ResourceKind::Source, request.source_id.as_str());
-        if !self.allowed(Action::RfqIngest, INGEST_DATA, &[source]) {
-            return answered(
+        if !self.may_send(source) {
+            return Err(refused(
                 "FORBIDDEN",
                 "the caller may not send requests for this source",
-            );
+            ));
         }
+        // A retry is recognised first: its deadline may have passed since it was received.
         match self.desk.known(&rfq_key).await {
-            Ok(Some(known)) if known.request == request => {
-                return Taken::Answered(Outcome::Retry {
+            Ok(Some(known)) if known.receipt.request == request => {
+                return Err(IngestResult::Retry {
                     rfq_key,
                     state: known.state,
                 })
             }
-            Ok(Some(_)) => {
-                return answered(
-                    "RFQ_CONFLICT",
-                    "the source sent this RFQ id before with other content",
-                )
-            }
+            Ok(Some(_)) => return Err(conflict()),
             Ok(None) => {}
             Err(error) => {
                 tracing::warn!(%error, "RFQ desk: a request's records are unreadable");
-                return answered(
+                return Err(refused(
                     "RFQ_UNREADABLE",
                     "the desk's records could not be read; send it again",
-                );
+                ));
             }
         }
+        request
+            .validate(self.received_at)
+            .map_err(|refusal| refused(refusal.code(), refusal.reason()))?;
         if self.room == 0 {
-            return answered("RFQ_CAPACITY", "the desk holds 256 open requests");
+            return Err(full());
         }
-        let Some(width_factor) = context.width_factor(&request.client_tier) else {
-            return answered(
-                "RFQ_CLIENT_TIER",
-                "the active configuration lists no such client tier",
-            );
+        let width_factor = self
+            .context
+            .width_factor(&request.client_tier)
+            .ok_or_else(|| {
+                refused(
+                    "RFQ_CLIENT_TIER",
+                    "the active configuration lists no such client tier",
+                )
+            })?;
+        let (reference, instrument_id) = self.resolve(&request).await?;
+        let traded = self.traded_book(&request.book_id).await?;
+        let auto_price = match self
+            .priced_side(&reference, &instrument_id, &request, width_factor)
+            .await
+        {
+            Ok(side) => AutoPrice::Priced(Box::new(side)),
+            Err(reason) => AutoPrice::Unpriced { reason },
         };
-        let reference = match self.resolve(&request).await {
-            Ok(reference) => reference,
-            Err(outcome) => return Taken::Answered(outcome),
-        };
-        let book = match self.book(&request.book_id).await {
-            Ok(book) => book,
-            Err(outcome) => return Taken::Answered(outcome),
-        };
-        let Ok(instrument_id) = InstrumentId::new(reference.record.instrument_id.as_str()) else {
-            return answered(
-                "RFQ_INSTRUMENT",
-                "the bond's id is not a valid instrument id",
-            );
-        };
-        let auto_price = auto_price(
-            &self.state.engine,
-            context,
-            &reference,
-            &request,
-            width_factor,
-            self.received_at,
-        )
-        .await;
         let position = BookPosition {
             instrument_id: instrument_id.clone(),
             quantity: ExactDecimal::new(request.side.position_change(request.face.decimal())),
@@ -332,19 +330,31 @@ impl Intake<'_> {
             sector: None,
             rating: None,
         };
-        let check = match check_trade(self.state, &book, position, self.received_at).await {
-            Ok(status) => LimitCheck::Evaluated { status },
+        let check = match check_trade(
+            self.state,
+            &traded,
+            position,
+            self.received_at,
+            &mut self.terms,
+        )
+        .await
+        {
+            Ok(check) => LimitCheck::Evaluated {
+                status: check.status,
+                statuses: check.statuses,
+            },
             Err(reason) => LimitCheck::Unavailable { reason },
         };
         let configuration = PricedUnder {
-            configuration_id: context.configuration_id().clone(),
-            version: context.configuration_version(),
-            activation_revision: context.activation_revision(),
+            configuration_id: self.context.configuration_id().clone(),
+            version: self.context.configuration_version(),
+            activation_revision: self.context.activation_revision(),
             client_tier: request.client_tier.clone(),
             width_factor,
         };
+        self.room -= 1;
         let priced_at = crate::reference::now().unwrap_or(self.received_at);
-        Taken::Admit(Box::new(Admission {
+        Ok(Box::new(Admission {
             rfq_key,
             receipt: Receipt {
                 request,
@@ -361,23 +371,29 @@ impl Intake<'_> {
         }))
     }
 
-    fn allowed(&self, action: Action, data: &[DataScope], resources: &[Resource]) -> bool {
-        self.ctx.as_ref().is_some_and(|Extension(ctx)| {
-            self.state
-                .access
-                .authorize(ctx, action, data, resources)
-                .is_ok()
-        })
+    /// Whether the caller may send requests naming `resource`.
+    fn may_send(&self, resource: Resource) -> bool {
+        authorize_caller(
+            &self.state.access,
+            self.ctx,
+            Action::RfqIngest,
+            INGEST_DATA,
+            &[resource],
+        )
+        .is_ok()
     }
 
-    /// The bond `request` names, as stored at receipt with the pin of its rule. A bond named
-    /// by an identifier must be one the caller may name.
-    async fn resolve(&self, request: &RfqRequest) -> Result<ResolvedBondReference, Outcome> {
+    /// The bond `request` names, as stored at receipt with the pin of its rule, and its
+    /// id. A bond named by an identifier must be one the caller may name.
+    async fn resolve(
+        &self,
+        request: &RfqRequest,
+    ) -> Result<(ResolvedBondReference, InstrumentId), IngestResult> {
         let lookup = ReferenceLookup {
             as_of: self.received_at,
             known_at: self.received_at,
         };
-        let unreadable = || Outcome::refused("RFQ_UNREADABLE", "the bond could not be read");
+        let unreadable = || refused("RFQ_UNREADABLE", "the bond could not be read");
         let instrument_id = match (&request.instrument_id, &request.identifier) {
             (Some(id), _) => id.clone(),
             (None, Some(identifier)) => {
@@ -385,33 +401,32 @@ impl Intake<'_> {
                     self.state.engine.reference_repository().as_ref();
                 match resolve_identifier(repo, identifier, lookup).await {
                     Ok(Ok((id, _))) => id,
-                    Ok(Err((code, reason))) => return Err(Outcome::refused(code, reason)),
+                    Ok(Err((code, reason))) => return Err(refused(code, reason)),
                     Err(_) => return Err(unreadable()),
                 }
             }
-            (None, None) => {
-                return Err(Outcome::refused(
-                    "RFQ_INSTRUMENT",
-                    "an RFQ names its bond once",
-                ))
-            }
+            (None, None) => return Err(refused("RFQ_INSTRUMENT", "an RFQ names its bond once")),
         };
-        let bond = Resource::new(ResourceKind::Instrument, instrument_id.as_str());
-        if !self.allowed(Action::RfqIngest, INGEST_DATA, &[bond]) {
-            return Err(Outcome::refused(
+        if !self.may_send(Resource::new(
+            ResourceKind::Instrument,
+            instrument_id.as_str(),
+        )) {
+            return Err(refused(
                 "FORBIDDEN",
                 "the caller may not send requests on this bond",
             ));
         }
-        let id: convex_core::ids::InstrumentId = instrument_id.into();
+        let id: convex_core::ids::InstrumentId = instrument_id.clone().into();
         match self
             .state
             .engine
             .reference_at_for_pricing(&id, lookup)
             .await
         {
-            Ok(Some(reference)) if reference.record.bond.is_some() => Ok(reference),
-            Ok(_) => Err(Outcome::refused(
+            Ok(Some(reference)) if reference.record.bond.is_some() => {
+                Ok((reference, instrument_id))
+            }
+            Ok(_) => Err(refused(
                 "RFQ_INSTRUMENT",
                 "no bond by this id is stored at receipt",
             )),
@@ -419,20 +434,143 @@ impl Intake<'_> {
         }
     }
 
-    /// The book a request's trade would go to: stored and not retired.
-    async fn book(&self, book_id: &BookId) -> Result<MasterRecord, Outcome> {
-        let repo: &dyn ReferenceRepository = self.state.engine.reference_repository().as_ref();
-        let record = current(repo, MasterKey::Book(book_id.clone()))
-            .await
-            .map_err(|_| Outcome::refused("RFQ_UNREADABLE", "the book could not be read"))?
-            .ok_or_else(|| Outcome::refused("RFQ_BOOK", "no book by this id is stored"))?;
-        let retired = book_of(&record)
-            .map_err(|_| Outcome::refused("RFQ_UNREADABLE", "the book could not be read"))?
-            .is_retired();
-        if retired {
-            return Err(Outcome::refused("RFQ_BOOK", "the book is retired"));
+    /// The book a request's trade would go to, stored and not retired, read once a batch.
+    async fn traded_book(&mut self, book_id: &BookId) -> Result<Arc<TradedBook>, IngestResult> {
+        let read = match self.books.get(book_id) {
+            Some(read) => read.clone(),
+            None => {
+                let read = traded_book(self.state, book_id).await.map(Arc::new);
+                self.books.insert(book_id.clone(), read.clone());
+                read
+            }
+        };
+        read.map_err(|missing| match missing {
+            NoTradedBook::Unknown => refused("RFQ_BOOK", "no book by this id is stored"),
+            NoTradedBook::Retired => refused("RFQ_BOOK", "the book is retired"),
+            NoTradedBook::Unreadable => {
+                refused("RFQ_UNREADABLE", "the book or its limits could not be read")
+            }
+        })
+    }
+
+    /// The desk side's price for `request` from the bond's Live level, at the rule's width
+    /// for the trade's size scaled by `width_factor`, or why there is none.
+    async fn priced_side(
+        &mut self,
+        reference: &ResolvedBondReference,
+        instrument_id: &InstrumentId,
+        request: &RfqRequest,
+        width_factor: WidthFactor,
+    ) -> Result<PricedSide, String> {
+        let engine = &self.state.engine;
+        let bond = reference
+            .record
+            .bond
+            .as_ref()
+            .ok_or("the bond's reference is a tombstone")?;
+        let version = reference.record.version;
+        let accepts_demo = engine
+            .configuration_use_cases()
+            .is_some_and(|cases| cases.accepts(DataQuality::Demo));
+        let records = engine.runtime_results_of([instrument_id.as_str()]);
+        let record = records.first().map(Arc::as_ref);
+        let desk_side = request.side.desk_side();
+        let at = self.received_at;
+        let live = |reason: &str| format!("the bond's Live level is unavailable: {reason}");
+        if convex_engine::optional_valuation::is_runtime_product(bond) {
+            let price =
+                live_price(record, instrument_id, version, at, accepts_demo).map_err(live)?;
+            let mid = ExactDecimal::new(price.clean_price_mid);
+            return Ok(PricedSide {
+                desk_side,
+                clean_price: mid,
+                level: None,
+                clean_price_mid: mid,
+                mid_only: Some(NO_TWO_WAY),
+                quote_input: live_quote_input(record, instrument_id, version, at, accepts_demo)
+                    .ok()
+                    .cloned(),
+                pricing_rule: None,
+                curves: Vec::new(),
+            });
         }
-        Ok(record)
+        let quote_input = live_quote_input(record, instrument_id, version, at, accepts_demo)
+            .map_err(live)?
+            .clone();
+        let rule = engine
+            .pinned_rule_for_request(&bond.instrument_id, reference.pricing_rule.clone())
+            .await
+            .map_err(|error| format!("the bond's rule could not be read: {error}"))?;
+        let in_force = engine
+            .rule_in_force(&mut self.context, bond, rule)
+            .await
+            .map_err(|error| error.to_string())?;
+        let method = in_force.as_ref().map(|in_force| &in_force.rule.method);
+        let level = quote_input.observation.value.value;
+        let quoted = match method {
+            Some(method) if method.quote_field() == quote_input.field => {
+                QuotedInput::quoted_by(method, level)
+            }
+            None if quote_input.field == QuoteField::MidPrice => QuotedInput::Price(level),
+            _ => return Err("the bond's Live quote is not in its rule's field".into()),
+        };
+        let (discount, curves) = match method {
+            Some(method) if method.reads_discount_curve() => {
+                let curves = self
+                    .context
+                    .curves_for(bond)
+                    .await
+                    .map_err(|error| error.to_string())?;
+                let read = self
+                    .context
+                    .pins()
+                    .into_iter()
+                    .map(|(curve_id, version)| CurveRead {
+                        curve_id: curve_id.to_owned(),
+                        version,
+                    })
+                    .collect();
+                (Some(curves.discount), read)
+            }
+            _ => (None, Vec::new()),
+        };
+        let size = TradeSize {
+            face: request.face.decimal(),
+            width_factor,
+        };
+        let pricing = engine
+            .price_for_trade(
+                bond,
+                in_force.as_ref(),
+                quoted,
+                size,
+                request.settlement_date.date(),
+                discount.as_ref(),
+            )
+            .map_err(|error| error.to_string())?;
+        let is_level = method.is_some_and(|method| method.is_level());
+        let mut side = PricedSide {
+            desk_side,
+            clean_price: ExactDecimal::new(pricing.clean_price_mid),
+            level: is_level.then_some(ExactDecimal::new(level)),
+            clean_price_mid: ExactDecimal::new(pricing.clean_price_mid),
+            mid_only: Some(NO_RULE_WIDTH),
+            quote_input: Some(quote_input),
+            pricing_rule: in_force
+                .as_ref()
+                .map(|in_force| pricing_rule_json(in_force, quoted, &pricing)),
+            curves,
+        };
+        if let BidAsk::RuleWidth(two_way) = &pricing.bid_ask {
+            let (price, side_level) = match desk_side {
+                DeskSide::Bid => (two_way.clean_price_bid, two_way.bid_level),
+                DeskSide::Ask => (two_way.clean_price_ask, two_way.ask_level),
+            };
+            side.clean_price = ExactDecimal::new(price);
+            side.level = is_level.then_some(ExactDecimal::new(side_level));
+            side.mid_only = None;
+        }
+        Ok(side)
     }
 }
 
@@ -440,169 +578,6 @@ impl Intake<'_> {
 const NO_RULE_WIDTH: &str = "the bond's rule sets no two-way width";
 /// Why a callable's or floating rate note's price is the mid.
 const NO_TWO_WAY: &str = "a callable or floating rate note is priced at its Live mid";
-
-/// The desk side's price for `request` from the bond's Live level, under `context`'s
-/// configuration, at the rule's width for the trade's size scaled by `width_factor`.
-async fn auto_price(
-    engine: &PricingEngine,
-    context: &mut RequestContext,
-    reference: &ResolvedBondReference,
-    request: &RfqRequest,
-    width_factor: convex_core::types::WidthFactor,
-    received_at: UtcTimestamp,
-) -> AutoPrice {
-    match priced_side(
-        engine,
-        context,
-        reference,
-        request,
-        width_factor,
-        received_at,
-    )
-    .await
-    {
-        Ok(side) => AutoPrice::Priced(Box::new(side)),
-        Err(reason) => AutoPrice::Unpriced { reason },
-    }
-}
-
-async fn priced_side(
-    engine: &PricingEngine,
-    context: &mut RequestContext,
-    reference: &ResolvedBondReference,
-    request: &RfqRequest,
-    width_factor: convex_core::types::WidthFactor,
-    received_at: UtcTimestamp,
-) -> Result<PricedSide, String> {
-    let bond = reference
-        .record
-        .bond
-        .as_ref()
-        .ok_or("the bond's reference is a tombstone")?;
-    let instrument_id = InstrumentId::new(bond.instrument_id.as_str())
-        .map_err(|_| "the bond's id is not a valid instrument id")?;
-    let version = reference.record.version;
-    let accepts_demo = engine
-        .configuration_use_cases()
-        .is_some_and(|cases| cases.accepts(DataQuality::Demo));
-    let records = engine.runtime_results_of([bond.instrument_id.as_str()]);
-    let record = records.first().map(Arc::as_ref);
-    let desk_side = request.side.desk_side();
-    let live = |reason: &str| format!("the bond's Live level is unavailable: {reason}");
-    if convex_engine::optional_valuation::is_runtime_product(bond) {
-        let price =
-            live_price(record, &instrument_id, version, received_at, accepts_demo).map_err(live)?;
-        let quote_input =
-            live_quote_input(record, &instrument_id, version, received_at, accepts_demo)
-                .ok()
-                .cloned();
-        return Ok(PricedSide {
-            desk_side,
-            clean_price: ExactDecimal::new(price.clean_price_mid),
-            level: None,
-            clean_price_mid: ExactDecimal::new(price.clean_price_mid),
-            mid_only: Some(NO_TWO_WAY),
-            quote_input,
-            pricing_rule: None,
-            curves: Vec::new(),
-        });
-    }
-    let quote_input = live_quote_input(record, &instrument_id, version, received_at, accepts_demo)
-        .map_err(live)?
-        .clone();
-    let rule = engine
-        .pinned_rule_for_request(&bond.instrument_id, reference.pricing_rule.clone())
-        .await
-        .map_err(|error| format!("the bond's rule could not be read: {error}"))?;
-    let in_force = engine
-        .rule_in_force(context, bond, rule)
-        .await
-        .map_err(|error| error.to_string())?;
-    let level = quote_input.observation.value.value;
-    let quoted = match &in_force {
-        Some(in_force) if in_force.rule.method.quote_field() == quote_input.field => {
-            QuotedInput::quoted_by(&in_force.rule.method, level)
-        }
-        None if quote_input.field == QuoteField::MidPrice => QuotedInput::Price(level),
-        _ => return Err("the bond's Live quote is not in its rule's field".into()),
-    };
-    // Only a Z-spread reads a curve: the configuration's discount curve.
-    let discount = match in_force.as_ref().map(|in_force| &in_force.rule.method) {
-        Some(PricingMethod::ZSpread {}) => Some(
-            context
-                .curves_for(bond)
-                .await
-                .map_err(|error| error.to_string())?
-                .discount,
-        ),
-        _ => None,
-    };
-    let size = TradeSize {
-        face: request.face.decimal(),
-        factor: width_factor,
-    };
-    let pricing = engine
-        .price_for_trade(
-            bond,
-            in_force.as_ref(),
-            quoted,
-            size,
-            request.settlement_date.date(),
-            discount.as_ref(),
-        )
-        .map_err(|error| error.to_string())?;
-    let is_level = in_force
-        .as_ref()
-        .is_some_and(|in_force| in_force.rule.method.is_level());
-    let (clean_price, side_level, mid_only) = desk_side_of(&pricing, desk_side, level, is_level);
-    Ok(PricedSide {
-        desk_side,
-        clean_price: ExactDecimal::new(clean_price),
-        level: side_level.map(ExactDecimal::new),
-        clean_price_mid: ExactDecimal::new(pricing.clean_price_mid),
-        mid_only,
-        quote_input: Some(quote_input),
-        pricing_rule: in_force
-            .as_ref()
-            .map(|in_force| pricing_rule_json(in_force, quoted, &pricing)),
-        curves: context
-            .pins()
-            .into_iter()
-            .map(|(curve_id, version)| CurveRead {
-                curve_id: curve_id.to_owned(),
-                version,
-            })
-            .collect(),
-    })
-}
-
-/// The clean price and level of `side` of `pricing`, and why it is the mid when it is: a
-/// two-way at the rule's width, or the mid. `mid_level` is the level quoted.
-fn desk_side_of(
-    pricing: &RulePricing,
-    side: DeskSide,
-    mid_level: rust_decimal::Decimal,
-    is_level: bool,
-) -> (
-    rust_decimal::Decimal,
-    Option<rust_decimal::Decimal>,
-    Option<&'static str>,
-) {
-    match &pricing.bid_ask {
-        BidAsk::RuleWidth(two_way) => {
-            let (price, level) = match side {
-                DeskSide::Bid => (two_way.clean_price_bid, two_way.bid_level),
-                DeskSide::Ask => (two_way.clean_price_ask, two_way.ask_level),
-            };
-            (price, is_level.then_some(level), None)
-        }
-        BidAsk::ConfigurationWidth | BidAsk::MidOnly => (
-            pricing.clean_price_mid,
-            is_level.then_some(mid_level),
-            Some(NO_RULE_WIDTH),
-        ),
-    }
-}
 
 /// `POST /api/v1/rfqs/:rfq_key/quote` body.
 #[derive(Deserialize)]
@@ -628,12 +603,9 @@ pub(crate) async fn quote(
     Path(raw): Path<String>,
     payload: Result<Json<QuoteBody>, JsonRejection>,
 ) -> Response {
-    let Ok(Json(body)) = payload else {
-        return typed_error(
-            StatusCode::BAD_REQUEST,
-            "INVALID_INPUT",
-            "invalid quote JSON",
-        );
+    let body = match payload {
+        Ok(Json(body)) => body,
+        Err(rejection) => return ApiError::from(rejection).into_response(),
     };
     if body.clean_price.decimal() <= rust_decimal::Decimal::ZERO {
         return typed_error(
@@ -649,7 +621,8 @@ pub(crate) async fn quote(
         clean_price: body.clean_price,
         quoted_at,
     };
-    respond(&state, &ctx, desk, raw, RfqEvent::Quoted, Some(sent)).await
+    let record = Recorded::Quoted { quote: &sent };
+    move_by(&state, &ctx, desk, raw, record, Sender::Trader).await
 }
 
 /// `POST /api/v1/rfqs/:rfq_key/pass`: the trader declines to quote.
@@ -659,7 +632,7 @@ pub(crate) async fn pass(
     desk: Option<Extension<Arc<RfqDesk>>>,
     Path(raw): Path<String>,
 ) -> Response {
-    respond(&state, &ctx, desk, raw, RfqEvent::Passed, None).await
+    move_by(&state, &ctx, desk, raw, Recorded::Passed, Sender::Trader).await
 }
 
 /// `POST /api/v1/rfqs/:rfq_key/outcome`: the source reports the client's outcome, or that
@@ -671,51 +644,58 @@ pub(crate) async fn outcome(
     Path(raw): Path<String>,
     payload: Result<Json<OutcomeBody>, JsonRejection>,
 ) -> Response {
-    let Ok(Json(body)) = payload else {
-        return typed_error(
-            StatusCode::BAD_REQUEST,
-            "INVALID_INPUT",
-            "invalid outcome JSON",
-        );
+    let body = match payload {
+        Ok(Json(body)) => body,
+        Err(rejection) => return ApiError::from(rejection).into_response(),
     };
-    let event = RfqEvent::from(body.outcome);
-    let Some(Extension(desk)) = desk else {
-        return unavailable("this server takes no requests for quote");
-    };
-    let Some(key) = RfqKey::parse(&raw) else {
-        return unknown();
-    };
-    let fingerprint = ctx
-        .as_ref()
-        .and_then(|Extension(ctx)| ctx.subject_fingerprint());
-    let moved = desk
-        .transition(&key, event, None, fingerprint, |rfq| {
-            let request = &rfq.receipt.request;
-            authorize_resources(
-                &state,
-                &ctx,
-                Action::RfqIngest,
-                INGEST_DATA,
-                vec![
-                    Resource::new(ResourceKind::Source, request.source_id.as_str()),
-                    Resource::new(ResourceKind::Book, request.book_id.as_str()),
-                    Resource::new(ResourceKind::Instrument, rfq.receipt.instrument_id.as_str()),
-                ],
-            )
-        })
-        .await;
-    moved_response(moved)
+    let record = Recorded::outcome(body.outcome);
+    move_by(&state, &ctx, desk, raw, record, Sender::Source).await
 }
 
-/// A trader's `event` on the request `raw` names: the trader must hold `RfqRespond` on its
-/// book and bond.
-async fn respond(
+/// Who sends an answer, and so what it needs.
+#[derive(Clone, Copy)]
+enum Sender {
+    /// `RfqRespond` on the request's book and bond.
+    Trader,
+    /// `RfqIngest` on the request's source, book and bond.
+    Source,
+}
+
+impl Sender {
+    fn may_move(
+        self,
+        state: &AppState,
+        ctx: &Option<Extension<AccessContext>>,
+        receipt: &Receipt,
+    ) -> Result<(), crate::access::AccessError> {
+        let request = &receipt.request;
+        let mut resources = vec![
+            Resource::new(ResourceKind::Book, request.book_id.as_str()),
+            Resource::new(ResourceKind::Instrument, receipt.instrument_id.as_str()),
+        ];
+        let (action, data) = match self {
+            Self::Trader => (Action::RfqRespond, STATUS_DATA),
+            Self::Source => {
+                resources.push(Resource::new(
+                    ResourceKind::Source,
+                    request.source_id.as_str(),
+                ));
+                (Action::RfqIngest, INGEST_DATA)
+            }
+        };
+        authorize_caller(&state.access, ctx, action, data, &resources)
+    }
+}
+
+/// Move the request `raw` names as `record` says, sent by `sender`: the reply is the
+/// request's key and new state, or why it did not move.
+async fn move_by(
     state: &AppState,
     ctx: &Option<Extension<AccessContext>>,
     desk: Option<Extension<Arc<RfqDesk>>>,
     raw: String,
-    event: RfqEvent,
-    sent: Option<SentQuote>,
+    record: Recorded<'_>,
+    sender: Sender,
 ) -> Response {
     let Some(Extension(desk)) = desk else {
         return unavailable("this server takes no requests for quote");
@@ -723,40 +703,23 @@ async fn respond(
     let Some(key) = RfqKey::parse(&raw) else {
         return unknown();
     };
-    let fingerprint = ctx
-        .as_ref()
-        .and_then(|Extension(ctx)| ctx.subject_fingerprint());
     let moved = desk
-        .transition(&key, event, sent, fingerprint, |rfq| {
-            authorize(
-                state,
-                ctx,
-                Action::RfqRespond,
-                STATUS_DATA,
-                &rfq.receipt.request.book_id,
-                [rfq.receipt.instrument_id.as_str().to_owned()],
-            )
+        .transition(&key, record, recorded_subject(ctx), |receipt| {
+            sender.may_move(state, ctx, receipt)
         })
         .await;
-    moved_response(moved)
-}
-
-fn authorize_resources(
-    state: &AppState,
-    ctx: &Option<Extension<AccessContext>>,
-    action: Action,
-    data: &[DataScope],
-    resources: Vec<Resource>,
-) -> Result<(), Response> {
-    let Some(Extension(ctx)) = ctx else {
-        return Err(crate::access::http::response(
-            crate::access::AccessError::Forbidden,
-        ));
-    };
-    state
-        .access
-        .authorize(ctx, action, data, &resources)
-        .map_err(crate::access::http::response)
+    match moved {
+        Ok(state) => Json(serde_json::json!({ "rfq_key": key, "state": state })).into_response(),
+        Err(Refused::Unknown) => unknown(),
+        Err(Refused::Forbidden(error)) => crate::access::http::response(error),
+        Err(Refused::Transition(refused)) => {
+            typed_error(StatusCode::CONFLICT, refused.code(), &refused.to_string())
+        }
+        Err(Refused::Unrecorded(error)) => {
+            tracing::warn!(%error, "RFQ desk: a transition could not be recorded");
+            unavailable("the transition could not be recorded; nothing changed")
+        }
+    }
 }
 
 fn unknown() -> Response {
@@ -767,35 +730,10 @@ fn unknown() -> Response {
     )
 }
 
-/// A transition's reply: the request as it now stands, or why it did not move.
-fn moved_response(moved: Result<OpenRfq, Refused>) -> Response {
-    match moved {
-        Ok(rfq) => Json(serde_json::json!({
-            "rfq_key": rfq.rfq_key,
-            "state": rfq.state,
-        }))
-        .into_response(),
-        Err(Refused::Unknown) => unknown(),
-        Err(Refused::Forbidden(response)) => response,
-        Err(Refused::Transition(refused)) => {
-            let code = match refused {
-                RfqTransitionError::Final(_) => "RFQ_FINAL",
-                RfqTransitionError::NotAllowed(_) => "RFQ_TRANSITION",
-            };
-            typed_error(StatusCode::CONFLICT, code, &refused.to_string())
-        }
-        Err(Refused::Unrecorded(error)) => {
-            tracing::warn!(%error, "RFQ desk: a transition could not be recorded");
-            unavailable("the transition could not be recorded; nothing changed")
-        }
-    }
-}
-
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ListQuery {
     /// Only requests in this open state.
-    #[serde(default)]
     state: Option<RfqState>,
 }
 
@@ -809,11 +747,7 @@ pub(crate) async fn list(
     query: Result<Query<ListQuery>, QueryRejection>,
 ) -> Response {
     let Ok(Query(query)) = query else {
-        return typed_error(
-            StatusCode::BAD_REQUEST,
-            "INVALID_INPUT",
-            "state names an open state",
-        );
+        return ApiError::invalid("state names an open state").into_response();
     };
     let Some(Extension(desk)) = desk else {
         return unavailable("this server takes no requests for quote");
@@ -825,6 +759,7 @@ pub(crate) async fn list(
         .filter(|rfq| query.state.is_none_or(|state| rfq.state == state))
         .collect();
     rfqs.sort_by(|a, b| {
+        let (a, b) = (&a.admission, &b.admission);
         a.receipt
             .request
             .deadline
@@ -835,7 +770,8 @@ pub(crate) async fn list(
     let mut shown = Vec::with_capacity(rfqs.len());
     let mut withheld = 0usize;
     for rfq in rfqs {
-        let book_id = &rfq.receipt.request.book_id;
+        let receipt = &rfq.admission.receipt;
+        let book_id = &receipt.request.book_id;
         let book_readable = match readable.get(book_id) {
             Some(readable) => *readable,
             None => {
@@ -851,11 +787,11 @@ pub(crate) async fn list(
                 Action::BookRead,
                 STATUS_DATA,
                 book_id,
-                [rfq.receipt.instrument_id.as_str().to_owned()],
+                [receipt.instrument_id.as_str().to_owned()],
             )
             .is_ok();
         if bond_readable {
-            shown.push(rfq);
+            shown.push(row(&rfq));
         } else {
             withheld += 1;
         }
@@ -863,8 +799,45 @@ pub(crate) async fn list(
     Json(serde_json::json!({ "rfqs": shown, "withheld": withheld })).into_response()
 }
 
-/// `GET /api/v1/rfqs/:rfq_key`: every entry of one request, in order. It needs what the
-/// list needs of the request.
+/// One open request as the list shows it: what was received, the desk side's auto price,
+/// how many of the book's limits the check put in each status, and the quote sent. A
+/// request's entries carry what each was made from.
+fn row(rfq: &OpenRfq) -> serde_json::Value {
+    let admission = &rfq.admission;
+    let auto_price = match &admission.pricing.auto_price {
+        AutoPrice::Priced(side) => serde_json::json!({
+            "kind": "priced",
+            "desk_side": side.desk_side,
+            "clean_price": side.clean_price,
+            "level": side.level,
+            "clean_price_mid": side.clean_price_mid,
+            "mid_only": side.mid_only,
+        }),
+        AutoPrice::Unpriced { reason } => serde_json::json!({"kind": "unpriced", "reason": reason}),
+    };
+    let check = match &admission.pricing.check {
+        LimitCheck::Evaluated { statuses, .. } => {
+            serde_json::json!({"kind": "evaluated", "statuses": statuses})
+        }
+        LimitCheck::Unavailable { reason } => {
+            serde_json::json!({"kind": "unavailable", "reason": reason})
+        }
+    };
+    serde_json::json!({
+        "rfq_key": admission.rfq_key,
+        "state": rfq.state,
+        "request": admission.receipt.request,
+        "instrument_id": admission.receipt.instrument_id,
+        "instrument_version": admission.receipt.instrument_version,
+        "received_at": admission.receipt.received_at,
+        "auto_price": auto_price,
+        "check": check,
+        "quote": rfq.quote,
+    })
+}
+
+/// `GET /api/v1/rfqs/:rfq_key`: every entry of one request, in order, with its state, ID
+/// and sender. It needs what the list needs of the request.
 pub(crate) async fn records(
     State(state): State<Arc<AppState>>,
     ctx: Option<Extension<AccessContext>>,
@@ -877,39 +850,19 @@ pub(crate) async fn records(
     let Some(key) = RfqKey::parse(&raw) else {
         return unknown();
     };
-    let page = match desk
-        .records()
-        .entity_page(RFQ_ENTITY, key.as_str(), 0, MAX_ENTITY_PAGE)
-        .await
-    {
-        Ok(page) => page,
+    let entries = match desk.entries(&key).await {
+        Ok(entries) => entries,
         Err(error) => {
             tracing::warn!(%error, "RFQ desk: a request's entries are unreadable");
             return unavailable("the request's entries could not be read");
         }
     };
-    let entries: Vec<serde_json::Value> = page
-        .entries
-        .iter()
-        .filter_map(|entry| {
-            let mut details: serde_json::Value =
-                serde_json::from_str(entry.details.as_deref()?).ok()?;
-            details["record_id"] = serde_json::json!(entry.id);
-            Some(details)
-        })
-        .collect();
-    let Some(first) = entries.first() else {
-        return unknown();
+    let receipt = match entries.first().map(receipt_of).transpose() {
+        Ok(Some(Some(receipt))) => receipt,
+        Ok(_) => return unknown(),
+        Err(_) => return unavailable("the request's entries could not be read"),
     };
-    #[derive(Deserialize)]
-    struct Named {
-        request: RfqRequest,
-        instrument_id: InstrumentId,
-    }
-    let Ok(named) = serde_json::from_value::<Named>(first.clone()) else {
-        return unavailable("the request's entries could not be read");
-    };
-    let book_id = &named.request.book_id;
+    let book_id = &receipt.request.book_id;
     if let Err(response) = limited_book_record(&state, &ctx, book_id).await {
         return response;
     }
@@ -919,9 +872,20 @@ pub(crate) async fn records(
         Action::BookRead,
         STATUS_DATA,
         book_id,
-        [named.instrument_id.as_str().to_owned()],
+        [receipt.instrument_id.as_str().to_owned()],
     ) {
         return response;
     }
-    Json(serde_json::json!({ "rfq_key": key, "records": entries })).into_response()
+    let records: Vec<serde_json::Value> = entries
+        .iter()
+        .filter_map(|entry| {
+            let mut record: serde_json::Value =
+                serde_json::from_str(entry.details.as_deref()?).ok()?;
+            record["record_id"] = serde_json::json!(entry.id);
+            record["state"] = serde_json::json!(entry.action);
+            record["user"] = serde_json::json!(entry.user);
+            Some(record)
+        })
+        .collect();
+    Json(serde_json::json!({ "rfq_key": key, "records": records })).into_response()
 }

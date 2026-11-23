@@ -12,8 +12,8 @@
 //!   that admitted the last; reported as quotes/s.
 //! - `burst1/256/sessions8`: one quote until each of eight sessions holds its frame. Each
 //!   session serializes the record, which the sessions share.
-//! - `burst1/256/open_rfqs256`: `burst1/256` with the RFQ desk full, 256 requests for
-//!   quote open on the bonds.
+//! - `burst1/256/open_rfqs0` and `/open_rfqs256`: `burst1/256` on a server taking requests
+//!   for quote, its desk empty and then full, 256 open on the bonds.
 //! - `subscribe/256`: a `subscribe_valuations` of every bond until its `subscribed`
 //!   acknowledgement, which follows the 256 results it seeds. Listing followed bonds
 //!   again resends their results, so one session repeats it.
@@ -173,8 +173,14 @@ struct Live {
 
 impl Live {
     async fn start(width: usize) -> Self {
+        let (dir, _, config, keys) = wide_live_setup(width).await;
+        Self::started(dir, config, keys, Vec::new()).await
+    }
+
+    /// [`Self::start`] under an active configuration listing a client tier, which
+    /// requests for quote need.
+    async fn start_taking_rfqs(width: usize) -> Self {
         let (dir, database, config, keys) = wide_live_setup(width).await;
-        // Requests for quote need an active configuration listing their client tiers.
         activate_client_tiers(
             &database,
             serde_json::json!([{"client_tier": "1", "width_factor": "1"}]),
@@ -184,20 +190,16 @@ impl Live {
     }
 
     /// Fill the RFQ desk: 256 requests, one a bond, into a book holding the first, each
-    /// open for five minutes, past the cases that follow.
+    /// open for five minutes.
     async fn open_rfqs(&self) {
-        let response = self
-            .server
-            .client
-            .put(format!("{}/api/v1/books/BOOK-RFQ", self.server.base))
-            .header("idempotency-key", "book-rfq")
-            .json(&serde_json::json!({"currency": "USD", "positions": [
-                {"instrument_id": self.keys[0].instrument_id.as_str(), "quantity": "1000000"},
-            ]}))
-            .send()
-            .await
-            .unwrap();
-        assert!(response.status().is_success(), "{}", response.status());
+        self.server
+            .put(
+                "/api/v1/books/BOOK-RFQ",
+                &serde_json::json!({"currency": "USD", "positions": [
+                    {"instrument_id": self.keys[0].instrument_id.as_str(), "quantity": "1000000"},
+                ]}),
+            )
+            .await;
         let deadline = (chrono::Utc::now() + chrono::Duration::seconds(299))
             .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
         let settlement = (chrono::Utc::now() + chrono::Duration::days(2))
@@ -514,29 +516,32 @@ fn bench_live_hop(c: &mut Criterion) {
             })
         })
     });
-    // With the desk full; the other sessions are closed, so none falls behind.
     group.throughput(Throughput::Elements(1));
-    for mut socket in sockets.drain(1..) {
-        rt.block_on(async {
-            let _ = socket.close(None).await;
-        });
-    }
-    rt.block_on(wide.open_rfqs());
-    group.bench_function(
-        BenchmarkId::new("burst1", format!("{WIDE}/open_rfqs{WIDE}")),
-        |b| {
-            b.iter_custom(|iterations| {
-                rt.block_on(async {
-                    let mut total = Duration::ZERO;
-                    for _ in 0..iterations {
-                        total += wide.hop(&mut sockets, 1, false).await;
-                    }
-                    total
-                })
-            })
-        },
-    );
     rt.block_on(wide.stop(sockets));
+
+    // A server taking requests for quote, its desk empty and then full.
+    let mut desk = rt.block_on(Live::start_taking_rfqs(WIDE));
+    let mut sockets = vec![rt.block_on(desk.session())];
+    for open in [0, WIDE] {
+        if open == WIDE {
+            rt.block_on(desk.open_rfqs());
+        }
+        group.bench_function(
+            BenchmarkId::new("burst1", format!("{WIDE}/open_rfqs{open}")),
+            |b| {
+                b.iter_custom(|iterations| {
+                    rt.block_on(async {
+                        let mut total = Duration::ZERO;
+                        for _ in 0..iterations {
+                            total += desk.hop(&mut sockets, 1, false).await;
+                        }
+                        total
+                    })
+                })
+            },
+        );
+    }
+    rt.block_on(desk.stop(sockets));
 
     let mut one = rt.block_on(Live::start(1));
     let mut sockets = vec![rt.block_on(one.session())];

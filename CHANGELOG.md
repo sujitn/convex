@@ -486,8 +486,8 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
-- **Pricing a trade's size.** `price_for_trade` (and `PricingEngine::price_for_trade`) is
-  the stage for a `TradeSize`: the rule's width for its face's bucket, scaled by its
+- **Pricing a trade's size.** `PricingEngine::price_for_trade` is the stage for a
+  `TradeSize`: the rule's width for its face's bucket, scaled by its
   client tier's `WidthFactor`; a face past the schedule or a scaled width past its unit's
   widest is refused. `live_quote_input` reads the quote a bond's Live record was valued
   from, and `live_price` its clean price mid, under the conditions `live_clean_price_mid`
@@ -609,6 +609,9 @@ the changes that matter when you upgrade.
   compiled again. `RfqRequest::client_tier` is a `ClientTier`.
 - **A prune names its event types.** `AuditPrune::event_types` replaces `event_type`: 1
   to 4 types removed in one walk.
+- **`AuditStore::entries_before`** reads up to 1,000 entries below an ID, newest first, so
+  a reader walks back from the log's end only as far as it needs; redb reads the range
+  backwards.
 - **`QuoteInput`**: the field of its quote a valuation read the bond's mark from, with its
   `FieldObservation`. `PublishedValuation::quote_input` carries it, and is omitted when the
   attempt read no quote.

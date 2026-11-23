@@ -496,15 +496,13 @@ fn authorize_positions<'a>(
     if resources.is_empty() {
         return Ok(());
     }
-    let Some(Extension(ctx)) = ctx else {
-        return Err(crate::access::http::response(
-            crate::access::AccessError::Forbidden,
-        ));
-    };
-    state
-        .access
-        .authorize(ctx, action, &[DataScope::Books], &resources)
-        .map_err(crate::access::http::response)
+    crate::access::http::authorize_resources(
+        &state.access,
+        ctx,
+        action,
+        &[DataScope::Books],
+        &resources,
+    )
 }
 
 fn owning_system(requested: Option<SourceId>, base: &Base) -> Result<SourceId, ReferenceError> {

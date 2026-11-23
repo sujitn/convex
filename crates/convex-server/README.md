@@ -1322,8 +1322,9 @@ new position through `PUT /api/v1/books/:book_id`.
   `rfq_key` and state `priced`, `retry` when the source sent the same `rfq_id` before with
   the same content (its state now), or `refused` with a code and reason. The reply is 200
   when any was taken, 429 when none was and one was refused for capacity, and 422
-  otherwise. 503 means the server takes no requests: no activated configuration, or the
-  desk is still expiring what its last run left open.
+  otherwise. 503 `UNAVAILABLE`, which may be retried, means the server takes no requests
+  now: no activated configuration, or the desk is still expiring what its last run left
+  open.
 - **Refusals.** A request names its bond by `instrument_id` or by an `identifier`
   (ISIN, CUSIP or provider id, resolved through the identifier mappings at receipt, as a
   book row is). Codes: `RFQ_ID`, `RFQ_CLIENT_ID`, `RFQ_CLIENT_TIER` (also a tier the active
@@ -1334,7 +1335,8 @@ new position through `PUT /api/v1/books/:book_id`.
   and `FORBIDDEN`.
 - **Its key.** `rfq_key` is a digest of the source and its id, 64 hexadecimal digits; the
   routes below take it. A source's id stays taken once received, so a retry after the
-  request is final, or after a restart, is still recognised.
+  request is final, after its deadline or after a restart is still recognised; one whose
+  receipt retention has removed is taken as new.
 - **The auto price.** Under the active configuration, at receipt: the bond's level in its
   Live record, through its rule's stage at the request's settlement date, at the width of
   the rule for the trade's size bucket scaled by the client tier's factor
@@ -1363,14 +1365,19 @@ new position through `PUT /api/v1/books/:book_id`.
   it applies, through the writer the limit monitor shares, so entry ids commit in order.
   It carries what it was made from: the request and the bond it resolved to; the
   configuration, its version and activation, the tier's factor; the Live level read, the
-  rule as read with each benchmark's price and snapshot, the curves read; the desk side's
-  level and price and the mid; the check; the quote sent; who sent each event (`server`,
-  `trader`, `source`, with the caller's audit fingerprint) and when. Retention prunes them
-  as it prunes limit records.
+  rule as read with each benchmark's price and snapshot, the curves a Z-spread read; the
+  desk side's level and price and the mid; the check, with how many limits it put in each
+  status; the quote sent; who sent each event (`server`, `trader`, `source`, with the
+  caller's recorded subject) and when. Retention prunes them as it prunes limit records.
 - **Reading.** `GET /api/v1/rfqs` lists the open requests by deadline, `?state=` one open
-  state. `GET /api/v1/rfqs/:rfq_key` returns every entry of one request. Each needs what
-  the book's limit status needs, since it carries the check, and its bond; the list leaves
-  out what the caller cannot read and counts it in `withheld`.
+  state: each row has the request, the desk side's auto price and how many of the book's
+  limits the check put in each status, so 256 rows fit one response.
+  `GET /api/v1/rfqs/:rfq_key` returns every entry of one request, with what each was made
+  from and who sent it (`user`: `access:` and the caller's audit fingerprint, as limit
+  and configuration records name a subject). Each needs what the book's limit status
+  needs, since it carries the check, and its bond; the list leaves out what the caller
+  cannot read and counts it in `withheld`. Answering a request needs the same grants
+  whether it is open or final, so a key says nothing to anyone else.
 - **Access.** Sending requests and outcomes needs the `rfq_source` role (`RfqIngest`) with
   the source, each book and each bond; answering needs the `trader` role (`RfqRespond`)
   on the request's book and bond.

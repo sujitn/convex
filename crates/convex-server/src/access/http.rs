@@ -92,6 +92,32 @@ pub(crate) fn response(error: AccessError) -> Response {
     }
     response
 }
+/// A handler's check that its caller holds `action` with `data` on `resources`, for what
+/// the request names only once it is read. No access context is forbidden.
+pub(crate) fn authorize_caller(
+    access: &AccessControl,
+    ctx: &Option<axum::Extension<AccessContext>>,
+    action: Action,
+    data: &[DataScope],
+    resources: &[Resource],
+) -> Result<(), AccessError> {
+    let Some(axum::Extension(ctx)) = ctx else {
+        return Err(AccessError::Forbidden);
+    };
+    access.authorize(ctx, action, data, resources)
+}
+/// [`authorize_caller`], refused as the access layer refuses: a handler's refusal is its
+/// response.
+#[allow(clippy::result_large_err)]
+pub(crate) fn authorize_resources(
+    access: &AccessControl,
+    ctx: &Option<axum::Extension<AccessContext>>,
+    action: Action,
+    data: &[DataScope],
+    resources: &[Resource],
+) -> Result<(), Response> {
+    authorize_caller(access, ctx, action, data, resources).map_err(response)
+}
 /// The stream's two paths.
 pub(crate) fn is_stream_path(path: &str) -> bool {
     matches!(path, "/ws" | "/api/v1/ws")
@@ -839,8 +865,6 @@ async fn enforce_inner(
             8 * 1024 * 1024
         } else if path.starts_with("/api/v1/configuration/") {
             MAX_CONFIGURATION_REQUEST
-        } else if path == "/api/v1/rfqs" {
-            convex_engine::ports::rfq::MAX_RFQ_BODY_BYTES
         } else {
             MAX_BODY
         };

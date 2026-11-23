@@ -316,11 +316,12 @@ impl Server {
             tokio::task::spawn_blocking(move || handle.block_on(limits.run(engine, monitor_rx)))
         });
         // The RFQ desk expires what the last run left open before it takes a request, then
-        // each request at its deadline.
-        let rfq_desk = self
-            .rfqs
-            .clone()
-            .map(|rfqs| tokio::spawn(rfqs.run(monitor_rx)));
+        // each request at its deadline, on a thread of its own as the monitor does: its
+        // restart scan and expiry commits would otherwise hold a worker.
+        let rfq_desk = self.rfqs.clone().map(|rfqs| {
+            let handle = tokio::runtime::Handle::current();
+            tokio::task::spawn_blocking(move || handle.block_on(rfqs.run(monitor_rx)))
+        });
         let engine = self.engine.clone();
         let shutdown_error = Arc::new(tokio::sync::Mutex::new(None));
         let captured = shutdown_error.clone();

@@ -405,6 +405,47 @@ pub async fn audit_last_id_is_the_largest(store: Arc<dyn AuditStore>) {
     assert_eq!(racing.last_id().await.unwrap(), Some(95));
 }
 
+/// A walk back from the log's end reads each entry below the cursor once, newest first,
+/// in pages; the default, through `query`, reads the same.
+pub async fn audit_entries_before_walk_back_by_id(store: Arc<dyn AuditStore>) {
+    struct Queried(Arc<dyn AuditStore>);
+    #[async_trait::async_trait]
+    impl AuditStore for Queried {
+        async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError> {
+            self.0.append(entry).await
+        }
+        async fn query(
+            &self,
+            filter: &AuditFilter,
+            pagination: &Pagination,
+        ) -> Result<convex_ports::storage::Page<AuditEntry>, TraitError> {
+            self.0.query(filter, pagination).await
+        }
+    }
+    let queried: Arc<dyn AuditStore> = Arc::new(Queried(store.clone()));
+    assert!(store.entries_before(u64::MAX, 10).await.unwrap().is_empty());
+    for id in [40, 7, 90, 12, 1500] {
+        store
+            .append(&audit(id, 100, "write", "bond", "A", None))
+            .await
+            .unwrap();
+    }
+    for reader in [&store, &queried] {
+        let ids = |entries: Vec<AuditEntry>| entries.iter().map(|e| e.id).collect::<Vec<_>>();
+        assert_eq!(
+            ids(reader.entries_before(u64::MAX, 2).await.unwrap()),
+            [1500, 90]
+        );
+        assert_eq!(ids(reader.entries_before(90, 2).await.unwrap()), [40, 12]);
+        assert_eq!(ids(reader.entries_before(12, 10).await.unwrap()), [7]);
+        assert!(reader.entries_before(7, 10).await.unwrap().is_empty());
+        assert!(matches!(
+            reader.entries_before(u64::MAX, MAX_ENTITY_PAGE + 1).await,
+            Err(TraitError::InvalidInput(_))
+        ));
+    }
+}
+
 /// `append_all` writes a batch in one transaction: every entry or none. An entry already
 /// stored, or repeated in the batch, with identical content counts as written; one with
 /// different content refuses the whole batch, as does a batch over 64 entries. The port's

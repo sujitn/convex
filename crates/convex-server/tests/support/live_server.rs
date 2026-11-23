@@ -122,6 +122,24 @@ impl Running {
         (status, response.json().await.unwrap_or(Value::Null))
     }
 
+    /// `PUT` `body` on `path` with an idempotency key of its path, which must succeed.
+    pub async fn put(&self, path: &str, body: &Value) {
+        let response = self
+            .client
+            .put(format!("{}{path}", self.base))
+            .header("idempotency-key", format!("put{}", path.replace('/', "-")))
+            .json(body)
+            .send()
+            .await
+            .unwrap();
+        let status = response.status();
+        assert!(
+            status.is_success(),
+            "{path}: {status} {}",
+            response.text().await.unwrap_or_default()
+        );
+    }
+
     pub async fn post_quotes(&self, events: Vec<QuoteEvent>) -> reqwest::Response {
         self.client
             .post(format!("{}/api/v1/market/quotes", self.base))
@@ -380,11 +398,12 @@ pub async fn level_live_setup_from(
 /// and the runtime starts under it.
 pub async fn activate_client_tiers(database: &Path, tiers: Value) {
     use convex_engine::ports::configuration::*;
-    let plan: RuntimePlan = serde_json::from_slice(
-        &std::fs::read(database.with_file_name("runtime.json")).unwrap(),
-    )
-    .unwrap();
-    let storage = convex_ext_redb::open_redb_storage(database).unwrap().storage;
+    let plan: RuntimePlan =
+        serde_json::from_slice(&std::fs::read(database.with_file_name("runtime.json")).unwrap())
+            .unwrap();
+    let storage = convex_ext_redb::open_redb_storage(database)
+        .unwrap()
+        .storage;
     let config = storage
         .configs
         .get_version("CONFIG-RESTORE", 1)
@@ -394,7 +413,8 @@ pub async fn activate_client_tiers(database: &Path, tiers: Value) {
     let mut staged = configuration_fixture::staged(1);
     let document = &mut staged.document;
     document.pricing = config;
-    document.process.result_transport = convex_core::contracts::SourceId::new("display-only").unwrap();
+    document.process.result_transport =
+        convex_core::contracts::SourceId::new("display-only").unwrap();
     document.providers = Vec::new();
     for quote in &plan.assembly.quotes {
         let source = convex_core::contracts::SourceId::new(&quote.key.source).unwrap();

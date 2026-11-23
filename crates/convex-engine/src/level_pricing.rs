@@ -478,35 +478,13 @@ pub struct TradeSize {
     /// The face amount traded.
     pub face: Decimal,
     /// The client tier's factor on the width.
-    pub factor: WidthFactor,
-}
-
-/// [`price_under_rule`] for a trade of `size`: the rule's width for the trade's size
-/// bucket, scaled by its client tier's factor. A size beyond the schedule's last bucket,
-/// or a scaled width past its unit's widest, is refused.
-pub fn price_for_trade(
-    bond: &BondReferenceData,
-    in_force: Option<&PricingRuleInForce>,
-    input: QuotedInput,
-    size: TradeSize,
-    settlement: Date,
-    discount: Option<&BuiltCurve>,
-    yields: &BenchmarkYieldCache,
-) -> Result<RulePricing, LevelError> {
-    price_sized(
-        bond,
-        in_force,
-        input,
-        Some(size),
-        settlement,
-        discount,
-        yields,
-    )
+    pub width_factor: WidthFactor,
 }
 
 /// The stage under `in_force` for a trade of `size`, or for a request with none, which
-/// takes the first bucket's width.
-fn price_sized(
+/// takes the first bucket's width. For a trade, a size beyond the schedule's last bucket,
+/// or a scaled width past its unit's widest, is refused.
+pub(crate) fn price_sized(
     bond: &BondReferenceData,
     in_force: Option<&PricingRuleInForce>,
     input: QuotedInput,
@@ -525,7 +503,7 @@ fn price_sized(
             None => schedule.width_for(None),
             Some(size) => schedule
                 .width_for(Some(size.face))
-                .and_then(|width| width.scaled(size.factor)),
+                .and_then(|width| width.scaled(size.width_factor)),
         })
         .transpose()
         .map_err(width_refused)?;

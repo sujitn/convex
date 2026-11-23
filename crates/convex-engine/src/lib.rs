@@ -791,7 +791,8 @@ impl PricingEngine {
     }
 
     /// [`Self::price_in_force`] for a trade of `size`: the rule's width for its size,
-    /// scaled by its client tier's factor.
+    /// scaled by its client tier's factor. A size beyond the schedule's last bucket, or a
+    /// scaled width past its unit's widest, is refused.
     pub fn price_for_trade(
         &self,
         bond: &ports::reference_data::BondReferenceData,
@@ -801,11 +802,11 @@ impl PricingEngine {
         settlement: convex_core::Date,
         discount: Option<&BuiltCurve>,
     ) -> Result<level_pricing::RulePricing, level_pricing::LevelError> {
-        level_pricing::price_for_trade(
+        level_pricing::price_sized(
             bond,
             in_force,
             input,
-            size,
+            Some(size),
             settlement,
             discount,
             &self.benchmark_yield_cache,
