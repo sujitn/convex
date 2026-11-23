@@ -21,7 +21,7 @@ const ADMIN: &str = "desk-admin-token";
 const VENUE: &str = "venue-token";
 const TRADER_A: &str = "trader-a-token";
 
-fn grant(subject: &str, roles: Vec<Role>, books: &str, sources: &str) -> Grant {
+fn grant(subject: &str, roles: Vec<Role>, books: &[&str], sources: &str) -> Grant {
     Grant {
         subject: subject.into(),
         kind: IdentityKind::Human,
@@ -34,7 +34,10 @@ fn grant(subject: &str, roles: Vec<Role>, books: &str, sources: &str) -> Grant {
         ],
         resources: BTreeMap::from([
             (ResourceKind::Instrument, vec!["*".into()]),
-            (ResourceKind::Book, vec![books.into()]),
+            (
+                ResourceKind::Book,
+                books.iter().map(|book| (*book).to_owned()).collect(),
+            ),
             (ResourceKind::Source, vec![sources.into()]),
             (ResourceKind::Curve, vec!["*".into()]),
         ]),
@@ -88,9 +91,24 @@ async fn sources_and_traders_reach_only_what_they_are_granted() {
     }
     let mut document = fixture::policy();
     document.grants = vec![
-        grant("desk-admin", vec![Role::Reader, Role::BookWriter], "*", "*"),
-        grant("venue", vec![Role::RfqSource], "*", "venue-sim"),
-        grant("trader-a", vec![Role::Reader, Role::Trader], "BOOK-A", "*"),
+        grant(
+            "desk-admin",
+            vec![Role::Reader, Role::BookWriter],
+            &["*"],
+            "*",
+        ),
+        grant(
+            "venue",
+            vec![Role::RfqSource],
+            &["BOOK-A", "BOOK-B"],
+            "venue-sim",
+        ),
+        grant(
+            "trader-a",
+            vec![Role::Reader, Role::Trader],
+            &["BOOK-A"],
+            "*",
+        ),
     ];
     let policy_file = issuer.directory.path().join("policy.json");
     std::fs::write(&policy_file, serde_json::to_vec(&document).unwrap()).unwrap();
@@ -127,6 +145,8 @@ async fn sources_and_traders_reach_only_what_they_are_granted() {
         rfq("RFQ-A", "venue-sim", "BOOK-A"),
         rfq("RFQ-X", "venue-other", "BOOK-A"),
         rfq("RFQ-B", "venue-sim", "BOOK-B"),
+        rfq("RFQ-Z", "venue-sim", "BOOK-Z"),
+        json!(null),
     ]});
     let reply = tokio::time::timeout(Duration::from_secs(10), async {
         loop {
@@ -158,12 +178,24 @@ async fn sources_and_traders_reach_only_what_they_are_granted() {
         [
             ("accepted", None),
             ("refused", Some("FORBIDDEN")),
-            ("accepted", None)
+            ("accepted", None),
+            ("refused", Some("FORBIDDEN")),
+            ("refused", Some("INVALID_INPUT")),
         ],
         "{reply}"
     );
     let key_a = reply["rfqs"][0]["rfq_key"].as_str().unwrap().to_owned();
     let key_b = reply["rfqs"][2]["rfq_key"].as_str().unwrap().to_owned();
+    // A batch every request of which the caller may not send is refused whole.
+    let (status, refusal) = send(
+        &server,
+        VENUE,
+        Method::POST,
+        "/api/v1/rfqs",
+        Some(json!({"rfqs": [rfq("RFQ-Y", "venue-sim", "BOOK-Z")]})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{refusal}");
     let path = |key: &str, action: &str| format!("/api/v1/rfqs/{key}/{action}");
     let quote = Some(json!({"clean_price": "99.5"}));
 
@@ -234,15 +266,13 @@ async fn sources_and_traders_reach_only_what_they_are_granted() {
         .iter()
         .map(|entry| &entry["user"])
         .collect();
-    assert_eq!(
-        users[..2],
-        [&Value::Null, &Value::Null],
-        "the server's entries"
-    );
-    let subject = users[2].as_str().unwrap();
+    // The receipt names the source's subject, the price the server, and the quote the
+    // trader's subject.
+    assert_eq!(users[1], &Value::Null, "the server's entry");
+    let (source, trader) = (users[0].as_str().unwrap(), users[2].as_str().unwrap());
     assert!(
-        subject.starts_with("access:") && !subject.contains("trader"),
-        "{subject}"
+        source.starts_with("access:") && trader.starts_with("access:") && source != trader,
+        "{source} {trader}"
     );
 
     // The outcome is the source's; a closed request is refused to anyone else before its

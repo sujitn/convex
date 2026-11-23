@@ -1028,11 +1028,13 @@ pub trait AuditStore: Send + Sync {
     }
 
     /// Up to `limit` (at most [`MAX_ENTITY_PAGE`]) entries with IDs below `before`, newest
-    /// first, in one read snapshot. A reader walking back from the log's end passes the
-    /// smallest ID it has, so it reads only as far back as it needs.
+    /// first. A reader walking back from the log's end passes the smallest ID it has, so it
+    /// reads only as far back as it needs.
     ///
-    /// A store ordered by ID should read the range below `before` backwards; redb does.
-    /// The default reads every entry through [`query`](Self::query), a page at a time.
+    /// A store ordered by ID should read the range below `before` backwards, in one read
+    /// snapshot; redb does. The default reads every entry through [`query`](Self::query), a
+    /// page at a time, each page its own snapshot: a prune between pages can shift the
+    /// pages and leave entries out.
     async fn entries_before(
         &self,
         before: u64,
@@ -1040,6 +1042,9 @@ pub trait AuditStore: Send + Sync {
     ) -> Result<Vec<AuditEntry>, TraitError> {
         if limit > MAX_ENTITY_PAGE {
             return Err(TraitError::InvalidInput("page limit exceeds 1000"));
+        }
+        if limit == 0 {
+            return Ok(Vec::new());
         }
         let all = AuditFilter::default();
         let mut below = std::collections::VecDeque::with_capacity(limit);

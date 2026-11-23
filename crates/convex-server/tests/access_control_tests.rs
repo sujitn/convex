@@ -1319,7 +1319,8 @@ async fn rfqs_need_the_source_role_to_send_and_the_trader_role_to_answer() {
             request(both.clone(), method, &path, Some(HUMAN_TOKEN), body).await;
         assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{path}: {reply}");
     }
-    // The body scan covers each request's book.
+    // Each request's book is the handler's to check, so a batch naming an ungranted book
+    // is admitted here and answered by the handler (503: no desk).
     let (status, _, reply) = request(
         both,
         "POST",
@@ -1328,7 +1329,7 @@ async fn rfqs_need_the_source_role_to_send_and_the_trader_role_to_answer() {
         batch("BOOK-B"),
     )
     .await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "{reply}");
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{reply}");
     issuer.finish().await;
 }
 

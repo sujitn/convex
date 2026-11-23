@@ -141,6 +141,11 @@ not listed is refused; an empty list takes none. The table can change without a
 restart: activating a document that changes only it, the freshness budgets or the
 overrides is a hot activation, and the next request for quote reads it.
 
+The field is required. A document stored before it no longer loads, and validation and
+activation read the active document of their configuration id, so a store whose active
+document predates it moves to a new id: save the pricing configuration under a new id,
+then compile, stage and activate it there, and set the server's `configuration_id` to it.
+
 `levels` is optional: where a desk posts the levels of bonds quoted by a yield or a
 spread, and how old one may be, such as a trading day. A server whose
 `desk_level_source` names the same source takes the desk's marks through

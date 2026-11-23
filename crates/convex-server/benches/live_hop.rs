@@ -189,6 +189,16 @@ impl Live {
         Self::started(dir, config, keys, Vec::new()).await
     }
 
+    /// How many requests for quote are open, read outside any timed interval.
+    async fn open_rfq_count(&self) -> usize {
+        let (status, reply) = self
+            .server
+            .send(reqwest::Method::GET, "/api/v1/rfqs", None)
+            .await;
+        assert_eq!(status, StatusCode::OK, "{reply}");
+        reply["rfqs"].as_array().map_or(0, Vec::len)
+    }
+
     /// Fill the RFQ desk: 256 requests, one a bond, into a book holding the first, each
     /// open for five minutes.
     async fn open_rfqs(&self) {
@@ -540,6 +550,8 @@ fn bench_live_hop(c: &mut Criterion) {
                 })
             },
         );
+        // Every sample ran with the desk as named: none expired during the case.
+        assert_eq!(rt.block_on(desk.open_rfq_count()), open);
     }
     rt.block_on(desk.stop(sockets));
 

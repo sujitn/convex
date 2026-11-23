@@ -650,6 +650,7 @@ async fn rfq_pricing_time_at_the_bounds() {
     let server = &desk.server;
     let mut alone = Vec::new();
     for round in 0..20 {
+        assert_eq!(open_rfqs(server).await.len(), 0);
         let started = Instant::now();
         let key = accepted(
             server,
@@ -657,7 +658,8 @@ async fn rfq_pricing_time_at_the_bounds() {
         )
         .await;
         alone.push(started.elapsed());
-        answer(server, &key, "pass", None).await;
+        let (status, _) = answer(server, &key, "pass", None).await;
+        assert_eq!(status, StatusCode::OK);
     }
     for batch in 0..4 {
         let rfqs = (0..if batch == 3 { 63 } else { 64 })
@@ -671,10 +673,13 @@ async fn rfq_pricing_time_at_the_bounds() {
                 )
             })
             .collect();
-        ingest(server, rfqs).await;
+        let (status, answers) = ingest(server, rfqs).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(answers.iter().all(|answer| answer["result"] == "accepted"));
     }
     let mut full = Vec::new();
     for round in 0..20 {
+        assert_eq!(open_rfqs(server).await.len(), 255);
         let started = Instant::now();
         let key = accepted(
             server,
@@ -682,7 +687,8 @@ async fn rfq_pricing_time_at_the_bounds() {
         )
         .await;
         full.push(started.elapsed());
-        answer(server, &key, "pass", None).await;
+        let (status, _) = answer(server, &key, "pass", None).await;
+        assert_eq!(status, StatusCode::OK);
     }
     let median = |mut times: Vec<Duration>| {
         times.sort();

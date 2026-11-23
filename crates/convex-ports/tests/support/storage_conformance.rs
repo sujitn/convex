@@ -439,6 +439,7 @@ pub async fn audit_entries_before_walk_back_by_id(store: Arc<dyn AuditStore>) {
         assert_eq!(ids(reader.entries_before(90, 2).await.unwrap()), [40, 12]);
         assert_eq!(ids(reader.entries_before(12, 10).await.unwrap()), [7]);
         assert!(reader.entries_before(7, 10).await.unwrap().is_empty());
+        assert!(reader.entries_before(u64::MAX, 0).await.unwrap().is_empty());
         assert!(matches!(
             reader.entries_before(u64::MAX, MAX_ENTITY_PAGE + 1).await,
             Err(TraitError::InvalidInput(_))

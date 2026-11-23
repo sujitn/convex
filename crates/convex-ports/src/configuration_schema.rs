@@ -106,7 +106,7 @@ pub fn configuration_schema() -> Value {
         object(
             json!({
                 "client_tier": {"type":"string","minLength":1,"maxLength":crate::rfq::MAX_CLIENT_TIER_BYTES},
-                "width_factor": {"type":"string","pattern":"^[0-9]+(\\.[0-9]+)?$","description":"An exact decimal from 0 to 10."},
+                "width_factor": {"type":"string","pattern":"^(10(\\.0+)?|[0-9](\\.[0-9]+)?)$","description":"An exact decimal from 0 to 10."},
             }),
             &["client_tier", "width_factor"],
         ),

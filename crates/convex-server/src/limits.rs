@@ -1731,6 +1731,11 @@ pub(crate) async fn check_trade(
     if set.limits.is_empty() {
         return Err(NO_LIMITS);
     }
+    if held.positions.iter().any(|position| {
+        position.instrument_id == change.instrument_id && position.unit != change.unit
+    }) {
+        return Err("the book holds the bond in another unit than the trade's size");
+    }
     let unit = Some(change.unit);
     let applied =
         applied(held, std::slice::from_ref(&change), &[unit]).map_err(|refused| match refused {

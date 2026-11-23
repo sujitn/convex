@@ -605,8 +605,11 @@ the changes that matter when you upgrade.
 
 - **Client tiers in the configuration.** `ConfigurationDocument::client_tiers` lists each
   `ClientTier`'s `WidthFactor`, at most 64, each tier once; a change is a hot activation.
-  **Breaking:** the field is required, so a stored document compiled before it must be
-  compiled again. `RfqRequest::client_tier` is a `ClientTier`.
+  **Breaking:** the field is required, and a stored document without it no longer loads.
+  Validation and activation read the active document of their configuration id, so a
+  store whose active document predates the field is moved to a new id: save the pricing
+  configuration under a new id, compile, stage and activate it, and set
+  `configuration_id` to it. `RfqRequest::client_tier` is a `ClientTier`.
 - **A prune names its event types.** `AuditPrune::event_types` replaces `event_type`: 1
   to 4 types removed in one walk.
 - **`AuditStore::entries_before`** reads up to 1,000 entries below an ID, newest first, so

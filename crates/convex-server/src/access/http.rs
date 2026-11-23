@@ -368,8 +368,8 @@ fn requirement(
         }
         // Clients' requests for quote. Reading them needs the book: each handler also
         // checks each request's book and bond, and leaves out what the caller cannot read.
-        // A source sends requests and outcomes: the body scan covers each `instrument_id`
-        // and `book_id`, and the handler each request's source and each bond it resolves.
+        // A source sends requests and outcomes: the handler checks each request's source,
+        // book and bond, so one the caller may not send refuses only itself.
         "/api/v1/rfqs" => {
             req.data = vec![D::Books, D::Reference];
             if read {
@@ -880,6 +880,11 @@ async fn enforce_inner(
         };
         if path == "/api/v1/curves/bootstrap" {
             scopes.retain(|s| s.kind != ResourceKind::Curve);
+        }
+        // Ingest answers each request for quote on its own, its source, book and bond
+        // included, so one the caller may not send refuses only itself.
+        if path == "/api/v1/rfqs" {
+            scopes.retain(|s| !matches!(s.kind, ResourceKind::Book | ResourceKind::Instrument));
         }
         // An import file wraps the same transaction in its envelope's `command`.
         let command = match path {

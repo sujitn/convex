@@ -9,11 +9,12 @@
 //!
 //! At most [`MAX_OPEN_RFQS`] requests are open. One task expires each at its deadline; a
 //! transition that finds the deadline passed records the expiry itself, under the same
-//! lock, so each request expires once. Before the desk takes any request, the task records
-//! every request a previous run left open as expired, reason `restart`; no quote is sent
-//! again. Those requests were received within twice the longest deadline before the last
-//! `rfq` entry, so the task walks back from the log's end only that far; a log with no
-//! `rfq` entry is read once, whole.
+//! lock, so each request expires once. The desk takes no request while an expiry it owes
+//! is unrecorded. Before it takes any, the task records every request a previous run left
+//! open as expired, reason `restart`; no quote is sent again. So each request left open
+//! was received within twice the longest deadline before the last `rfq` entry, and the
+//! task walks back from the log's end only that far; a log with no `rfq` entry is read
+//! once, whole.
 //!
 //! A request's key is a digest of its source and the source's id for it: each is free
 //! text up to 128 bytes, and an entity ID holds 128. A retry is recognised from the key's
@@ -190,6 +191,8 @@ pub(crate) struct Admission {
     pub(crate) rfq_key: RfqKey,
     pub(crate) receipt: Receipt,
     pub(crate) pricing: RfqPricing,
+    /// The subject that sent it, as its receipt's entry records the sender.
+    pub(crate) sender: String,
 }
 
 /// An open request: what it was admitted with, where it stands, and the quote sent.
@@ -318,7 +321,8 @@ pub(crate) struct RfqDesk {
     open: Mutex<BTreeMap<RfqKey, OpenRfq>>,
     /// A new request may have the nearest deadline.
     wake: Notify,
-    /// Every request a previous run left open has been recorded expired.
+    /// Every request a previous run left open has been recorded expired, and no expiry
+    /// the desk owes is unrecorded.
     ready: AtomicBool,
 }
 
@@ -332,7 +336,7 @@ impl RfqDesk {
         })
     }
 
-    /// Whether the desk takes requests: the restart's expiries are recorded.
+    /// Whether the desk takes requests: every expiry it owes is recorded.
     pub(crate) fn is_ready(&self) -> bool {
         self.ready.load(Ordering::Acquire)
     }
@@ -347,7 +351,9 @@ impl RfqDesk {
         self.open.lock().await.values().cloned().collect()
     }
 
-    /// Every entry of the request `key`, in order.
+    /// Every entry of the request `key`, in order, from its receipt: none if no receipt
+    /// remains. Entries before the latest receipt are of a request retention has partly
+    /// removed, whose key was then taken again.
     pub(crate) async fn entries(&self, key: &RfqKey) -> Result<Vec<AuditEntry>, TraitError> {
         let mut entries: Vec<AuditEntry> = Vec::new();
         loop {
@@ -359,9 +365,15 @@ impl RfqDesk {
                 .await?;
             entries.extend(page.entries);
             if !page.more {
-                return Ok(entries);
+                break;
             }
         }
+        let receipt = entries
+            .iter()
+            .rposition(|entry| entry.action == RfqState::Received.as_str())
+            .unwrap_or(entries.len());
+        entries.drain(..receipt);
+        Ok(entries)
     }
 
     /// The request `key` names, open or recorded.
@@ -472,7 +484,7 @@ impl RfqDesk {
             entries.push(entry(
                 &admission.rfq_key,
                 &received,
-                None,
+                Some(admission.sender.clone()),
                 admission.receipt.received_at,
             )?);
             entries.push(entry(
@@ -556,44 +568,65 @@ impl RfqDesk {
         writer.append_all(&entries).await
     }
 
-    /// Record `keys` expired for `reason` at `at`, in batches.
+    /// Record `keys` expired for `reason` at `at`, a batch at a time, and one by one in a
+    /// batch the store refuses for capacity, so what fits is recorded: the keys recorded,
+    /// and the failure that stopped the rest.
     async fn expire(
         &self,
         keys: &[RfqKey],
         reason: ExpiryReason,
         at: UtcTimestamp,
-    ) -> Result<(), TraitError> {
+    ) -> (Vec<RfqKey>, Result<(), TraitError>) {
         let expiry = Recorded::Expired { reason };
-        for chunk in keys.chunks(MAX_AUDIT_BATCH) {
-            let entries = chunk
+        let append = |keys: &[RfqKey]| {
+            let entries = keys
                 .iter()
                 .map(|key| entry(key, &expiry, None, at))
-                .collect::<Result<Vec<_>, _>>()?;
-            self.append(entries).await?;
+                .collect::<Result<Vec<_>, _>>();
+            async move { self.append(entries?).await }
+        };
+        let mut recorded = Vec::with_capacity(keys.len());
+        for chunk in keys.chunks(MAX_AUDIT_BATCH) {
+            match append(chunk).await {
+                Ok(()) => recorded.extend_from_slice(chunk),
+                Err(TraitError::CapacityExceeded) if chunk.len() > 1 => {
+                    for key in chunk {
+                        if let Err(error) = append(std::slice::from_ref(key)).await {
+                            return (recorded, Err(error));
+                        }
+                        recorded.push(key.clone());
+                    }
+                }
+                Err(error) => return (recorded, Err(error)),
+            }
         }
-        Ok(())
+        (recorded, Ok(()))
     }
 
-    /// Record every open request whose deadline has passed expired, and close it; the time
-    /// until the nearest deadline left, if any, or until a retry after a failed record.
+    /// Record every open request whose deadline has passed expired, and close each one
+    /// recorded; the time until the nearest deadline left, if any, or until a retry after a
+    /// failed record. While one is unrecorded, the desk takes no request.
     async fn expire_due(&self) -> Option<Duration> {
+        let mut open = self.open.lock().await;
         let Ok(now) = crate::reference::now() else {
             return Some(RETRY);
         };
-        let mut open = self.open.lock().await;
         let due: Vec<RfqKey> = open
             .iter()
             .filter(|(_, rfq)| rfq.admission.receipt.request.deadline <= now)
             .map(|(key, _)| key.clone())
             .collect();
-        if let Err(error) = self.expire(&due, ExpiryReason::Deadline, now).await {
-            tracing::warn!(%error, "RFQ desk: expiries could not be recorded; they are tried again within a second");
-            return Some(RETRY);
-        }
-        for key in &due {
+        let (recorded, outcome) = self.expire(&due, ExpiryReason::Deadline, now).await;
+        for key in &recorded {
             open.remove(key);
         }
         metrics::gauge!(OPEN_RFQS).set(open.len() as f64);
+        self.ready.store(outcome.is_ok(), Ordering::Release);
+        if let Err(error) = outcome {
+            tracing::warn!(%error, "RFQ desk: expiries could not be recorded; they are tried again within a second, and no request is taken until they are");
+            return Some(RETRY);
+        }
+        let now = crate::reference::now().ok()?;
         open.values()
             .map(|rfq| rfq.admission.receipt.request.deadline)
             .min()
@@ -602,7 +635,8 @@ impl RfqDesk {
 
     /// Record every request a previous run left open expired, reason `restart`. They were
     /// received within twice the longest deadline before the last `rfq` entry; walking
-    /// back from the log's end, the first entry of each request is its latest.
+    /// back from the log's end, the first entry of each request is its latest. Only an
+    /// `rfq` entry ends the walk: another writer's entry may carry an earlier time.
     async fn expire_left_open(&self) -> Result<usize, TraitError> {
         let store = self.writer.store();
         let mut latest: BTreeMap<String, RfqState> = BTreeMap::new();
@@ -612,11 +646,11 @@ impl RfqDesk {
             let page = store.entries_before(before, MAX_ENTITY_PAGE).await?;
             for entry in &page {
                 before = entry.id;
-                if cutoff.is_some_and(|cutoff| entry.timestamp < cutoff) {
-                    break 'walk;
-                }
                 if entry.event_type != RFQ_EVENT {
                     continue;
+                }
+                if cutoff.is_some_and(|cutoff| entry.timestamp < cutoff) {
+                    break 'walk;
                 }
                 cutoff.get_or_insert(entry.timestamp.saturating_sub(2 * MAX_RFQ_DEADLINE_MS));
                 if let Some(state) = state_of(&entry.action) {
@@ -633,8 +667,8 @@ impl RfqDesk {
             .filter_map(|(key, _)| RfqKey::parse(&key))
             .collect();
         let now = crate::reference::now().map_err(|_| OUT_OF_RANGE)?;
-        self.expire(&left, ExpiryReason::Restart, now).await?;
-        Ok(left.len())
+        let (recorded, outcome) = self.expire(&left, ExpiryReason::Restart, now).await;
+        outcome.map(|()| recorded.len())
     }
 
     /// Expire what a previous run left open, then take requests and expire each at its
@@ -723,4 +757,67 @@ fn entry(
         action: record.state().as_str().into(),
         details: Some(details),
     })
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    fn entry_at(
+        id: u64,
+        timestamp: i64,
+        event_type: &str,
+        entity_id: &str,
+        action: &str,
+    ) -> AuditEntry {
+        AuditEntry {
+            id,
+            timestamp,
+            event_type: event_type.into(),
+            entity_type: event_type.into(),
+            entity_id: entity_id.into(),
+            user: None,
+            action: action.into(),
+            details: None,
+        }
+    }
+
+    /// Another writer's entry may carry an earlier time than an `rfq` entry before it, as
+    /// a limit record evaluated before it was written does; it does not end the walk, so
+    /// every request left open is expired.
+    #[tokio::test]
+    async fn only_an_rfq_entry_ends_the_restart_walk() {
+        let directory = tempfile::tempdir().unwrap();
+        let storage =
+            convex_ext_redb::create_redb_storage(directory.path().join("audit.redb")).unwrap();
+        let audit = storage.audit.clone();
+        let now = chrono::Utc::now().timestamp_millis();
+        let (first, second, closed) = ("a".repeat(64), "b".repeat(64), "c".repeat(64));
+        audit
+            .append_all(&[
+                // Closed, and long before the window: it ends the walk.
+                entry_at(1, now - 7_200_000, RFQ_EVENT, &closed, "done"),
+                // Received 100 s ago and left open.
+                entry_at(2, now - 100_000, RFQ_EVENT, &first, "priced"),
+            ])
+            .await
+            .unwrap();
+        audit
+            .append_all(&[
+                // A limit record evaluated an hour before it was written.
+                entry_at(3, now - 3_600_000, "limit_status", "BOOK-A", "breach"),
+                entry_at(4, now, RFQ_EVENT, &second, "quoted"),
+            ])
+            .await
+            .unwrap();
+        let desk = RfqDesk::new(AuditWriter::new(audit.clone()));
+        assert_eq!(desk.expire_left_open().await.unwrap(), 2);
+        for key in [&first, &second] {
+            let page = audit.entity_page(RFQ_ENTITY, key, 0, 10).await.unwrap();
+            assert_eq!(page.entries.last().unwrap().action, "expired", "{key}");
+        }
+        // Expired, they are final: a second start expires nothing.
+        assert_eq!(desk.expire_left_open().await.unwrap(), 0);
+    }
 }

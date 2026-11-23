@@ -1,9 +1,10 @@
 //! Clients' requests for quote over HTTP.
 //!
 //! - `POST /api/v1/rfqs`: a source sends a batch of requests. Each is answered on its
-//!   own: received and priced, a retry of one already received, or refused with a code.
-//!   The reply is 200 when any was taken, 429 when none was and one was refused for
-//!   capacity, and 422 otherwise.
+//!   own: received and priced, a retry of one already received, or refused with a code,
+//!   one the caller may not send for its source, book or bond included. The reply is 200
+//!   when any was taken, 403 when every one was refused for access, 429 when none was
+//!   taken and one was refused for capacity, and 422 otherwise.
 //! - `POST /api/v1/rfqs/:rfq_key/quote` and `/pass`: a trader answers.
 //! - `POST /api/v1/rfqs/:rfq_key/outcome`: the source reports the client's outcome or a
 //!   cancellation.
@@ -38,7 +39,7 @@ use convex_engine::ports::reference_master::{
 };
 use convex_engine::ports::reference_repository::ReferenceRepository;
 use convex_engine::ports::rfq::{
-    DeskSide, RfqBatch, RfqRequest, RfqState, SourceOutcome, MAX_RFQ_BATCH, MAX_RFQ_BODY_BYTES,
+    DeskSide, RfqRequest, RfqState, SourceOutcome, MAX_RFQ_BATCH, MAX_RFQ_BODY_BYTES,
 };
 use convex_engine::RequestContext;
 use serde::{Deserialize, Serialize};
@@ -69,6 +70,13 @@ struct Answer {
     rfq_id: String,
     #[serde(flatten)]
     result: IngestResult,
+}
+
+impl Answer {
+    /// Whether the request was refused with `code`.
+    fn is_refused_with(&self, code: &str) -> bool {
+        matches!(&self.result, IngestResult::Refused { code: refused, .. } if *refused == code)
+    }
 }
 
 #[derive(Serialize)]
@@ -126,7 +134,14 @@ pub(crate) async fn ingest(
         }
         Err(rejection) => return ApiError::invalid(rejection.body_text()).into_response(),
     };
-    let Ok(batch) = serde_json::from_slice::<RfqBatch>(&body) else {
+    // The batch's shape first; each request is decoded on its own, so one malformed
+    // request is refused alone.
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Batch {
+        rfqs: Vec<serde_json::Value>,
+    }
+    let Ok(batch) = serde_json::from_slice::<Batch>(&body) else {
         return ApiError::invalid("invalid RFQ batch JSON").into_response();
     };
     if batch.rfqs.is_empty() || batch.rfqs.len() > MAX_RFQ_BATCH {
@@ -152,15 +167,23 @@ pub(crate) async fn ingest(
         received_at,
         context,
         room: MAX_OPEN_RFQS.saturating_sub(desk.open_count().await),
+        sender: recorded_subject(&ctx),
         keys: HashSet::new(),
         books: BTreeMap::new(),
         terms: PricedTerms::new(),
     };
     let mut answers = Vec::with_capacity(batch.rfqs.len());
     let mut admissions = Vec::new();
-    for (index, request) in batch.rfqs.into_iter().enumerate() {
-        let rfq_id = request.rfq_id.clone();
-        let result = match intake.take(request).await {
+    for (index, item) in batch.rfqs.into_iter().enumerate() {
+        let rfq_id = item["rfq_id"].as_str().unwrap_or_default().to_owned();
+        let taken = match serde_json::from_value::<RfqRequest>(item) {
+            Ok(request) => intake.take(request).await,
+            Err(error) => Err(refused(
+                "INVALID_INPUT",
+                format!("the request is not an RFQ: {error}"),
+            )),
+        };
+        let result = match taken {
             Ok(admission) => {
                 let rfq_key = admission.rfq_key.clone();
                 admissions.push((index, *admission));
@@ -214,15 +237,15 @@ pub(crate) async fn ingest(
         )
     }) {
         StatusCode::OK
-    } else if answers.iter().any(|answer| {
-        matches!(
-            answer.result,
-            IngestResult::Refused {
-                code: "RFQ_CAPACITY",
-                ..
-            }
-        )
-    }) {
+    } else if answers
+        .iter()
+        .all(|answer| answer.is_refused_with("FORBIDDEN"))
+    {
+        StatusCode::FORBIDDEN
+    } else if answers
+        .iter()
+        .any(|answer| answer.is_refused_with("RFQ_CAPACITY"))
+    {
         StatusCode::TOO_MANY_REQUESTS
     } else {
         StatusCode::UNPROCESSABLE_ENTITY
@@ -254,6 +277,8 @@ struct Intake<'a> {
     context: RequestContext,
     /// Requests the desk can still open.
     room: usize,
+    /// The subject sending the batch, as each receipt records it.
+    sender: String,
     /// The batch's keys so far.
     keys: HashSet<RfqKey>,
     /// Each book the batch's requests trade into, read once.
@@ -273,10 +298,11 @@ impl Intake<'_> {
             ));
         }
         let source = Resource::new(ResourceKind::Source, request.source_id.as_str());
-        if !self.may_send(source) {
+        let book = Resource::new(ResourceKind::Book, request.book_id.as_str());
+        if !self.may_send(&[source, book]) {
             return Err(refused(
                 "FORBIDDEN",
-                "the caller may not send requests for this source",
+                "the caller may not send requests for this source or book",
             ));
         }
         // A retry is recognised first: its deadline may have passed since it was received.
@@ -368,17 +394,18 @@ impl Intake<'_> {
                 check,
                 priced_at,
             },
+            sender: self.sender.clone(),
         }))
     }
 
-    /// Whether the caller may send requests naming `resource`.
-    fn may_send(&self, resource: Resource) -> bool {
+    /// Whether the caller may send requests naming `resources`.
+    fn may_send(&self, resources: &[Resource]) -> bool {
         authorize_caller(
             &self.state.access,
             self.ctx,
             Action::RfqIngest,
             INGEST_DATA,
-            &[resource],
+            resources,
         )
         .is_ok()
     }
@@ -407,10 +434,10 @@ impl Intake<'_> {
             }
             (None, None) => return Err(refused("RFQ_INSTRUMENT", "an RFQ names its bond once")),
         };
-        if !self.may_send(Resource::new(
+        if !self.may_send(&[Resource::new(
             ResourceKind::Instrument,
             instrument_id.as_str(),
-        )) {
+        )]) {
             return Err(refused(
                 "FORBIDDEN",
                 "the caller may not send requests on this bond",
