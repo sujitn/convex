@@ -8,12 +8,15 @@
 //!
 //! `--trades` stops after that many trades are applied. A trade changes the face the book
 //! holds of the bond by the client's side: a client buy shortens the book. A position held
-//! in units is not changed, and the trade is reported unapplied; a position the owning
-//! system named by an identifier is sent by it again. Each trade's snapshot is sent over
-//! the version it was read from, under an idempotency key made from the request's key, and
-//! sent again as it was while no reply comes, so a commit whose reply was lost is answered
-//! from the receipt the server keeps; one refused because another writer committed
-//! meanwhile is built again. A `done` recorded while this was not running is not applied.
+//! in units is not changed, nor is a retired book, which a snapshot would revive; each such
+//! trade is reported unapplied. A position the owning system named by an identifier is
+//! sent by it again. Each trade's snapshot is sent over the version it was read from,
+//! under an idempotency key made from the request's key, and sent again as it was while no
+//! reply comes or the server is too busy for it, after the wait it asks for, so a commit
+//! whose reply was lost is answered from the receipt the server keeps; one refused because
+//! another writer committed meanwhile is built again. A snapshot sent and never answered
+//! ends the run, so it is not reported unapplied. A `done` recorded while this was not
+//! running is not applied.
 //! Each stdout line is one JSON event: `following` once it follows the books, then
 //! `applied` or `unapplied` for each trade.
 //!
@@ -34,10 +37,9 @@ use reqwest::{Method, StatusCode};
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use server_client::{Arguments, RfqRow, ServerClient};
+use server_client::{send_until_answered, Arguments, RfqRow, ServerClient};
 
-/// Times a snapshot is built again after another writer committed one, or sent again
-/// while no reply comes.
+/// Times a snapshot is built again after another writer committed one.
 const ATTEMPTS: usize = 5;
 
 #[tokio::main]
@@ -71,9 +73,11 @@ async fn run() -> Result<(), String> {
     Ok(())
 }
 
-/// A book as read: what its snapshot carries besides its positions, and its positions.
+/// A book as read: when it was retired, what its snapshot carries besides its positions,
+/// and its positions.
 #[derive(Deserialize)]
 struct Book {
+    effective_until: Option<String>,
     name: Option<String>,
     currency: Option<String>,
     description: Option<String>,
@@ -98,11 +102,7 @@ async fn apply(server: &ServerClient, trade: &RfqRow) -> Result<bool, String> {
         );
     };
     for _ in 0..ATTEMPTS {
-        let response = server
-            .request(Method::GET, &path)
-            .send()
-            .await
-            .map_err(|error| format!("a book could not be read: {error}"))?;
+        let response = send_until_answered(server.request(Method::GET, &path)).await?;
         if !response.status().is_success() {
             print_event("unapplied", json!({"status": response.status().as_u16()}));
             return Ok(false);
@@ -117,6 +117,10 @@ async fn apply(server: &ServerClient, trade: &RfqRow) -> Result<bool, String> {
             .json()
             .await
             .map_err(|error| format!("a book is unreadable: {error}"))?;
+        if book.effective_until.is_some() {
+            print_event("unapplied", json!({"reason": "the book is retired"}));
+            return Ok(false);
+        }
         let positions = match traded(&book.positions, &trade.instrument_id, change) {
             Ok(positions) => positions,
             Err(reason) => {
@@ -130,8 +134,14 @@ async fn apply(server: &ServerClient, trade: &RfqRow) -> Result<bool, String> {
             "description": book.description,
             "positions": positions,
         });
-        let response =
-            put_until_answered(server, &path, &version, &idempotency_key, &snapshot).await?;
+        let response = send_until_answered(
+            server
+                .request(Method::PUT, &path)
+                .header("if-match", &version)
+                .header("idempotency-key", &idempotency_key)
+                .json(&snapshot),
+        )
+        .await?;
         match response.status() {
             status if status.is_success() => {
                 let written: Value = response.json().await.unwrap_or(Value::Null);
@@ -152,32 +162,6 @@ async fn apply(server: &ServerClient, trade: &RfqRow) -> Result<bool, String> {
     }
     print_event("unapplied", json!({"reason": "the book kept moving"}));
     Ok(false)
-}
-
-/// Send the snapshot, and again as it was while no reply comes: the server answers a
-/// committed one again from the receipt it keeps.
-async fn put_until_answered(
-    server: &ServerClient,
-    path: &str,
-    version: &str,
-    idempotency_key: &str,
-    snapshot: &Value,
-) -> Result<reqwest::Response, String> {
-    let mut failure = String::new();
-    for _ in 0..ATTEMPTS {
-        match server
-            .request(Method::PUT, path)
-            .header("if-match", version)
-            .header("idempotency-key", idempotency_key)
-            .json(snapshot)
-            .send()
-            .await
-        {
-            Ok(response) => return Ok(response),
-            Err(error) => failure = error.to_string(),
-        }
-    }
-    Err(format!("a book could not be written: {failure}"))
 }
 
 /// `positions` as snapshot rows, with `change` in face added to `instrument_id`'s; that

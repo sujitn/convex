@@ -20,6 +20,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
@@ -792,7 +793,7 @@ pub(crate) async fn list(
         if query.state.is_some_and(|state| rfq.state != state) {
             continue;
         }
-        if reader.readable(&rfq).await.is_ok() {
+        if reader.is_readable(&rfq).await {
             shown.push(rfq);
         } else {
             withheld += 1;
@@ -826,25 +827,15 @@ pub(crate) async fn book_instruments(
     Ok(instruments.into_iter().collect())
 }
 
-/// Why a request is withheld from a reader.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Withheld {
-    /// The reader lacks `BookRead` on its book, an instrument the book needs, or its bond.
-    Forbidden,
-    /// The book or its limits could not be read, so what the reader needs is not known.
-    Unchecked,
-}
-
 /// Whether `ctx` may read `rfq`, as the list reads it: `BookRead` with the limit status's
-/// data on its book, each of `book_instruments` (its book's) and its bond.
+/// data on its book, each of `instruments` (those [`book_instruments`] read) and its bond.
 pub(crate) fn readable(
     access: &AccessControl,
     ctx: Option<&AccessContext>,
     rfq: &Rfq,
-    book_instruments: &Result<Arc<[String]>, ReferenceError>,
-) -> Result<(), Withheld> {
-    let instruments = book_instruments.as_ref().map_err(|_| Withheld::Unchecked)?;
-    let ctx = ctx.ok_or(Withheld::Forbidden)?;
+    instruments: &[String],
+) -> Result<(), AccessError> {
+    let ctx = ctx.ok_or(AccessError::Forbidden)?;
     let bond = rfq.instrument_id().as_str();
     let mut resources = Vec::with_capacity(instruments.len() + 2);
     resources.push(Resource::new(ResourceKind::Book, rfq.book_id().as_str()));
@@ -856,9 +847,7 @@ pub(crate) fn readable(
     if !instruments.iter().any(|id| id == bond) {
         resources.push(Resource::new(ResourceKind::Instrument, bond));
     }
-    access
-        .authorize(ctx, Action::BookRead, STATUS_DATA, &resources)
-        .map_err(|_: AccessError| Withheld::Forbidden)
+    access.authorize(ctx, Action::BookRead, STATUS_DATA, &resources)
 }
 
 /// [`readable`] over many requests, each book's instruments read once.
@@ -883,18 +872,24 @@ impl<'a> RfqReader<'a> {
         }
     }
 
-    /// Whether the caller may read `rfq`.
-    pub(crate) async fn readable(&mut self, rfq: &Rfq) -> Result<(), Withheld> {
-        let book_id = rfq.book_id();
-        if !self.book_instruments.contains_key(book_id) {
-            let read = book_instruments(self.repo, book_id).await;
-            self.book_instruments.insert(book_id.clone(), read);
+    /// [`book_instruments`] of `book_id`, read once.
+    pub(crate) async fn book_instruments(
+        &mut self,
+        book_id: &BookId,
+    ) -> &Result<Arc<[String]>, ReferenceError> {
+        match self.book_instruments.entry(book_id.clone()) {
+            Entry::Occupied(read) => read.into_mut(),
+            Entry::Vacant(unread) => unread.insert(book_instruments(self.repo, book_id).await),
         }
-        let read = self
-            .book_instruments
-            .get(book_id)
-            .ok_or(Withheld::Unchecked)?;
-        readable(self.access, self.ctx, rfq, read)
+    }
+
+    /// Whether the caller may read `rfq`; not when its book could not be read to check.
+    pub(crate) async fn is_readable(&mut self, rfq: &Rfq) -> bool {
+        let (access, ctx) = (self.access, self.ctx);
+        self.book_instruments(rfq.book_id())
+            .await
+            .as_ref()
+            .is_ok_and(|instruments| readable(access, ctx, rfq, instruments).is_ok())
     }
 }
 

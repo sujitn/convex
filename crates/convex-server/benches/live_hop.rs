@@ -589,6 +589,8 @@ fn bench_live_hop(c: &mut Criterion) {
             })
         })
     });
+    // Followed here as well, so a run filtered to this case measures the topic followed.
+    rt.block_on(desk.subscribe_rfqs(&mut sockets[0], WIDE));
     group.bench_function(
         BenchmarkId::new("burst1", format!("{WIDE}/rfq_topic{WIDE}")),
         |b| {

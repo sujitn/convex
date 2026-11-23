@@ -313,8 +313,10 @@ book's instruments are read once for each transition, when the first session sen
 and each session checks its own access when it sends. A request the session may not read
 arrives as `{"type":"rfq_withheld","book_id":…,"code":"FORBIDDEN","message":…}` in its
 place, or with code `UNAVAILABLE` when the book could not be read to check, and the
-session stays open. An `error` is a reply to the session's own message, or
-`RESYNC_REQUIRED`.
+session stays open. A request is checked again as it goes out if the policy changed since
+its check, against the instruments that check read, so a grant withdrawn while a seed is
+sent closes the session. An `error`
+is a reply to the session's own message, or `RESYNC_REQUIRED`.
 `unsubscribe_rfqs` takes the same shape. A server that takes no requests refuses the
 subscription.
 
@@ -1432,8 +1434,11 @@ follows its books.
   seed gives the same requests and answers however fast the desk is. It follows the `rfq`
   topic to learn of quotes, so its identity needs `rfq_source` and `reader`, with read on
   every instrument its books hold or their limits name, or each row is withheld; a request
-  whose final it has not seen 5 seconds past its deadline is read. With `--count` it stops
-  once that many are taken and final, and prints a `summary`.
+  whose final it has not seen 5 seconds past its deadline is read, and one it may not read
+  ends the run. A request the server is too busy for, or the desk is full or cannot read or
+  record, is not taken and another is drawn; any other refusal, such as a tier the active
+  configuration lacks, ends the run, since every later request would be refused too. With
+  `--count` it stops once that many are taken and final, and prints a `summary`.
 - **`convex-bms-sim`** books each `done` trade:
 
   ```text
@@ -1443,15 +1448,19 @@ follows its books.
   It follows the `rfq` topic on its books and, for each `done`, sends the book a snapshot
   with the bond's face changed by the client's side (a client buy shortens the book),
   over the version it read, under the idempotency key `rfq-done-<rfq_key>`. A snapshot
-  with no reply is sent again as it was, so a commit whose reply was lost is answered from
-  the receipt the server keeps; one refused because another writer committed meanwhile is
-  built again. A position held in units is not changed, and the trade is reported
-  `unapplied`; a position the owning system named by an identifier is sent by it again.
-  Both simulators, after `RESYNC_REQUIRED`, subscribe again and read each request they saw
-  open that the new seed lacks, so a request that ended meanwhile still gives its final
-  state. A `done` recorded while it was not running is not booked. Its identity needs
-  `book_writer` and `reader` on the books, every instrument they hold or their limits
-  name, and the bonds traded.
+  with no reply, or refused because the server is too busy (429 with `Retry-After`), is
+  sent again as it was, after the wait the server asks for (at most a minute), so a commit
+  whose reply was lost is answered from the receipt the server keeps; one never answered
+  in five sends ends the run rather than be reported unapplied. One refused because
+  another writer committed meanwhile is built again. A position held in units is not
+  changed, nor is a retired book, which a snapshot would revive; each such trade is
+  reported `unapplied`. A position the owning system named by an identifier is sent by it
+  again. Both simulators, after `RESYNC_REQUIRED`, subscribe again and read each request
+  they saw open that the new subscription does not name after the last
+  `RESYNC_REQUIRED`, so a request that ended meanwhile still gives its final state; one
+  they may not read is reported `rfq_withheld` and passed over. A `done` recorded while it
+  was not running is not booked. Its identity needs `book_writer` and `reader` on the
+  books, every instrument they hold or their limits name, and the bonds traded.
 
 ## Reference schema and Rust migration
 

@@ -29,13 +29,14 @@ use tokio::time::interval;
 use tracing::{error, info, warn};
 
 use convex_core::ids::InstrumentId;
+use convex_engine::ports::reference_repository::ReferenceError;
 
 use crate::access::http::WsAccess;
 use crate::access::{AccessError, Action, DataScope, Resource, ResourceKind};
 use crate::handlers::AppState;
 use crate::limit_monitor::{LimitFeed, LimitFrame, LimitStatusChange};
 use crate::rfq_desk::{Rfq, RfqDesk, RfqFrame, NO_RFQ_DESK};
-use crate::rfqs::{book_instruments, readable, RfqReader, Withheld};
+use crate::rfqs::{book_instruments, readable, RfqReader};
 use crate::ServerProfile;
 
 /// Books one session may follow: every book the monitor watches.
@@ -85,22 +86,33 @@ fn limits_resync() -> ServerMessage {
     }
 }
 
-/// A request for quote on a followed book, as the session may read it now: the request,
-/// or in its place why it is withheld, as the list leaves it out.
-fn rfq_message(rfq: Arc<Rfq>, readable: Result<(), Withheld>) -> ServerMessage {
-    let Err(withheld) = readable else {
-        return ServerMessage::Rfq(rfq);
-    };
+/// A request for quote on a followed book, as the session may read it now against its
+/// book's instruments: the request, or in its place why it is withheld, as the list
+/// leaves it out.
+fn rfq_message(
+    rfq: Arc<Rfq>,
+    book_instruments: &Result<Arc<[String]>, ReferenceError>,
+    authorization: &WsAccess,
+) -> ServerMessage {
+    // Read before the check, so a policy that changes during it is checked again.
+    let policy_version = authorization.access.policy_version();
     let book = rfq.book_id().as_str();
-    let (code, message) = match withheld {
-        Withheld::Forbidden => (
+    let (code, message) = match book_instruments {
+        Ok(instruments) if rfq_permission(&rfq, instruments, authorization).is_ok() => {
+            return ServerMessage::Rfq(ReadableRfq {
+                policy_version,
+                book_instruments: instruments.clone(),
+                rfq,
+            })
+        }
+        Ok(_) => (
             "FORBIDDEN",
             format!(
                 "a request for quote on book {book} needs read access to each instrument the \
                  book holds, a limit names or the request is for"
             ),
         ),
-        Withheld::Unchecked => (
+        Err(_) => (
             "UNAVAILABLE",
             format!(
                 "whether a request for quote on book {book} may be read could not be checked; \
@@ -191,13 +203,25 @@ pub(crate) enum ServerMessage {
     /// A recorded change of one limit's status.
     LimitStatus(Arc<LimitStatusChange>),
     /// A request for quote as its latest entry left it.
-    Rfq(Arc<Rfq>),
+    Rfq(ReadableRfq),
     /// A request for quote on a followed book the session may not read now, in its place.
     RfqWithheld {
         book_id: String,
         code: &'static str,
         message: String,
     },
+}
+
+/// A request for quote the session was found to read, with the policy and the book's
+/// instruments that check read, so it is made again as it is sent if the policy changed.
+#[derive(Debug, Clone, Serialize)]
+#[serde(transparent)]
+pub(crate) struct ReadableRfq {
+    rfq: Arc<Rfq>,
+    #[serde(skip)]
+    policy_version: Option<u64>,
+    #[serde(skip)]
+    book_instruments: Arc<[String]>,
 }
 
 // =============================================================================
@@ -473,7 +497,7 @@ async fn handle_socket(
                             // As the list reads it. The book's instruments are read once, by the
                             // first session to send the frame, and each session checks its own access.
                             let instruments = frame.book_instruments.get_or_init(|| book_instruments(state.engine.reference_repository().as_ref(), book)).await;
-                            let message = rfq_message(frame.rfq.clone(), readable(&authorization.access, Some(&authorization.context), &frame.rfq, instruments));
+                            let message = rfq_message(frame.rfq.clone(), instruments, &authorization);
                             if send_message(&mut sender, &message, profile, &authorization).await.is_err() { break; }
                         }
                     }
@@ -708,8 +732,8 @@ async fn handle_client_message(
             let mut replies = Vec::new();
             for rfq in desk.open_rfqs().await {
                 if listed.contains(rfq.book_id().as_str()) {
-                    let readable = reader.readable(&rfq).await;
-                    replies.push(rfq_message(rfq, readable));
+                    let instruments = reader.book_instruments(rfq.book_id()).await;
+                    replies.push(rfq_message(rfq, instruments, authorization));
                 }
             }
             replies.push(ServerMessage::Subscribed {
@@ -780,6 +804,20 @@ fn limit_permission<'a>(
             DataScope::Market,
         ],
         &resources,
+    )
+}
+
+/// Whether the session may read `rfq`, against its book's `instruments`, as the list reads it.
+fn rfq_permission(
+    rfq: &Rfq,
+    instruments: &[String],
+    authorization: &WsAccess,
+) -> Result<(), AccessError> {
+    readable(
+        &authorization.access,
+        Some(&authorization.context),
+        rfq,
+        instruments,
     )
 }
 
@@ -925,8 +963,12 @@ fn authorize_delivery(
     if let ServerMessage::LimitStatus(change) = message {
         limit_permission(change.book_id.as_str(), [], authorization)?;
     }
-    if let ServerMessage::Rfq(rfq) = message {
-        limit_permission(rfq.book_id().as_str(), [], authorization)?;
+    // A request's grants change only with the policy's version, as while a seed is sent;
+    // then its read check is made again, against the instruments it read.
+    if let ServerMessage::Rfq(sent) = message {
+        if authorization.access.policy_version() != sent.policy_version {
+            rfq_permission(&sent.rfq, &sent.book_instruments, authorization)?;
+        }
     }
     Ok(())
 }
@@ -1021,6 +1063,112 @@ pub async fn ws_status(State(state): State<Arc<AppState>>) -> impl IntoResponse 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::access::policy::{Grant, IdentityKind, PolicyDocument, Role};
+    use crate::access::{AccessControl, BearerToken, IdentityVerifier, VerifiedIdentity};
+
+    const ISSUER: &str = "https://identity.example.invalid/issuer";
+
+    /// Every token is the reader's.
+    struct ReaderTokens;
+
+    #[async_trait::async_trait]
+    impl IdentityVerifier for ReaderTokens {
+        async fn verify(&self, _: &BearerToken) -> Result<VerifiedIdentity, AccessError> {
+            Ok(VerifiedIdentity {
+                issuer: ISSUER.into(),
+                subject: "reader".into(),
+                audience: "convex".into(),
+                expires_at: i64::MAX,
+                scopes: ["convex.api".to_owned()].into(),
+            })
+        }
+
+        async fn probe(&self) -> Result<(), AccessError> {
+            Ok(())
+        }
+    }
+
+    /// Revision `version`: the reader reads book BOOK-A and `instruments`.
+    fn reader_policy(version: u64, instruments: &[&str]) -> PolicyDocument {
+        let valid_until = chrono::Utc::now().timestamp() + 3600;
+        PolicyDocument {
+            schema_version: 1,
+            version,
+            issuer: ISSUER.into(),
+            audience: "convex".into(),
+            valid_until,
+            actor: "operator".into(),
+            reason: "the reader's grants".into(),
+            grants: vec![Grant {
+                subject: "reader".into(),
+                kind: IdentityKind::Service,
+                roles: vec![Role::Reader],
+                data: crate::limits::STATUS_DATA.to_vec(),
+                resources: [
+                    (ResourceKind::Book, vec!["BOOK-A".to_owned()]),
+                    (
+                        ResourceKind::Instrument,
+                        instruments.iter().map(|id| (*id).to_owned()).collect(),
+                    ),
+                ]
+                .into(),
+                token_scopes: vec!["convex.api".into()],
+                valid_until,
+                quotas: Default::default(),
+            }],
+        }
+    }
+
+    /// A request for quote is checked again as it is sent, against the book's instruments
+    /// its check read: a grant withdrawn since, as while a seed is sent, withholds it.
+    #[tokio::test]
+    async fn a_request_for_quote_is_checked_again_as_it_is_sent() {
+        let access = AccessControl::new(
+            Arc::new(ReaderTokens),
+            reader_policy(1, &["BOND-001", "BOND-HELD"]),
+        )
+        .unwrap();
+        let context = access
+            .authenticate(Some(BearerToken::parse("token").unwrap()))
+            .await
+            .unwrap();
+        let admission = access
+            .admit(&context, true, access.admit_attempt().unwrap())
+            .unwrap();
+        let authorization = WsAccess {
+            access: access.clone(),
+            context,
+            _admission: Arc::new(admission),
+        };
+        let request = serde_json::from_value(serde_json::json!({
+            "source_id": "venue-sim", "rfq_id": "RFQ-1", "client_id": "CLIENT-01",
+            "client_tier": "1", "instrument_id": "BOND-001", "side": "buy",
+            "face": "1000000", "settlement_date": "2026-11-25", "book_id": "BOOK-A",
+            "deadline": "2026-11-23T12:00:00Z",
+        }))
+        .unwrap();
+        let rfq = Arc::new(crate::rfq_desk::held(
+            request,
+            convex_core::contracts::InstrumentId::new("BOND-001").unwrap(),
+        ));
+        let message = rfq_message(
+            rfq,
+            &Ok(Arc::from(["BOND-HELD".to_owned()])),
+            &authorization,
+        );
+        assert!(matches!(message, ServerMessage::Rfq(_)));
+        assert_eq!(authorize_delivery(&message, &authorization), Ok(()));
+        // The book's instrument withdrawn, then the bond.
+        for (version, instruments) in [(2, ["BOND-001"]), (3, ["BOND-HELD"])] {
+            access
+                .replace_policy(version - 1, reader_policy(version, &instruments))
+                .unwrap();
+            assert_eq!(
+                authorize_delivery(&message, &authorization),
+                Err(AccessError::Forbidden)
+            );
+        }
+    }
 
     /// A valuation of BOND-001 whose lineage lists `inputs` records with 128-character ids.
     fn valuation(inputs: usize) -> convex_engine::ports::runtime::PublishedValuation {

@@ -6,10 +6,12 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::str::FromStr;
+use std::time::Duration;
 
 use convex_engine::ports::rfq::{RfqRequest, RfqState};
 use futures::{SinkExt, StreamExt};
-use reqwest::{Method, StatusCode};
+use reqwest::header::RETRY_AFTER;
+use reqwest::{Method, RequestBuilder, Response, StatusCode};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
@@ -17,6 +19,10 @@ use tokio_tungstenite::tungstenite::Message;
 
 /// The environment variable a bearer token is read from.
 const TOKEN_VARIABLE: &str = "CONVEX_SIM_TOKEN";
+/// Times a request is sent while no answer comes.
+const SENDS: usize = 5;
+/// The longest wait for a server too busy for a request.
+const LONGEST_WAIT: Duration = Duration::from_secs(60);
 
 /// `--name value` pairs.
 pub struct Arguments(BTreeMap<String, String>);
@@ -77,6 +83,7 @@ impl Arguments {
 }
 
 /// The server, as the simulator's identity calls it.
+#[derive(Clone)]
 pub struct ServerClient {
     http: reqwest::Client,
     base: String,
@@ -110,8 +117,8 @@ impl ServerClient {
         }
     }
 
-    /// The request `rfq_key` as its entries leave it, if the server knows it.
-    pub async fn rfq(&self, rfq_key: &str) -> Result<Option<RfqRow>, String> {
+    /// The request `rfq_key` as its entries leave it.
+    pub async fn rfq(&self, rfq_key: &str) -> Result<RfqRead, String> {
         /// An entry of `GET /api/v1/rfqs/:rfq_key`; only the first, the receipt, names the
         /// request and its bond.
         #[derive(Deserialize)]
@@ -125,13 +132,13 @@ impl ServerClient {
         struct Entries {
             records: Vec<Entry>,
         }
-        let response = self
-            .request(Method::GET, &format!("/api/v1/rfqs/{rfq_key}"))
-            .send()
-            .await
-            .map_err(|error| format!("a request could not be read: {error}"))?;
-        if response.status() == StatusCode::NOT_FOUND {
-            return Ok(None);
+        let response =
+            send_until_answered(self.request(Method::GET, &format!("/api/v1/rfqs/{rfq_key}")))
+                .await?;
+        match response.status() {
+            StatusCode::NOT_FOUND => return Ok(RfqRead::Unknown),
+            StatusCode::FORBIDDEN => return Ok(RfqRead::Withheld),
+            _ => {}
         }
         let entries: Entries = response
             .error_for_status()
@@ -141,13 +148,13 @@ impl ServerClient {
             .map_err(|error| format!("a request is unreadable: {error}"))?;
         let mut records = entries.records.into_iter();
         let Some(receipt) = records.next() else {
-            return Ok(None);
+            return Ok(RfqRead::Unknown);
         };
         let (Some(request), Some(instrument_id)) = (receipt.request, receipt.instrument_id) else {
             return Err("a request's first entry is not its receipt".into());
         };
         let last = records.last();
-        Ok(Some(RfqRow {
+        Ok(RfqRead::Row(Box::new(RfqRow {
             rfq_key: rfq_key.to_owned(),
             record_id: last
                 .as_ref()
@@ -155,7 +162,7 @@ impl ServerClient {
             state: last.map_or(receipt.state, |last| last.state),
             request,
             instrument_id,
-        }))
+        })))
     }
 
     /// The `rfq` topic on `books`, opened and followed: its seed is the first rows `next`
@@ -180,11 +187,49 @@ impl ServerClient {
             seen: SeenRows::default(),
             ready: VecDeque::new(),
         };
-        for row in topic.subscribe().await? {
-            topic.take_if_later(row);
-        }
+        topic.catch_up(self).await?;
         Ok(topic)
     }
+}
+
+/// Send `request`, and again as it was while no answer comes: no reply, or the server too
+/// busy for it saying when to send again (`Retry-After`), after that wait. A refusal that
+/// says nothing of when, as a full desk's, is an answer. The server answers a committed
+/// write sent again under its idempotency key from the receipt it keeps.
+pub async fn send_until_answered(request: RequestBuilder) -> Result<Response, String> {
+    let mut failure = String::new();
+    for _ in 0..SENDS {
+        let attempt = request
+            .try_clone()
+            .ok_or("a request cannot be sent again")?;
+        match attempt.send().await {
+            Ok(response) if response.status() == StatusCode::TOO_MANY_REQUESTS => {
+                let Some(wait) = response
+                    .headers()
+                    .get(RETRY_AFTER)
+                    .and_then(|seconds| seconds.to_str().ok()?.parse().ok())
+                    .map(Duration::from_secs)
+                else {
+                    return Ok(response);
+                };
+                failure = "the server stayed too busy".into();
+                tokio::time::sleep(wait.min(LONGEST_WAIT)).await;
+            }
+            Ok(response) => return Ok(response),
+            Err(error) => failure = error.to_string(),
+        }
+    }
+    Err(format!("a request was not answered: {failure}"))
+}
+
+/// A request as `GET /api/v1/rfqs/:rfq_key` gives it.
+pub enum RfqRead {
+    /// Its row, as its entries leave it.
+    Row(Box<RfqRow>),
+    /// The server knows no request by the key.
+    Unknown,
+    /// The caller may not read it.
+    Withheld,
 }
 
 /// A request for quote as the topic shows it.
@@ -239,7 +284,8 @@ impl SeenRows {
 
 /// The `rfq` topic on some books, giving each request's rows in order, the later only.
 /// After falling behind it subscribes again, and reads each request it saw open that the
-/// new seed lacks, so a request that went final meanwhile still gives its final row.
+/// new subscription does not cover, so a request that went final meanwhile still gives its
+/// final row.
 pub struct RfqTopic {
     socket: tokio_tungstenite::WebSocketStream<
         tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
@@ -256,7 +302,9 @@ impl RfqTopic {
         self.seen.open_keys().count()
     }
 
-    /// The next row later than any given of its request.
+    /// The next row later than any given of its request. What it has read is lost if it is
+    /// dropped before it returns, as a `select!` branch may be; read it on a task of its
+    /// own there.
     pub async fn next(&mut self, server: &ServerClient) -> Result<RfqRow, String> {
         loop {
             if let Some(row) = self.ready.pop_front() {
@@ -265,7 +313,9 @@ impl RfqTopic {
             let frame = self.frame().await?;
             match frame["type"].as_str() {
                 Some("rfq") => self.take_if_later(read_row(frame)?),
-                Some("error") if frame["code"] == "RESYNC_REQUIRED" => self.recover(server).await?,
+                Some("error") if frame["code"] == "RESYNC_REQUIRED" => {
+                    self.catch_up(server).await?
+                }
                 Some("rfq_withheld" | "error") => {
                     eprintln!("{}", json!({"event": "stream_error", "frame": frame}))
                 }
@@ -274,18 +324,23 @@ impl RfqTopic {
         }
     }
 
-    /// Subscribe again after falling behind: the seed's later rows, then the rows of
-    /// requests seen open that it lacks, as their entries leave them.
-    async fn recover(&mut self, server: &ServerClient) -> Result<(), String> {
-        let seen_open: Vec<String> = self.seen.open_keys().cloned().collect();
-        let seed = self.subscribe().await?;
-        let seeded: HashSet<String> = seed.iter().map(|row| row.rfq_key.clone()).collect();
-        for row in seed {
-            self.take_if_later(row);
-        }
-        for rfq_key in seen_open.iter().filter(|key| !seeded.contains(*key)) {
-            if let Some(row) = server.rfq(rfq_key).await? {
-                self.take_if_later(row);
+    /// Subscribe, then read each request still open as given that the subscription does
+    /// not cover.
+    async fn catch_up(&mut self, server: &ServerClient) -> Result<(), String> {
+        let covered = self.subscribe().await?;
+        let unread: Vec<String> = self
+            .seen
+            .open_keys()
+            .filter(|key| !covered.contains(*key))
+            .cloned()
+            .collect();
+        for rfq_key in unread {
+            match server.rfq(&rfq_key).await? {
+                RfqRead::Row(row) => self.take_if_later(*row),
+                RfqRead::Unknown => {}
+                RfqRead::Withheld => {
+                    eprintln!("{}", json!({"event": "rfq_withheld", "rfq_key": rfq_key}))
+                }
             }
         }
         Ok(())
@@ -298,22 +353,29 @@ impl RfqTopic {
         }
     }
 
-    /// Subscribe to the books: each open request on them, by deadline. A refusal ends the
-    /// simulation.
-    async fn subscribe(&mut self) -> Result<Vec<RfqRow>, String> {
+    /// Subscribe to the books and read until the acknowledgement, taking each later row:
+    /// any still on the stream, then each open request on the books, by deadline. Returns
+    /// the requests named after the last `RESYNC_REQUIRED`, whose later rows follow on the
+    /// stream: the server sends the seed and its acknowledgement together, after any
+    /// `RESYNC_REQUIRED`, so only rows before one may be missing later ones. A refusal
+    /// ends the simulation.
+    async fn subscribe(&mut self) -> Result<HashSet<String>, String> {
         let subscribe = json!({"type": "subscribe_rfqs", "book_ids": self.books});
         self.socket
             .send(Message::Text(subscribe.to_string().into()))
             .await
             .map_err(|error| error.to_string())?;
-        let mut seed = Vec::new();
+        let mut covered = HashSet::new();
         loop {
             let frame = self.frame().await?;
             match frame["type"].as_str() {
-                Some("subscribed") => return Ok(seed),
-                Some("rfq") => seed.push(read_row(frame)?),
-                // Behind again before this subscription was read: its seed covers it.
-                Some("error") if frame["code"] == "RESYNC_REQUIRED" => {}
+                Some("subscribed") => return Ok(covered),
+                Some("rfq") => {
+                    let row = read_row(frame)?;
+                    covered.insert(row.rfq_key.clone());
+                    self.take_if_later(row);
+                }
+                Some("error") if frame["code"] == "RESYNC_REQUIRED" => covered.clear(),
                 Some("error") => return Err(format!("the subscription was refused: {frame}")),
                 Some("rfq_withheld") => {
                     eprintln!("{}", json!({"event": "stream_error", "frame": frame}))

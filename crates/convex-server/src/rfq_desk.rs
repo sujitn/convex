@@ -943,6 +943,59 @@ fn entry(
     })
 }
 
+/// A request the desk holds for `request`, received for `instrument_id`, its other fields
+/// at their largest.
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+pub(crate) fn held(request: RfqRequest, instrument_id: InstrumentId) -> Rfq {
+    let name = |bytes: usize| "\"".repeat(bytes);
+    let id = |bytes: usize| "I".repeat(bytes);
+    let at = UtcTimestamp::parse("2026-11-23T12:00:00Z").unwrap();
+    let price = ExactDecimal::parse("99999999999999.999999999999").unwrap();
+    let client_tier = request.client_tier.clone();
+    Rfq {
+        admission: Arc::new(Admission {
+            rfq_key: RfqKey::of(&request),
+            receipt: Receipt {
+                request,
+                instrument_id,
+                instrument_version: Version::new(u64::MAX).unwrap(),
+                received_at: at,
+            },
+            pricing: RfqPricing {
+                configuration: PricedUnder {
+                    configuration_id: SourceId::new(id(128)).unwrap(),
+                    version: Version::new(u64::MAX).unwrap(),
+                    activation_revision: Version::new(u64::MAX).unwrap(),
+                    client_tier,
+                    width_factor: serde_json::from_value(serde_json::json!("10")).unwrap(),
+                },
+                auto_price: AutoPrice::unpriced(name(4 * MAX_UNPRICED_REASON_BYTES)),
+                check: LimitCheck::Evaluated {
+                    status: serde_json::Value::Null,
+                    statuses: [
+                        LimitStatus::Within,
+                        LimitStatus::Warning,
+                        LimitStatus::Unknown,
+                        LimitStatus::Breach,
+                    ]
+                    .into_iter()
+                    .map(|status| (status, usize::MAX))
+                    .collect(),
+                },
+                priced_at: at,
+            },
+            sender: name(128),
+        }),
+        state: RfqState::TradedAway,
+        quote: Some(SentQuote {
+            clean_price: price,
+            quoted_at: at,
+        }),
+        record_id: u64::MAX,
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
@@ -987,50 +1040,7 @@ mod tests {
             "deadline": "2026-11-23T12:00:00.000Z",
         }))
         .unwrap();
-        let at = UtcTimestamp::parse("2026-11-23T12:00:00Z").unwrap();
-        let price = ExactDecimal::parse("99999999999999.999999999999").unwrap();
-        let client_tier = request.client_tier.clone();
-        let rfq = Rfq {
-            admission: Arc::new(Admission {
-                rfq_key: RfqKey::of(&request),
-                receipt: Receipt {
-                    request,
-                    instrument_id: InstrumentId::new(id(128)).unwrap(),
-                    instrument_version: Version::new(u64::MAX).unwrap(),
-                    received_at: at,
-                },
-                pricing: RfqPricing {
-                    configuration: PricedUnder {
-                        configuration_id: SourceId::new(id(128)).unwrap(),
-                        version: Version::new(u64::MAX).unwrap(),
-                        activation_revision: Version::new(u64::MAX).unwrap(),
-                        client_tier,
-                        width_factor: serde_json::from_value(serde_json::json!("10")).unwrap(),
-                    },
-                    auto_price: AutoPrice::unpriced(name(4 * MAX_UNPRICED_REASON_BYTES)),
-                    check: LimitCheck::Evaluated {
-                        status: serde_json::Value::Null,
-                        statuses: [
-                            LimitStatus::Within,
-                            LimitStatus::Warning,
-                            LimitStatus::Unknown,
-                            LimitStatus::Breach,
-                        ]
-                        .into_iter()
-                        .map(|status| (status, usize::MAX))
-                        .collect(),
-                    },
-                    priced_at: at,
-                },
-                sender: name(128),
-            }),
-            state: RfqState::TradedAway,
-            quote: Some(SentQuote {
-                clean_price: price,
-                quoted_at: at,
-            }),
-            record_id: u64::MAX,
-        };
+        let rfq = held(request, InstrumentId::new(id(128)).unwrap());
         let shown = serde_json::to_string(&rfq).unwrap();
         assert!(shown.len() < 8 * 1024, "{} bytes", shown.len());
     }

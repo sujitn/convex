@@ -9,9 +9,12 @@
 //! ```
 //!
 //! `--rate` is requests a second on average; `--count` stops once that many were taken and
-//! each is final. Each of `--clients` clients has a fixed tier. Each request's client,
-//! bond, book, side, size, deadline and what its client will do are drawn when it is sent,
-//! so one seed gives the same requests and answers however fast the desk is. Each stdout
+//! each is final. A request the server is too busy for, or the desk is full or cannot
+//! record, is not taken and another is drawn; any other refusal ends the run, since every
+//! request after it would be refused too. Each of `--clients` clients has a fixed tier.
+//! Each request's client, bond, book, side, size, deadline and what its client will do are
+//! drawn when it is sent, so one seed gives the same requests and answers however fast the
+//! desk is. Each stdout
 //! line is one JSON event: `following` once it follows the books, `sent` and `final` for
 //! each request, and `summary` at the end.
 //!
@@ -37,7 +40,8 @@ use convex_engine::ports::rfq::{ClientSide, ClientTier, RfqRequest, RfqState, So
 use reqwest::{Method, StatusCode};
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
-use server_client::{Arguments, RfqRow, ServerClient};
+use server_client::{Arguments, RfqRead, RfqRow, RfqTopic, ServerClient};
+use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 /// Face amounts asked for, by weight: odd lots, round lots and blocks.
@@ -277,11 +281,12 @@ async fn run() -> Result<(), String> {
     let mut draws = Draws(arguments.optional("seed", Utc::now().timestamp_millis() as u64)?);
 
     let books: Vec<String> = venue.books.iter().map(ToString::to_string).collect();
-    let mut topic = server.rfq_topic(&books).await?;
+    let topic = server.rfq_topic(&books).await?;
     println!(
         "{}",
         json!({"event": "following", "books": books, "open": topic.open_count()})
     );
+    let mut rows = follow(topic, server.clone());
     let mut simulation = Simulation {
         sent: HashMap::new(),
         answers: BTreeMap::new(),
@@ -305,7 +310,7 @@ async fn run() -> Result<(), String> {
             () = tokio::time::sleep_until(next_answer.unwrap_or_else(Instant::now)), if next_answer.is_some() => {
                 simulation.answer_due(&server).await?;
             }
-            row = topic.next(&server) => simulation.saw(&row?),
+            row = rows.recv() => simulation.saw(&row.unwrap_or_else(|| Err("the topic ended".into()))?),
             _ = sweep.tick() => simulation.read_missed(&server).await?,
         }
     }
@@ -314,6 +319,22 @@ async fn run() -> Result<(), String> {
         json!({"event": "summary", "taken": taken, "final": simulation.finals})
     );
     Ok(())
+}
+
+/// The topic's rows, read on a task of their own, so a timer that fires while the topic
+/// catches up loses nothing it read. The first error is the last row.
+fn follow(mut topic: RfqTopic, server: ServerClient) -> mpsc::Receiver<Result<RfqRow, String>> {
+    let (sender, rows) = mpsc::channel(64);
+    tokio::spawn(async move {
+        loop {
+            let row = topic.next(&server).await;
+            let is_last = row.is_err();
+            if sender.send(row).await.is_err() || is_last {
+                break;
+            }
+        }
+    });
+    rows
 }
 
 struct Simulation {
@@ -326,7 +347,7 @@ struct Simulation {
 }
 
 impl Simulation {
-    /// Send `drawn`; whether it was taken.
+    /// Send `drawn`; whether it was taken. A refusal that is not passing is an error.
     async fn send(&mut self, server: &ServerClient, drawn: Drawn) -> Result<bool, String> {
         let response = server
             .request(Method::POST, "/api/v1/rfqs")
@@ -335,13 +356,34 @@ impl Simulation {
             .await
             .map_err(|error| format!("ingest failed: {error}"))?;
         let status = response.status();
-        let reply: Value = response.json().await.unwrap_or(Value::Null);
-        // Not taken: the desk is starting or full, or refused it.
-        let Some(rfq_key) = reply["rfqs"]
-            .get(0)
-            .filter(|answer| answer["result"] == "accepted")
-            .and_then(|answer| answer["rfq_key"].as_str())
+        let reply: Value = match response.json().await {
+            Ok(reply) => reply,
+            Err(error) if status.is_success() => {
+                return Err(format!(
+                    "whether a request was taken is not known: its reply ({status}) is \
+                     unreadable: {error}"
+                ))
+            }
+            Err(_) => Value::Null,
+        };
+        let answer = &reply["rfqs"][0];
+        let Some(rfq_key) = answer["rfq_key"]
+            .as_str()
+            .filter(|_| answer["result"] == "accepted")
         else {
+            // A refusal a later request may not meet: the desk full, or its records
+            // unreadable or unwritable for now. One without a code is the server's, busy or
+            // starting.
+            let is_passing = match answer["code"].as_str() {
+                Some(code) => matches!(code, "RFQ_CAPACITY" | "RFQ_UNREADABLE" | "RFQ_UNRECORDED"),
+                None => matches!(
+                    status,
+                    StatusCode::SERVICE_UNAVAILABLE | StatusCode::TOO_MANY_REQUESTS
+                ),
+            };
+            if !is_passing {
+                return Err(format!("a request was refused ({status}): {reply}"));
+            }
             eprintln!(
                 "{}",
                 json!({"event": "not_taken", "status": status.as_u16(), "reply": reply})
@@ -426,8 +468,15 @@ impl Simulation {
             .map(|(key, _)| key.clone())
             .collect();
         for rfq_key in missed {
-            if let Some(row) = server.rfq(&rfq_key).await? {
-                self.saw(&row);
+            match server.rfq(&rfq_key).await? {
+                RfqRead::Row(row) => self.saw(&row),
+                RfqRead::Unknown => {}
+                RfqRead::Withheld => {
+                    return Err(format!(
+                        "request {rfq_key} may not be read: the identity needs reader on its \
+                         book, the instruments the book holds or its limits name, and its bond"
+                    ))
+                }
             }
         }
         Ok(())
