@@ -1401,3 +1401,79 @@ async fn a_live_runtime_reads_a_rule_and_its_end_at_its_next_activation_and_a_ne
     );
     engine.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn a_client_tier_change_activates_hot_and_the_next_request_reads_it() {
+    let setup = runtime::setup().await;
+    let service = cases(&setup);
+    let fixtures = fixtures(&setup);
+    let tiers = |factor: &str| -> Vec<ClientTierWidth> {
+        serde_json::from_value(serde_json::json!([
+            {"client_tier": "1", "width_factor": factor},
+            {"client_tier": "2", "width_factor": "1"},
+        ]))
+        .unwrap()
+    };
+    let mut first = fixture::staged(1);
+    first.document.client_tiers = tiers("0.5");
+    service.stage(&first, &fixtures).await.unwrap();
+    service
+        .activate(&fixture::activate(1, 0, "tiers-first"), &fixtures)
+        .await
+        .unwrap();
+    let engine = convex_engine::PricingEngineBuilder::new()
+        .with_storage(setup.storage.clone())
+        .build()
+        .unwrap();
+    let id = SourceId::new("CONFIG-RESTORE").unwrap();
+    let tier = |name: &str| convex_ports::rfq::ClientTier::new(name).unwrap();
+    let factor = |context: &convex_engine::RequestContext, name: &str| {
+        context
+            .width_factor(&tier(name))
+            .map(|factor| factor.value())
+    };
+    let context = engine.request_context(Some(&id), time(0)).await.unwrap();
+    assert_eq!(factor(&context, "1"), Some("0.5".parse().unwrap()));
+    assert_eq!(
+        factor(&context, "3"),
+        None,
+        "a tier not listed has no factor"
+    );
+    assert_eq!(context.configuration_version().get(), 1);
+
+    let mut second = fixture::staged(2);
+    second.document.client_tiers = tiers("0.75");
+    second.idempotency_key = RequestId::new("stage-tiers-2").unwrap();
+    assert_eq!(
+        configuration_diff(&first.document, &second.document)
+            .into_iter()
+            .filter(|change| change.field == "client_tiers")
+            .map(|change| change.reload)
+            .collect::<Vec<_>>(),
+        [ReloadClass::Hot]
+    );
+    service.stage(&second, &fixtures).await.unwrap();
+    service
+        .activate(&fixture::activate(2, 1, "tiers-hot"), &fixtures)
+        .await
+        .unwrap();
+    let context = engine.request_context(Some(&id), time(0)).await.unwrap();
+    assert_eq!(factor(&context, "1"), Some("0.75".parse().unwrap()));
+    assert_eq!(context.configuration_version().get(), 2);
+    assert_eq!(context.activation_revision().get(), 2);
+
+    // A tier listed twice, or named with surrounding spaces, is refused.
+    for refused in [
+        serde_json::json!([{"client_tier": "1", "width_factor": "1"}, {"client_tier": "1", "width_factor": "2"}]),
+        serde_json::json!([{"client_tier": " 1", "width_factor": "1"}]),
+    ] {
+        let mut document = fixture::document(3);
+        document.client_tiers = serde_json::from_value(refused).unwrap();
+        assert!(document.validate().is_err());
+    }
+    // A factor past ten is refused on the wire.
+    assert!(serde_json::from_value::<ClientTierWidth>(
+        serde_json::json!({"client_tier": "1", "width_factor": "10.5"})
+    )
+    .is_err());
+}

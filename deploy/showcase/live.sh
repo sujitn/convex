@@ -60,7 +60,12 @@ activate() {
     "modified_duration_mid", "convexity_mid", "dv01_mid", "z_spread_mid",
     "i_spread_mid", "asw_mid", "effective_duration_mid", "cs01_mid"],
   "numerical_settings": {"policy_id": "convex-bond-router-v1", "bump_bps": 1.0},
-  "max_concurrent_calcs": 4
+  "max_concurrent_calcs": 4,
+  "client_tiers": [
+    {"client_tier": "1", "width_factor": "0.75"},
+    {"client_tier": "2", "width_factor": "1"},
+    {"client_tier": "3", "width_factor": "1.5"}
+  ]
 }
 EOF
 	config compile "$work/selection.json"

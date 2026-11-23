@@ -126,8 +126,10 @@ type CurveRead =
 /// revision. The government role is not consumed here, as in snapshot valuation.
 pub struct RequestContext {
     id: convex_core::contracts::SourceId,
+    configuration_version: convex_core::contracts::Version,
     activation_revision: convex_core::contracts::Version,
     config: ports::storage::BondPricingConfig,
+    client_tiers: Vec<ports::configuration::ClientTierWidth>,
     known_at: convex_core::contracts::UtcTimestamp,
     curves: Arc<dyn ports::storage::CurveStore>,
     /// Each curve set read, by its roots, in first-use order.
@@ -155,6 +157,28 @@ impl RequestContext {
     /// Revision of the activation that approved the configuration.
     pub fn activation_revision(&self) -> convex_core::contracts::Version {
         self.activation_revision
+    }
+
+    /// The approved configuration's id.
+    pub fn configuration_id(&self) -> &convex_core::contracts::SourceId {
+        &self.id
+    }
+
+    /// The approved configuration's version.
+    pub fn configuration_version(&self) -> convex_core::contracts::Version {
+        self.configuration_version
+    }
+
+    /// The factor the approved configuration sets on the width for `tier`, if it lists
+    /// the tier.
+    pub fn width_factor(
+        &self,
+        tier: &ports::rfq::ClientTier,
+    ) -> Option<convex_core::types::WidthFactor> {
+        self.client_tiers
+            .iter()
+            .find(|entry| entry.client_tier == *tier)
+            .map(|entry| entry.width_factor)
     }
 
     /// Every (curve, version) pin the request read, roots and dependencies, each once,
@@ -503,8 +527,10 @@ impl PricingEngine {
             .ok_or_else(|| CurveResolutionError::NotActivated(id.clone()))?;
         Ok(RequestContext {
             id: id.clone(),
+            configuration_version: active.activation.command.configuration_version,
             activation_revision: active.activation.revision,
             config: active.staged.document.pricing,
+            client_tiers: active.staged.document.client_tiers,
             known_at,
             curves: self.storage.curves.clone(),
             reads: Vec::new(),
@@ -758,6 +784,28 @@ impl PricingEngine {
             bond,
             in_force,
             input,
+            settlement,
+            discount,
+            &self.benchmark_yield_cache,
+        )
+    }
+
+    /// [`Self::price_in_force`] for a trade of `size`: the rule's width for its size,
+    /// scaled by its client tier's factor.
+    pub fn price_for_trade(
+        &self,
+        bond: &ports::reference_data::BondReferenceData,
+        in_force: Option<&level_pricing::PricingRuleInForce>,
+        input: level_pricing::QuotedInput,
+        size: level_pricing::TradeSize,
+        settlement: convex_core::Date,
+        discount: Option<&BuiltCurve>,
+    ) -> Result<level_pricing::RulePricing, level_pricing::LevelError> {
+        level_pricing::price_for_trade(
+            bond,
+            in_force,
+            input,
+            size,
             settlement,
             discount,
             &self.benchmark_yield_cache,

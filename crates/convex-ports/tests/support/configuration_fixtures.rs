@@ -64,6 +64,7 @@ pub fn document(version: u64) -> ConfigurationDocument {
         },
         pricing,
         overrides: vec![],
+        client_tiers: vec![],
     }
 }
 pub fn staged(version: u64) -> StagedConfiguration {

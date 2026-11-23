@@ -29,7 +29,7 @@ use convex_core::{
         ValuationSubject, Version,
     },
     types::{
-        Compounding, Mark, PriceKind, QuoteWidth, QuoteWidthError, Spread, SpreadType,
+        Compounding, Mark, PriceKind, QuoteWidth, QuoteWidthError, Spread, SpreadType, WidthFactor,
         WidthSchedule, Yield,
     },
     Currency, Date,
@@ -46,7 +46,7 @@ use crate::ports::{
         is_plain_bullet, is_quoted_two_way, tenor_months, BenchmarkSecurity, PricingMethod,
         ResolvedPricingRule, WIDTH_NEEDS_TWO_WAY,
     },
-    quote_event::QuoteField,
+    quote_event::{QuoteField, QuoteInput},
     reference_data::BondReferenceData,
     reference_master::ResolvedBondReference,
     runtime::PublishedValuation,
@@ -205,29 +205,27 @@ pub fn live_clean_price_mid(
     known_at: UtcTimestamp,
     accepts_demo: bool,
 ) -> Result<LivePrice, LevelError> {
-    let unavailable = |reason| benchmark_unavailable(security, reason);
-    let record = record.ok_or_else(|| unavailable("the Live runtime does not value it"))?;
+    live_price(
+        record,
+        &security.instrument_id,
+        security.version,
+        known_at,
+        accepts_demo,
+    )
+    .map_err(|reason| benchmark_unavailable(security, reason))
+}
+
+/// The clean price mid in a bond's Live record, read at `known_at` as
+/// [`live_clean_price_mid`] reads a benchmark's. The refusal says why.
+pub fn live_price(
+    record: Option<&PublishedValuation>,
+    instrument_id: &InstrumentId,
+    version: Version,
+    known_at: UtcTimestamp,
+    accepts_demo: bool,
+) -> Result<LivePrice, &'static str> {
+    let record = live_record(record, instrument_id, version, known_at, accepts_demo)?;
     let envelope = &record.result;
-    let provenance = envelope.provenance();
-    match &provenance.subject {
-        ValuationSubject::InstrumentVersion {
-            instrument_id,
-            version,
-        } if instrument_id == &security.instrument_id && *version == security.version => {}
-        _ => return Err(unavailable("the Live runtime values another version of it")),
-    }
-    if provenance.known_at > known_at {
-        return Err(unavailable(
-            "its Live price is newer than the cutoff, and Live prices are not stored",
-        ));
-    }
-    if !accepted(envelope.quality(), accepts_demo)
-        || record
-            .live_valid_until
-            .is_some_and(|until| until <= known_at)
-    {
-        return Err(unavailable("its Live price is stale or not accepted"));
-    }
     let clean_price_mid = envelope
         .results()
         .iter()
@@ -236,11 +234,60 @@ pub fn live_clean_price_mid(
             MeasureValue::Price(price) => Some(price.value().decimal()),
             _ => None,
         })
-        .ok_or_else(|| unavailable("its Live record has no clean price"))?;
+        .ok_or("its Live record has no clean price")?;
     Ok(LivePrice {
         clean_price_mid,
         snapshot_id: envelope.snapshot_id().clone(),
     })
+}
+
+/// The quote a bond's Live record was valued from, read at `known_at` as
+/// [`live_clean_price_mid`] reads a benchmark's: the record must value `version`, be no
+/// newer than the cutoff, still be live and be of an accepted quality. A record valued
+/// from no quote, such as a refused bond's, has none. The refusal says why.
+pub fn live_quote_input<'a>(
+    record: Option<&'a PublishedValuation>,
+    instrument_id: &InstrumentId,
+    version: Version,
+    known_at: UtcTimestamp,
+    accepts_demo: bool,
+) -> Result<&'a QuoteInput, &'static str> {
+    live_record(record, instrument_id, version, known_at, accepts_demo)?
+        .quote_input
+        .as_ref()
+        .ok_or("its Live record was valued from no quote")
+}
+
+/// `record` as the Live record of `instrument_id` at `version` read at `known_at`, or why
+/// it cannot be read so.
+fn live_record<'a>(
+    record: Option<&'a PublishedValuation>,
+    instrument_id: &InstrumentId,
+    version: Version,
+    known_at: UtcTimestamp,
+    accepts_demo: bool,
+) -> Result<&'a PublishedValuation, &'static str> {
+    let record = record.ok_or("the Live runtime does not value it")?;
+    let envelope = &record.result;
+    let provenance = envelope.provenance();
+    match &provenance.subject {
+        ValuationSubject::InstrumentVersion {
+            instrument_id: valued,
+            version: valued_version,
+        } if valued == instrument_id && *valued_version == version => {}
+        _ => return Err("the Live runtime values another version of it"),
+    }
+    if provenance.known_at > known_at {
+        return Err("its Live price is newer than the cutoff, and Live prices are not stored");
+    }
+    if !accepted(envelope.quality(), accepts_demo)
+        || record
+            .live_valid_until
+            .is_some_and(|until| until <= known_at)
+    {
+        return Err("its Live price is stale or not accepted");
+    }
+    Ok(record)
 }
 
 /// What a request quotes: a clean price, a level in the rule's unit (a decimal yield, or
@@ -316,7 +363,8 @@ impl BidAsk {
 /// decimal yield or basis points of spread) and the clean price it gives.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TwoWay {
-    /// The width applied: the first size bucket's, since a request carries no trade size.
+    /// The width applied: the first size bucket's for a request, which carries no trade
+    /// size; for a trade, its size bucket's scaled by its client's tier.
     pub width: QuoteWidth,
     /// The bid's level.
     pub bid_level: Decimal,
@@ -420,15 +468,73 @@ pub fn price_under_rule(
     discount: Option<&BuiltCurve>,
     yields: &BenchmarkYieldCache,
 ) -> Result<RulePricing, LevelError> {
+    price_sized(bond, in_force, input, None, settlement, discount, yields)
+}
+
+/// A trade's size and its client's tier: the size picks the bucket of the rule's width
+/// schedule, and the tier's factor scales that bucket's width.
+#[derive(Debug, Clone, Copy)]
+pub struct TradeSize {
+    /// The face amount traded.
+    pub face: Decimal,
+    /// The client tier's factor on the width.
+    pub factor: WidthFactor,
+}
+
+/// [`price_under_rule`] for a trade of `size`: the rule's width for the trade's size
+/// bucket, scaled by its client tier's factor. A size beyond the schedule's last bucket,
+/// or a scaled width past its unit's widest, is refused.
+pub fn price_for_trade(
+    bond: &BondReferenceData,
+    in_force: Option<&PricingRuleInForce>,
+    input: QuotedInput,
+    size: TradeSize,
+    settlement: Date,
+    discount: Option<&BuiltCurve>,
+    yields: &BenchmarkYieldCache,
+) -> Result<RulePricing, LevelError> {
+    price_sized(
+        bond,
+        in_force,
+        input,
+        Some(size),
+        settlement,
+        discount,
+        yields,
+    )
+}
+
+/// The stage under `in_force` for a trade of `size`, or for a request with none, which
+/// takes the first bucket's width.
+fn price_sized(
+    bond: &BondReferenceData,
+    in_force: Option<&PricingRuleInForce>,
+    input: QuotedInput,
+    size: Option<TradeSize>,
+    settlement: Date,
+    discount: Option<&BuiltCurve>,
+    yields: &BenchmarkYieldCache,
+) -> Result<RulePricing, LevelError> {
     let Some(in_force) = in_force else {
         return price_without_rule(input);
     };
+    let width = in_force
+        .width
+        .as_ref()
+        .map(|schedule| match size {
+            None => schedule.width_for(None),
+            Some(size) => schedule
+                .width_for(Some(size.face))
+                .and_then(|width| width.scaled(size.factor)),
+        })
+        .transpose()
+        .map_err(width_refused)?;
     let method = &in_force.rule.method;
     let benchmarks = in_force.benchmark_set.as_deref().map(benchmark_inputs);
     let pricing = price_with_rule(
         bond,
         method,
-        in_force.width.as_ref(),
+        width,
         benchmarks.as_deref(),
         input,
         settlement,
@@ -597,7 +703,7 @@ fn price_without_rule(input: QuotedInput) -> Result<RulePricing, LevelError> {
 fn price_with_rule(
     bond: &BondReferenceData,
     method: &PricingMethod,
-    width: Option<&WidthSchedule>,
+    width: Option<QuoteWidth>,
     benchmarks: Option<&[BenchmarkInput<'_>]>,
     input: QuotedInput,
     settlement: Date,
@@ -610,11 +716,6 @@ fn price_with_rule(
     if width.is_some() && !is_quoted_two_way(bond) {
         return Err(refused(WIDTH_NEEDS_TWO_WAY));
     }
-    // A request carries no trade size, so it takes the first bucket.
-    let width = width
-        .map(|schedule| schedule.width_for(None))
-        .transpose()
-        .map_err(width_refused)?;
     let benchmarks = match benchmarks {
         Some(set) => Some(price_benchmarks(set, settlement, yields)?),
         None => None,

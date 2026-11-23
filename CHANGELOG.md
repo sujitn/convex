@@ -466,6 +466,14 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **Pricing a trade's size.** `price_for_trade` (and `PricingEngine::price_for_trade`) is
+  the stage for a `TradeSize`: the rule's width for its face's bucket, scaled by its
+  client tier's `WidthFactor`; a face past the schedule or a scaled width past its unit's
+  widest is refused. `live_quote_input` reads the quote a bond's Live record was valued
+  from, and `live_price` its clean price mid, under the conditions `live_clean_price_mid`
+  reads a benchmark's. `RequestContext` carries the active configuration's version and
+  its client tiers (`width_factor`).
+- **Breaking:** `PlanSelection` requires `client_tiers`.
 - **A Live result carries the quote it was valued from.** The snapshot valuation records
   the field of the bond's quote it read, the level under a rule that quotes the bond by
   one and otherwise its price, with its exact observation. It is carried through the
@@ -575,6 +583,10 @@ the changes that matter when you upgrade.
 
 ### convex-ports
 
+- **Client tiers in the configuration.** `ConfigurationDocument::client_tiers` lists each
+  `ClientTier`'s `WidthFactor`, at most 64, each tier once; a change is a hot activation.
+  **Breaking:** the field is required, so a stored document compiled before it must be
+  compiled again. `RfqRequest::client_tier` is a `ClientTier`.
 - **`QuoteInput`**: the field of its quote a valuation read the bond's mark from, with its
   `FieldObservation`. `PublishedValuation::quote_input` carries it, and is omitted when the
   attempt read no quote.

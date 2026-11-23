@@ -101,8 +101,18 @@ pub fn configuration_schema() -> Value {
     definitions.insert("runtime".into(), object(json!({"runtime_id":id,"mode":{"enum":["captured","replay","live"]},"settlement_date":date,"build_id":id,"measures":{"type":"array","minItems":1,"maxItems":4,"uniqueItems":true,"items":{"enum":["clean_price_mid","dirty_price_mid","accrued_interest","ytm_mid"]}},"numerical_settings":reference("numerical")}), &["runtime_id","mode","settlement_date","build_id","measures","numerical_settings"]));
     definitions.insert("assembly".into(), object(json!({"as_of":time,"known_at":time,"generation":{"const":1},"configuration":reference("pin"),"instruments":{"type":"array","minItems":1,"maxItems":crate::snapshot::MAX_LIVE_SNAPSHOT_INSTRUMENTS,"description":"At most 256 unless the runtime is live.","items":reference("instrument_pin")},"quotes":{"type":"array","minItems":1,"maxItems":crate::snapshot::MAX_LIVE_SNAPSHOT_INSTRUMENTS,"items":reference("quote")},"fixings":{"type":"array","maxItems":0},"required_curves":array(id.clone(),64),"curves":array(reference("curve"),64),"curve_recipes":array(reference("curve_recipe"),64),"calibration":nullable(reference("calibration")),"max_source_skew_ms":{"type":"integer","minimum":0,"maximum":86400000}}), &["as_of","known_at","generation","configuration","instruments","quotes","fixings","required_curves","curves","max_source_skew_ms"]));
     definitions.insert("override".into(), object(json!({"id":id,"scope":reference("quote_key"),"max_age_ms":age,"actor":id,"reason":{"type":"string","minLength":1,"maxLength":4096},"created_at":time,"expires_at":time,"approved_by":id,"approved_at":time}), &["id","scope","max_age_ms","actor","reason","created_at","expires_at","approved_by","approved_at"]));
+    definitions.insert(
+        "client_tier".into(),
+        object(
+            json!({
+                "client_tier": {"type":"string","minLength":1,"maxLength":crate::rfq::MAX_CLIENT_TIER_BYTES},
+                "width_factor": {"type":"string","pattern":"^[0-9]+(\\.[0-9]+)?$","description":"An exact decimal from 0 to 10."},
+            }),
+            &["client_tier", "width_factor"],
+        ),
+    );
     let mut root = object(
-        json!({"schema_version":{"const":1},"pricing":reference("pricing"),"process":reference("process"),"providers":{"type":"array","minItems":1,"maxItems":64,"items":reference("provider")},"runtime":reference("runtime"),"assembly":reference("assembly"),"overrides":array(reference("override"),256)}),
+        json!({"schema_version":{"const":1},"pricing":reference("pricing"),"process":reference("process"),"providers":{"type":"array","minItems":1,"maxItems":64,"items":reference("provider")},"runtime":reference("runtime"),"assembly":reference("assembly"),"overrides":array(reference("override"),256),"client_tiers":array(reference("client_tier"),crate::configuration::MAX_CLIENT_TIERS)}),
         &[
             "schema_version",
             "pricing",
@@ -111,6 +121,7 @@ pub fn configuration_schema() -> Value {
             "runtime",
             "assembly",
             "overrides",
+            "client_tiers",
         ],
     );
     root["$schema"] = json!("https://json-schema.org/draft/2020-12/schema");

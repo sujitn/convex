@@ -29,6 +29,39 @@ pub const MAX_RFQ_ID_BYTES: usize = 128;
 /// The longest client tier, in bytes.
 pub const MAX_CLIENT_TIER_BYTES: usize = 32;
 
+/// A client tier's name, as a source sends it and the configuration's tier table keys it.
+/// It is checked where it is read: a request's by [`RfqRequest::validate`], the table's by
+/// the configuration's validation.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ClientTier(String);
+
+impl ClientTier {
+    /// The tier `name`, checked.
+    pub fn new(name: impl Into<String>) -> Result<Self, RfqRefusal> {
+        let tier = Self(name.into());
+        tier.validate()?;
+        Ok(tier)
+    }
+
+    /// Its name.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// 1 to [`MAX_CLIENT_TIER_BYTES`] bytes, without surrounding spaces or control
+    /// characters.
+    pub fn validate(&self) -> Result<(), RfqRefusal> {
+        validate_text(&self.0, MAX_CLIENT_TIER_BYTES).map_err(|_| RfqRefusal::ClientTier)
+    }
+}
+
+impl fmt::Display for ClientTier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// The client's side of the trade it asks for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -80,7 +113,7 @@ pub struct RfqRequest {
     /// The client asking.
     pub client_id: String,
     /// The client's tier, which scales the desk's width.
-    pub client_tier: String,
+    pub client_tier: ClientTier,
     /// The bond, by its internal id; or `identifier`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub instrument_id: Option<InstrumentId>,
@@ -108,8 +141,7 @@ impl RfqRequest {
     pub fn validate(&self, received_at: UtcTimestamp) -> Result<(), RfqRefusal> {
         validate_text(&self.rfq_id, MAX_RFQ_ID_BYTES).map_err(|_| RfqRefusal::RfqId)?;
         validate_text(&self.client_id, MAX_RFQ_ID_BYTES).map_err(|_| RfqRefusal::ClientId)?;
-        validate_text(&self.client_tier, MAX_CLIENT_TIER_BYTES)
-            .map_err(|_| RfqRefusal::ClientTier)?;
+        self.client_tier.validate()?;
         match (&self.instrument_id, &self.identifier) {
             (Some(_), None) => {}
             (None, Some(identifier)) if identifier.validate().is_ok() => {}

@@ -126,9 +126,20 @@ everything the repository does not hold; nothing has a default:
   "measures": ["clean_price_mid", "ytm_mid"],
   "numerical_settings": {"policy_id": "convex-bond-router-v1", "bump_bps": 1.0},
   "max_concurrent_calcs": 4,
-  "levels": {"source": "desk", "max_age_ms": 86400000}
+  "levels": {"source": "desk", "max_age_ms": 86400000},
+  "client_tiers": [
+    {"client_tier": "1", "width_factor": "0.75"},
+    {"client_tier": "2", "width_factor": "1"}
+  ]
 }
 ```
+
+`client_tiers` lists each client tier's factor on the desk's two-way width, from 0 to
+10 as an exact decimal string: one keeps the width of the bond's rule for the trade's
+size, below one tightens it and above one widens it. A request for quote from a tier
+not listed is refused; an empty list takes none. The table can change without a
+restart: activating a document that changes only it, the freshness budgets or the
+overrides is a hot activation, and the next request for quote reads it.
 
 `levels` is optional: where a desk posts the levels of bonds quoted by a yield or a
 spread, and how old one may be, such as a trading day. A server whose

@@ -65,6 +65,9 @@ pub struct PlanSelection {
     /// old as `quote_max_age_ms`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub levels: Option<LevelQuoteSource>,
+    /// Each client tier's factor on the desk's width; empty, the desk takes no requests
+    /// for quote.
+    pub client_tiers: Vec<ClientTierWidth>,
 }
 
 /// The quote source of the bonds whose pricing rule quotes them by a level, such as a
@@ -403,6 +406,7 @@ pub async fn assemble_from_repository(
         },
         pricing,
         overrides: vec![],
+        client_tiers: selection.client_tiers.clone(),
     };
     document.validate()?;
     Ok(document)

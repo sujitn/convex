@@ -273,6 +273,20 @@ pub struct ConfigurationDocument {
     pub assembly: SnapshotAssembly,
     /// Controlled exceptions; expiration does not delete their immutable history.
     pub overrides: Vec<PolicyOverride>,
+    /// Each client tier's factor on the desk's two-way width, at most
+    /// [`MAX_CLIENT_TIERS`]. A request for quote from a tier not listed is refused.
+    pub client_tiers: Vec<ClientTierWidth>,
+}
+/// The most client tiers a configuration lists.
+pub const MAX_CLIENT_TIERS: usize = 64;
+/// One client tier's factor on the desk's two-way width.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClientTierWidth {
+    /// The tier, as sources name it.
+    pub client_tier: crate::rfq::ClientTier,
+    /// The factor on the rule's width for a trade's size.
+    pub width_factor: convex_core::types::WidthFactor,
 }
 impl ConfigurationDocument {
     /// Structural validation only. Actual references/providers and numerical fixtures are engine checks.
@@ -289,6 +303,7 @@ impl ConfigurationDocument {
             || self.providers.is_empty()
             || self.providers.len() > 64
             || self.overrides.len() > 256
+            || self.client_tiers.len() > MAX_CLIENT_TIERS
             || self.assembly.instruments.is_empty()
             || self.assembly.instruments.len() > self.runtime.mode.max_instruments()
             || self.assembly.quotes.len() != self.assembly.instruments.len()
@@ -387,6 +402,12 @@ impl ConfigurationDocument {
             > crate::snapshot::MAX_SNAPSHOT_PILLARS
         {
             return Err(TraitError::CapacityExceeded);
+        }
+        let mut tiers = BTreeSet::new();
+        for entry in &self.client_tiers {
+            if entry.client_tier.validate().is_err() || !tiers.insert(&entry.client_tier) {
+                return Err(TraitError::InvalidInput("invalid or duplicate client tier"));
+            }
         }
         let mut ids = BTreeSet::new();
         let mut scopes = std::collections::HashSet::new();
@@ -560,6 +581,11 @@ pub fn configuration_diff(
         Hot,
     );
     check("overrides", previous.overrides != next.overrides, Hot);
+    check(
+        "client_tiers",
+        previous.client_tiers != next.client_tiers,
+        Hot,
+    );
     changes
 }
 
