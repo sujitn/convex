@@ -236,8 +236,8 @@ Router construction uses the engine’s configured reference repository. Provide
 
 ## WebSocket streaming
 
-`/ws` and `/api/v1/ws` stream canonical runtime results and recorded limit status
-changes, and nothing else.
+`/ws` and `/api/v1/ws` stream canonical runtime results, recorded limit status changes
+and requests for quote, and nothing else.
 
 **Authentication.** A client sends its bearer token in `Authorization`, as on every
 route. A browser cannot set that header on a WebSocket, so a page offers two
@@ -295,8 +295,31 @@ arrives only when its status changes, so its `value` is as of that change.
 it could read that book's status (see [access](ACCESS.md)). A session that holds the book
 but not every instrument it holds or a limit names receives each change as a `FORBIDDEN`
 error naming the book, without the change; a session whose access to the book is revoked
-is closed, as for valuations. REST calculators return their results in
-the response and send nothing on the WebSocket. The bond, ETF and portfolio
+is closed, as for valuations.
+
+Send `{"type":"subscribe_rfqs","book_ids":[...]}` to follow the requests for quote on
+those books (see [requests for quote](#requests-for-quote)). The server first sends each
+open request on them, by deadline, as an `rfq` message with the list's row (below), then
+the `subscribed` acknowledgement; then each transition once it is recorded, the request as
+that entry left it, until it is final. `record_id` is the entry's id: a request sent at
+subscription can be newer than a transition already on its way, so of two messages for one
+`rfq_key` keep the higher `record_id`. Listing a followed book again resends its open
+requests and costs nothing, which is the path after `RESYNC_REQUIRED`. A session follows at
+most 64 books, and a message lists at most 64. A request a previous run left open is
+expired at start without a message, since no session of this run saw it open. Each
+message is read as `GET /api/v1/rfqs` reads it: the session needs read access to the
+book, each instrument the book holds or its limits name, and the request's bond. The
+book's instruments are read once for each transition, when the first session sends it,
+and each session checks its own access when it sends. A request the session may not read
+arrives as `{"type":"rfq_withheld","book_id":…,"code":"FORBIDDEN","message":…}` in its
+place, or with code `UNAVAILABLE` when the book could not be read to check, and the
+session stays open. An `error` is a reply to the session's own message, or
+`RESYNC_REQUIRED`.
+`unsubscribe_rfqs` takes the same shape. A server that takes no requests refuses the
+subscription.
+
+A session's topics, instruments and each topic's books together, are at most 4,224.
+REST calculators return their results in the response and send nothing on the WebSocket. The bond, ETF and portfolio
 subscriptions are retired and refused with `INVALID_MESSAGE`; see the
 [route migration](../../docs/internal/ROUTE-MIGRATION.md#rest-triggered-websocket-messages-removed).
 
@@ -1378,9 +1401,57 @@ new position through `PUT /api/v1/books/:book_id`.
   needs, since it carries the check, and its bond; the list leaves out what the caller
   cannot read and counts it in `withheld`. Answering a request needs the same grants
   whether it is open or final, so a key says nothing to anyone else.
+- **The topic.** A session following a book with `subscribe_rfqs` receives each open
+  request on it, then every transition, as rows of the list carrying the entry's
+  `record_id` (see [WebSocket streaming](#websocket-streaming)). The largest row is about
+  3 KiB, so one fits a message many times over.
 - **Access.** Sending requests and outcomes needs the `rfq_source` role (`RfqIngest`) with
   the source, each book and each bond; answering needs the `trader` role (`RfqRespond`)
   on the request's book and bond.
+
+### Simulators
+
+Two binaries stand in for a venue and for the books' owning system, for a demo desk and
+for tests. Both talk to a server on loopback; under required access each reads its token
+from `CONVEX_SIM_TOKEN`. Each prints one JSON event a line, `following` first once it
+follows its books.
+
+- **`convex-rfq-sim`** sends clients' requests and reports what each client did:
+
+  ```text
+  convex-rfq-sim --server http://127.0.0.1:8080 --source-id venue-sim --books BOOK-IG \
+      --bonds BOND-001,BOND-002 --tiers 1,2,3 [--rate 0.5] [--count 20] [--seed 7] [--clients 24]
+  ```
+
+  Requests arrive at `--rate` a second on average, from `--clients` clients each of a fixed
+  tier. Each draws its bond, book, side, face (odd lots of 100,000 to 750,000, round lots
+  and blocks to 25,000,000) and deadline (15 seconds to 5 minutes), settling the next
+  weekday. Its client then either withdraws it within 8 seconds (5 in 100) or, once the
+  desk quotes, answers within 4 seconds: done 30%, traded away 50%, covered 20%. A request
+  the desk does not quote expires. The draws for a request are made when it is sent, so a
+  seed gives the same requests and answers however fast the desk is. It follows the `rfq`
+  topic to learn of quotes, so its identity needs `rfq_source` and `reader`, with read on
+  every instrument its books hold or their limits name, or each row is withheld; a request
+  whose final it has not seen 5 seconds past its deadline is read. With `--count` it stops
+  once that many are taken and final, and prints a `summary`.
+- **`convex-bms-sim`** books each `done` trade:
+
+  ```text
+  convex-bms-sim --server http://127.0.0.1:8080 --books BOOK-IG [--trades 10]
+  ```
+
+  It follows the `rfq` topic on its books and, for each `done`, sends the book a snapshot
+  with the bond's face changed by the client's side (a client buy shortens the book),
+  over the version it read, under the idempotency key `rfq-done-<rfq_key>`. A snapshot
+  with no reply is sent again as it was, so a commit whose reply was lost is answered from
+  the receipt the server keeps; one refused because another writer committed meanwhile is
+  built again. A position held in units is not changed, and the trade is reported
+  `unapplied`; a position the owning system named by an identifier is sent by it again.
+  Both simulators, after `RESYNC_REQUIRED`, subscribe again and read each request they saw
+  open that the new seed lacks, so a request that ended meanwhile still gives its final
+  state. A `done` recorded while it was not running is not booked. Its identity needs
+  `book_writer` and `reader` on the books, every instrument they hold or their limits
+  name, and the bonds traded.
 
 ## Reference schema and Rust migration
 

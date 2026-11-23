@@ -14,6 +14,9 @@
 //!   session serializes the record, which the sessions share.
 //! - `burst1/256/open_rfqs0` and `/open_rfqs256`: `burst1/256` on a server taking requests
 //!   for quote, its desk empty and then full, 256 open on the bonds.
+//! - `subscribe_rfqs/256`: a `subscribe_rfqs` of the full desk's book until its
+//!   `subscribed` acknowledgement, which follows the 256 open requests it seeds.
+//! - `burst1/256/rfq_topic256`: `burst1/256` with the session following those requests.
 //! - `subscribe/256`: a `subscribe_valuations` of every bond until its `subscribed`
 //!   acknowledgement, which follows the 256 results it seeds. Listing followed bonds
 //!   again resends their results, so one session repeats it.
@@ -421,6 +424,27 @@ impl Live {
         elapsed
     }
 
+    /// Follow the requests for quote on the desk's book from `socket`, and return the time
+    /// until the acknowledgement that follows the seed of each open one: `open` of them.
+    async fn subscribe_rfqs(&mut self, socket: &mut Socket, open: usize) -> Duration {
+        self.pacer.wait(1).await;
+        let subscribe = serde_json::json!({"type": "subscribe_rfqs", "book_ids": ["BOOK-RFQ"]});
+        let started = Instant::now();
+        socket
+            .send(Message::Text(subscribe.to_string().into()))
+            .await
+            .unwrap();
+        let mut seeded = 0;
+        until(socket, |f| {
+            seeded += usize::from(f.kind == "rfq");
+            f.kind == "subscribed"
+        })
+        .await;
+        let elapsed = started.elapsed();
+        assert_eq!(seeded, open);
+        elapsed
+    }
+
     /// Subscribe `socket` to every bond again and return the time until the
     /// acknowledgement that follows the seed of each bond's result.
     async fn subscribe(&mut self, socket: &mut Socket) -> Duration {
@@ -553,6 +577,33 @@ fn bench_live_hop(c: &mut Criterion) {
         // Every sample ran with the desk as named: none expired during the case.
         assert_eq!(rt.block_on(desk.open_rfq_count()), open);
     }
+    // The session follows the full desk's requests: their seed, then the valuation hop.
+    group.bench_function(BenchmarkId::new("subscribe_rfqs", WIDE), |b| {
+        b.iter_custom(|iterations| {
+            rt.block_on(async {
+                let mut total = Duration::ZERO;
+                for _ in 0..iterations {
+                    total += desk.subscribe_rfqs(&mut sockets[0], WIDE).await;
+                }
+                total
+            })
+        })
+    });
+    group.bench_function(
+        BenchmarkId::new("burst1", format!("{WIDE}/rfq_topic{WIDE}")),
+        |b| {
+            b.iter_custom(|iterations| {
+                rt.block_on(async {
+                    let mut total = Duration::ZERO;
+                    for _ in 0..iterations {
+                        total += desk.hop(&mut sockets, 1, false).await;
+                    }
+                    total
+                })
+            })
+        },
+    );
+    assert_eq!(rt.block_on(desk.open_rfq_count()), WIDE);
     rt.block_on(desk.stop(sockets));
 
     let mut one = rt.block_on(Live::start(1));

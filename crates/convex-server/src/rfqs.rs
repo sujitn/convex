@@ -35,9 +35,9 @@ use convex_core::types::WidthFactor;
 use convex_engine::level_pricing::{live_price, live_quote_input, BidAsk, QuotedInput, TradeSize};
 use convex_engine::ports::quote_event::QuoteField;
 use convex_engine::ports::reference_master::{
-    BookId, BookPosition, QuantityUnit, ReferenceLookup, ResolvedBondReference,
+    BookId, BookPosition, MasterKey, QuantityUnit, ReferenceLookup, ResolvedBondReference,
 };
-use convex_engine::ports::reference_repository::ReferenceRepository;
+use convex_engine::ports::reference_repository::{ReferenceError, ReferenceRepository};
 use convex_engine::ports::rfq::{
     DeskSide, RfqRequest, RfqState, SourceOutcome, MAX_RFQ_BATCH, MAX_RFQ_BODY_BYTES,
 };
@@ -45,19 +45,22 @@ use convex_engine::RequestContext;
 use serde::{Deserialize, Serialize};
 
 use crate::access::http::authorize_caller;
-use crate::access::{recorded_subject, AccessContext, Action, DataScope, Resource, ResourceKind};
-use crate::books::{resolve_identifier, typed_error};
+use crate::access::{
+    recorded_subject, AccessContext, AccessControl, AccessError, Action, DataScope, Resource,
+    ResourceKind,
+};
+use crate::books::{book_of, resolve_identifier, typed_error};
 use crate::error::ApiError;
 use crate::handlers::AppState;
 use crate::level_pricing::pricing_rule_json;
 use crate::limits::{
-    authorize, check_trade, limited_book_record, traded_book, NoTradedBook, PricedTerms,
-    TradedBook, STATUS_DATA,
+    authorize, check_trade, limited_book_record, named_instruments, set_of, traded_book,
+    NoTradedBook, PricedTerms, TradedBook, STATUS_DATA,
 };
 use crate::rfq_desk::{
-    receipt_of, Admission, Admitted, AutoPrice, CurveRead, LimitCheck, OpenRfq, PricedSide,
-    PricedUnder, Receipt, Recorded, Refused, RfqDesk, RfqKey, RfqPricing, SentQuote, MAX_OPEN_RFQS,
-    RFQ_PRICING_SECONDS,
+    receipt_of, Admission, Admitted, AutoPrice, CurveRead, LimitCheck, PricedSide, PricedUnder,
+    Receipt, Recorded, Refused, Rfq, RfqDesk, RfqKey, RfqPricing, SentQuote, MAX_OPEN_RFQS,
+    NO_RFQ_DESK, RFQ_PRICING_SECONDS,
 };
 
 /// What a source needs to send requests and their outcomes.
@@ -118,7 +121,7 @@ pub(crate) async fn ingest(
 ) -> Response {
     let started = Instant::now();
     let Some(Extension(desk)) = desk else {
-        return unavailable("this server takes no requests for quote");
+        return unavailable(NO_RFQ_DESK);
     };
     let body = match body {
         Ok(body) => body,
@@ -345,7 +348,7 @@ impl Intake<'_> {
             .await
         {
             Ok(side) => AutoPrice::Priced(Box::new(side)),
-            Err(reason) => AutoPrice::Unpriced { reason },
+            Err(reason) => AutoPrice::unpriced(reason),
         };
         let position = BookPosition {
             instrument_id: instrument_id.clone(),
@@ -725,7 +728,7 @@ async fn move_by(
     sender: Sender,
 ) -> Response {
     let Some(Extension(desk)) = desk else {
-        return unavailable("this server takes no requests for quote");
+        return unavailable(NO_RFQ_DESK);
     };
     let Some(key) = RfqKey::parse(&raw) else {
         return unknown();
@@ -777,48 +780,20 @@ pub(crate) async fn list(
         return ApiError::invalid("state names an open state").into_response();
     };
     let Some(Extension(desk)) = desk else {
-        return unavailable("this server takes no requests for quote");
+        return unavailable(NO_RFQ_DESK);
     };
-    let mut rfqs: Vec<OpenRfq> = desk
-        .open_rfqs()
-        .await
-        .into_iter()
-        .filter(|rfq| query.state.is_none_or(|state| rfq.state == state))
-        .collect();
-    rfqs.sort_by(|a, b| {
-        let (a, b) = (&a.admission, &b.admission);
-        a.receipt
-            .request
-            .deadline
-            .cmp(&b.receipt.request.deadline)
-            .then_with(|| a.rfq_key.cmp(&b.rfq_key))
-    });
-    let mut readable: BTreeMap<BookId, bool> = BTreeMap::new();
+    let rfqs = desk.open_rfqs().await;
+    let ctx = ctx.as_ref().map(|Extension(ctx)| ctx);
+    let repo: &dyn ReferenceRepository = state.engine.reference_repository().as_ref();
+    let mut reader = RfqReader::new(&state.access, ctx, repo);
     let mut shown = Vec::with_capacity(rfqs.len());
     let mut withheld = 0usize;
     for rfq in rfqs {
-        let receipt = &rfq.admission.receipt;
-        let book_id = &receipt.request.book_id;
-        let book_readable = match readable.get(book_id) {
-            Some(readable) => *readable,
-            None => {
-                let ok = limited_book_record(&state, &ctx, book_id).await.is_ok();
-                readable.insert(book_id.clone(), ok);
-                ok
-            }
-        };
-        let bond_readable = book_readable
-            && authorize(
-                &state,
-                &ctx,
-                Action::BookRead,
-                STATUS_DATA,
-                book_id,
-                [receipt.instrument_id.as_str().to_owned()],
-            )
-            .is_ok();
-        if bond_readable {
-            shown.push(row(&rfq));
+        if query.state.is_some_and(|state| rfq.state != state) {
+            continue;
+        }
+        if reader.readable(&rfq).await.is_ok() {
+            shown.push(rfq);
         } else {
             withheld += 1;
         }
@@ -826,41 +801,101 @@ pub(crate) async fn list(
     Json(serde_json::json!({ "rfqs": shown, "withheld": withheld })).into_response()
 }
 
-/// One open request as the list shows it: what was received, the desk side's auto price,
-/// how many of the book's limits the check put in each status, and the quote sent. A
-/// request's entries carry what each was made from.
-fn row(rfq: &OpenRfq) -> serde_json::Value {
-    let admission = &rfq.admission;
-    let auto_price = match &admission.pricing.auto_price {
-        AutoPrice::Priced(side) => serde_json::json!({
-            "kind": "priced",
-            "desk_side": side.desk_side,
-            "clean_price": side.clean_price,
-            "level": side.level,
-            "clean_price_mid": side.clean_price_mid,
-            "mid_only": side.mid_only,
-        }),
-        AutoPrice::Unpriced { reason } => serde_json::json!({"kind": "unpriced", "reason": reason}),
-    };
-    let check = match &admission.pricing.check {
-        LimitCheck::Evaluated { statuses, .. } => {
-            serde_json::json!({"kind": "evaluated", "statuses": statuses})
+/// Each instrument a reader of the requests on `book_id` must hold besides a request's
+/// bond: every one the book holds or its limits name, as the book's limit status needs.
+pub(crate) async fn book_instruments(
+    repo: &dyn ReferenceRepository,
+    book_id: &BookId,
+) -> Result<Arc<[String]>, ReferenceError> {
+    let mut instruments = std::collections::BTreeSet::new();
+    if let Some(record) = repo
+        .get_master(&MasterKey::LimitSet(book_id.clone()))
+        .await?
+    {
+        instruments
+            .extend(named_instruments(&set_of(&record)?.limits).map(|id| id.as_str().to_owned()));
+    }
+    if let Some(record) = repo.get_master(&MasterKey::Book(book_id.clone())).await? {
+        instruments.extend(
+            book_of(&record)?
+                .positions
+                .iter()
+                .map(|position| position.instrument_id.as_str().to_owned()),
+        );
+    }
+    Ok(instruments.into_iter().collect())
+}
+
+/// Why a request is withheld from a reader.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Withheld {
+    /// The reader lacks `BookRead` on its book, an instrument the book needs, or its bond.
+    Forbidden,
+    /// The book or its limits could not be read, so what the reader needs is not known.
+    Unchecked,
+}
+
+/// Whether `ctx` may read `rfq`, as the list reads it: `BookRead` with the limit status's
+/// data on its book, each of `book_instruments` (its book's) and its bond.
+pub(crate) fn readable(
+    access: &AccessControl,
+    ctx: Option<&AccessContext>,
+    rfq: &Rfq,
+    book_instruments: &Result<Arc<[String]>, ReferenceError>,
+) -> Result<(), Withheld> {
+    let instruments = book_instruments.as_ref().map_err(|_| Withheld::Unchecked)?;
+    let ctx = ctx.ok_or(Withheld::Forbidden)?;
+    let bond = rfq.instrument_id().as_str();
+    let mut resources = Vec::with_capacity(instruments.len() + 2);
+    resources.push(Resource::new(ResourceKind::Book, rfq.book_id().as_str()));
+    resources.extend(
+        instruments
+            .iter()
+            .map(|id| Resource::new(ResourceKind::Instrument, id.as_str())),
+    );
+    if !instruments.iter().any(|id| id == bond) {
+        resources.push(Resource::new(ResourceKind::Instrument, bond));
+    }
+    access
+        .authorize(ctx, Action::BookRead, STATUS_DATA, &resources)
+        .map_err(|_: AccessError| Withheld::Forbidden)
+}
+
+/// [`readable`] over many requests, each book's instruments read once.
+pub(crate) struct RfqReader<'a> {
+    access: &'a AccessControl,
+    ctx: Option<&'a AccessContext>,
+    repo: &'a dyn ReferenceRepository,
+    book_instruments: BTreeMap<BookId, Result<Arc<[String]>, ReferenceError>>,
+}
+
+impl<'a> RfqReader<'a> {
+    pub(crate) fn new(
+        access: &'a AccessControl,
+        ctx: Option<&'a AccessContext>,
+        repo: &'a dyn ReferenceRepository,
+    ) -> Self {
+        Self {
+            access,
+            ctx,
+            repo,
+            book_instruments: BTreeMap::new(),
         }
-        LimitCheck::Unavailable { reason } => {
-            serde_json::json!({"kind": "unavailable", "reason": reason})
+    }
+
+    /// Whether the caller may read `rfq`.
+    pub(crate) async fn readable(&mut self, rfq: &Rfq) -> Result<(), Withheld> {
+        let book_id = rfq.book_id();
+        if !self.book_instruments.contains_key(book_id) {
+            let read = book_instruments(self.repo, book_id).await;
+            self.book_instruments.insert(book_id.clone(), read);
         }
-    };
-    serde_json::json!({
-        "rfq_key": admission.rfq_key,
-        "state": rfq.state,
-        "request": admission.receipt.request,
-        "instrument_id": admission.receipt.instrument_id,
-        "instrument_version": admission.receipt.instrument_version,
-        "received_at": admission.receipt.received_at,
-        "auto_price": auto_price,
-        "check": check,
-        "quote": rfq.quote,
-    })
+        let read = self
+            .book_instruments
+            .get(book_id)
+            .ok_or(Withheld::Unchecked)?;
+        readable(self.access, self.ctx, rfq, read)
+    }
 }
 
 /// `GET /api/v1/rfqs/:rfq_key`: every entry of one request, in order, with its state, ID
@@ -872,7 +907,7 @@ pub(crate) async fn records(
     Path(raw): Path<String>,
 ) -> Response {
     let Some(Extension(desk)) = desk else {
-        return unavailable("this server takes no requests for quote");
+        return unavailable(NO_RFQ_DESK);
     };
     let Some(key) = RfqKey::parse(&raw) else {
         return unknown();

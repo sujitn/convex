@@ -7,7 +7,10 @@
 //! each later result. A result too large for one 64 KiB message arrives as a
 //! `RESULT_TOO_LARGE` error naming its instrument, and the session continues. With
 //! `subscribe_limits` it receives a `limit_status` message for each recorded change of a
-//! book's limit status, as the limit monitor records it.
+//! book's limit status, as the limit monitor records it. With `subscribe_rfqs` it receives
+//! an `rfq` message for each open request for quote on those books, then the
+//! acknowledgement, then one for each recorded transition of a request on them; of two
+//! messages for one request, the one with the higher `record_id` is the later.
 //! REST calculators return their results in the response and never broadcast.
 //! Heartbeat and ping/pong keep the connection healthy.
 
@@ -31,10 +34,19 @@ use crate::access::http::WsAccess;
 use crate::access::{AccessError, Action, DataScope, Resource, ResourceKind};
 use crate::handlers::AppState;
 use crate::limit_monitor::{LimitFeed, LimitFrame, LimitStatusChange};
+use crate::rfq_desk::{Rfq, RfqDesk, RfqFrame, NO_RFQ_DESK};
+use crate::rfqs::{book_instruments, readable, RfqReader, Withheld};
 use crate::ServerProfile;
 
 /// Books one session may follow: every book the monitor watches.
 const MAX_LIMIT_SUBSCRIPTIONS: usize = crate::limits::MAX_LIMITED_BOOKS;
+/// Books one session may follow for requests for quote, and one message may list.
+const MAX_RFQ_SUBSCRIPTIONS: usize = convex_engine::configuration::MAX_PLAN_BOOKS;
+/// Why a session may follow no more books' limit status; the Excel add-in reads this text.
+const TOO_MANY_LIMIT_BOOKS: &str = "at most 64 limit subscriptions";
+/// Why a session may follow no more books' requests for quote.
+const TOO_MANY_RFQ_BOOKS: &str = "at most 64 RFQ subscriptions";
+const _: () = assert!(MAX_LIMIT_SUBSCRIPTIONS == 64 && MAX_RFQ_SUBSCRIPTIONS == 64);
 /// The subprotocol a browser page offers when it opens the stream beside its token's,
 /// and the one the server selects: a browser fails the handshake when it offers
 /// protocols and none is selected.
@@ -73,6 +85,46 @@ fn limits_resync() -> ServerMessage {
     }
 }
 
+/// A request for quote on a followed book, as the session may read it now: the request,
+/// or in its place why it is withheld, as the list leaves it out.
+fn rfq_message(rfq: Arc<Rfq>, readable: Result<(), Withheld>) -> ServerMessage {
+    let Err(withheld) = readable else {
+        return ServerMessage::Rfq(rfq);
+    };
+    let book = rfq.book_id().as_str();
+    let (code, message) = match withheld {
+        Withheld::Forbidden => (
+            "FORBIDDEN",
+            format!(
+                "a request for quote on book {book} needs read access to each instrument the \
+                 book holds, a limit names or the request is for"
+            ),
+        ),
+        Withheld::Unchecked => (
+            "UNAVAILABLE",
+            format!(
+                "whether a request for quote on book {book} may be read could not be checked; \
+                 read /api/v1/rfqs"
+            ),
+        ),
+    };
+    ServerMessage::RfqWithheld {
+        book_id: book.to_owned(),
+        code,
+        message,
+    }
+}
+
+/// The session fell behind the RFQ stream.
+fn rfqs_resync() -> ServerMessage {
+    ServerMessage::Error {
+        code: "RESYNC_REQUIRED".into(),
+        message: "Subscribe to the books' requests for quote again to receive each open one, \
+                  or read /api/v1/rfqs; keep the newer by (rfq_key, record_id)"
+            .into(),
+    }
+}
+
 /// The session fell behind the valuation stream.
 fn valuations_resync() -> ServerMessage {
     ServerMessage::Error {
@@ -91,8 +143,7 @@ fn valuations_resync() -> ServerMessage {
 /// bond, ETF and portfolio subscriptions, is refused with `INVALID_MESSAGE`.
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
-#[allow(missing_docs)]
-pub enum ClientMessage {
+pub(crate) enum ClientMessage {
     /// Opt in to canonical snapshot-valued results.
     SubscribeValuations { instrument_ids: Vec<String> },
     /// Stop canonical valuation updates.
@@ -101,6 +152,10 @@ pub enum ClientMessage {
     SubscribeLimits { book_ids: Vec<String> },
     /// Stop limit status changes of these books.
     UnsubscribeLimits { book_ids: Vec<String> },
+    /// Opt in to each open request for quote on these books, and each later transition.
+    SubscribeRfqs { book_ids: Vec<String> },
+    /// Stop requests for quote on these books.
+    UnsubscribeRfqs { book_ids: Vec<String> },
     /// Ping (client heartbeat)
     Ping { timestamp: i64 },
 }
@@ -108,8 +163,7 @@ pub enum ClientMessage {
 /// Outbound WebSocket message to client.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-#[allow(missing_docs)]
-pub enum ServerMessage {
+pub(crate) enum ServerMessage {
     /// Connection established
     Connected {
         session_id: String,
@@ -136,6 +190,14 @@ pub enum ServerMessage {
     Valuation(Arc<convex_engine::ports::runtime::PublishedValuation>),
     /// A recorded change of one limit's status.
     LimitStatus(Arc<LimitStatusChange>),
+    /// A request for quote as its latest entry left it.
+    Rfq(Arc<Rfq>),
+    /// A request for quote on a followed book the session may not read now, in its place.
+    RfqWithheld {
+        book_id: String,
+        code: &'static str,
+        message: String,
+    },
 }
 
 // =============================================================================
@@ -185,16 +247,76 @@ impl Default for WebSocketState {
 // =============================================================================
 
 /// Per-client subscription state.
-#[derive(Default)]
 struct ClientSession {
     valuation_subscriptions: HashSet<InstrumentId>,
-    limit_subscriptions: HashSet<String>,
+    limits: BookTopic,
+    rfqs: BookTopic,
 }
 
 impl ClientSession {
-    /// Topics followed: instruments and books together, as the subscription quota counts them.
+    fn new() -> Self {
+        Self {
+            valuation_subscriptions: HashSet::new(),
+            limits: BookTopic::new(MAX_LIMIT_SUBSCRIPTIONS, TOO_MANY_LIMIT_BOOKS),
+            rfqs: BookTopic::new(MAX_RFQ_SUBSCRIPTIONS, TOO_MANY_RFQ_BOOKS),
+        }
+    }
+
+    /// Topics followed: instruments and each topic's books together, as the subscription
+    /// quota counts them.
     fn topic_count(&self) -> usize {
-        self.valuation_subscriptions.len() + self.limit_subscriptions.len()
+        self.valuation_subscriptions.len() + self.limits.followed.len() + self.rfqs.followed.len()
+    }
+}
+
+/// The books a session follows on one topic.
+struct BookTopic {
+    followed: HashSet<String>,
+    /// The most it follows, and the most a message lists.
+    most: usize,
+    /// Why more is refused.
+    too_many: &'static str,
+}
+
+impl BookTopic {
+    fn new(most: usize, too_many: &'static str) -> Self {
+        Self {
+            followed: HashSet::new(),
+            most,
+            too_many,
+        }
+    }
+
+    /// Follow `book_ids` too: the distinct books listed. Listing a book already followed
+    /// costs nothing.
+    fn follow(&mut self, book_ids: Vec<String>) -> Result<HashSet<String>, String> {
+        if book_ids.len() > self.most {
+            return Err(self.too_many.into());
+        }
+        for id in &book_ids {
+            crate::books::book_id(id.clone()).map_err(|_| "invalid book identity")?;
+        }
+        let listed: HashSet<String> = book_ids.into_iter().collect();
+        let added = listed
+            .iter()
+            .filter(|id| !self.followed.contains(*id))
+            .count();
+        if self.followed.len().saturating_add(added) > self.most {
+            return Err(self.too_many.into());
+        }
+        self.followed.extend(listed.iter().cloned());
+        Ok(listed)
+    }
+
+    /// Stop following `book_ids`: how many were listed.
+    fn unfollow(&mut self, book_ids: &[String]) -> Result<usize, String> {
+        if book_ids.len() > self.most {
+            return Err(self.too_many.into());
+        }
+        for id in book_ids {
+            self.followed.remove(id);
+        }
+        Ok(book_ids.len())
     }
 }
 
@@ -209,25 +331,30 @@ pub(crate) async fn ws_handler(
     profile: Option<Extension<ServerProfile>>,
     authorization: Option<Extension<WsAccess>>,
     limits: Option<Extension<LimitFeed>>,
+    desk: Option<Extension<Arc<RfqDesk>>>,
 ) -> impl IntoResponse {
     let profile = profile.map_or(ServerProfile::Production, |Extension(profile)| profile);
     let Some(Extension(authorization)) = authorization else {
         return crate::access::http::response(AccessError::Unauthenticated);
     };
     let limits = limits.map(|Extension(feed)| feed);
+    let desk = desk.map(|Extension(desk)| desk);
     ws.protocols([STREAM_PROTOCOL])
         .max_message_size(MAX_MESSAGE_BYTES)
         .max_frame_size(MAX_MESSAGE_BYTES)
-        .on_upgrade(move |socket| handle_socket(socket, state, profile, authorization, limits))
+        .on_upgrade(move |socket| {
+            handle_socket(socket, state, profile, authorization, limits, desk)
+        })
         .into_response()
 }
 
-/// The next recorded limit status change, or never without a monitor.
-async fn next_limit(
-    frames: &mut Option<broadcast::Receiver<Arc<LimitFrame>>>,
-) -> Result<Arc<LimitFrame>, broadcast::error::RecvError> {
-    match frames {
-        Some(frames) => frames.recv().await,
+/// The next frame on `feed`, or never without one: a server without a limit monitor or an
+/// RFQ desk has no such feed.
+async fn next_on<T: Clone>(
+    feed: &mut Option<broadcast::Receiver<T>>,
+) -> Result<T, broadcast::error::RecvError> {
+    match feed {
+        Some(feed) => feed.recv().await,
         None => std::future::pending().await,
     }
 }
@@ -239,6 +366,7 @@ async fn handle_socket(
     profile: ServerProfile,
     mut authorization: WsAccess,
     limits: Option<LimitFeed>,
+    desk: Option<Arc<RfqDesk>>,
 ) {
     let ws_state = &state.ws_state;
 
@@ -252,12 +380,13 @@ async fn handle_socket(
         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
     // Create client session
-    let mut session = ClientSession::default();
+    let mut session = ClientSession::new();
 
     // The runtime results channel is the only source of streamed messages.
     let mut valuation_rx = state.engine.subscribe_results();
     let mut limit_rx = limits.as_ref().map(LimitFeed::subscribe);
     let monitored = limit_rx.is_some();
+    let mut rfq_rx = desk.as_ref().map(|desk| desk.subscribe());
     let mut shutdown_rx = state.engine.subscribe_shutdown();
 
     // Split socket into sender and receiver
@@ -316,11 +445,11 @@ async fn handle_socket(
                     Err(broadcast::error::RecvError::Closed) => break,
                 }
             }
-            frame = next_limit(&mut limit_rx) => {
+            frame = next_on::<Arc<LimitFrame>>(&mut limit_rx) => {
                 match frame {
                     Ok(frame) => {
                         let book = frame.change.book_id.as_str();
-                        if session.limit_subscriptions.contains(book) {
+                        if session.limits.followed.contains(book) {
                             // As the status route: the book and every instrument it holds or a limit names.
                             let message = if limit_permission(book, frame.instruments.iter(), &authorization).is_ok() {
                                 ServerMessage::LimitStatus(frame.change.clone())
@@ -331,9 +460,27 @@ async fn handle_socket(
                         }
                     }
                     Err(broadcast::error::RecvError::Lagged(_)) => {
-                        if !session.limit_subscriptions.is_empty() && send_message(&mut sender, &limits_resync(), profile, &authorization).await.is_err() { break; }
+                        if !session.limits.followed.is_empty() && send_message(&mut sender, &limits_resync(), profile, &authorization).await.is_err() { break; }
                     }
                     Err(broadcast::error::RecvError::Closed) => limit_rx = None,
+                }
+            }
+            frame = next_on::<Arc<RfqFrame>>(&mut rfq_rx) => {
+                match frame {
+                    Ok(frame) => {
+                        let book = frame.rfq.book_id();
+                        if session.rfqs.followed.contains(book.as_str()) {
+                            // As the list reads it. The book's instruments are read once, by the
+                            // first session to send the frame, and each session checks its own access.
+                            let instruments = frame.book_instruments.get_or_init(|| book_instruments(state.engine.reference_repository().as_ref(), book)).await;
+                            let message = rfq_message(frame.rfq.clone(), readable(&authorization.access, Some(&authorization.context), &frame.rfq, instruments));
+                            if send_message(&mut sender, &message, profile, &authorization).await.is_err() { break; }
+                        }
+                    }
+                    Err(broadcast::error::RecvError::Lagged(_)) => {
+                        if !session.rfqs.followed.is_empty() && send_message(&mut sender, &rfqs_resync(), profile, &authorization).await.is_err() { break; }
+                    }
+                    Err(broadcast::error::RecvError::Closed) => rfq_rx = None,
                 }
             }
             // Handle incoming messages from client
@@ -342,11 +489,11 @@ async fn handle_socket(
                 let admission = match authorization.access.admit_message(&authorization.context) { Ok(admission) => admission, Err(_) => { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; } };
                 match msg {
                     Ok(Message::Text(text)) => {
-                        if handle_client_payload(Ok(&text), admission, &mut session, &mut sender, profile, &authorization, monitored, &state.engine).await.is_err() { break; }
+                        if handle_client_payload(Ok(&text), admission, &mut session, &mut sender, profile, &authorization, monitored, &state, desk.as_deref()).await.is_err() { break; }
                     }
                     Ok(Message::Binary(data)) => {
                         let text = std::str::from_utf8(&data).map_err(|_| "INVALID_MESSAGE".to_owned());
-                        if handle_client_payload(text, admission, &mut session, &mut sender, profile, &authorization, monitored, &state.engine).await.is_err() { break; }
+                        if handle_client_payload(text, admission, &mut session, &mut sender, profile, &authorization, monitored, &state, desk.as_deref()).await.is_err() { break; }
                     }
                     Ok(Message::Ping(data)) => {
                         if !tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Pong(data))).await.is_ok_and(|r| r.is_ok()) {
@@ -401,10 +548,15 @@ async fn handle_client_payload(
     profile: ServerProfile,
     authorization: &WsAccess,
     monitored: bool,
-    engine: &convex_engine::PricingEngine,
+    state: &AppState,
+    desk: Option<&RfqDesk>,
 ) -> Result<(), axum::Error> {
-    let result = text
-        .and_then(|text| handle_client_message(text, session, authorization, monitored, engine));
+    let result = match text {
+        Ok(text) => {
+            handle_client_message(text, session, authorization, monitored, state, desk).await
+        }
+        Err(error) => Err(error),
+    };
     drop(admission);
     match result {
         Ok(replies) => {
@@ -456,13 +608,15 @@ fn per_message() -> String {
 }
 
 /// The replies to a client message, in order, or the reason it is refused.
-fn handle_client_message(
+async fn handle_client_message(
     text: &str,
     session: &mut ClientSession,
     authorization: &WsAccess,
     monitored: bool,
-    engine: &convex_engine::PricingEngine,
+    state: &AppState,
+    desk: Option<&RfqDesk>,
 ) -> Result<Vec<ServerMessage>, String> {
+    let engine = &state.engine;
     let msg: ClientMessage =
         serde_json::from_str(text).map_err(|_| "INVALID_MESSAGE".to_owned())?;
 
@@ -530,41 +684,44 @@ fn handle_client_message(
             if !monitored {
                 return Err(NOT_MONITORED.into());
             }
-            if book_ids.len() > MAX_LIMIT_SUBSCRIPTIONS {
-                return Err("at most 64 limit subscriptions".into());
-            }
-            for id in &book_ids {
-                crate::books::book_id(id.clone()).map_err(|_| "invalid book identity")?;
-            }
-            let listed: HashSet<String> = book_ids.into_iter().collect();
-            // The distinct books listed; listing a book already followed costs nothing.
-            let count = listed.len();
-            let added = listed
-                .iter()
-                .filter(|id| !session.limit_subscriptions.contains(*id))
-                .count();
-            if session.limit_subscriptions.len().saturating_add(added) > MAX_LIMIT_SUBSCRIPTIONS {
-                return Err("at most 64 limit subscriptions".into());
-            }
-            session.limit_subscriptions.extend(listed);
             ServerMessage::Subscribed {
                 subscription_type: "limits".into(),
-                count,
+                count: session.limits.follow(book_ids)?.len(),
             }
         }
-        ClientMessage::UnsubscribeLimits { book_ids } => {
-            if book_ids.len() > MAX_LIMIT_SUBSCRIPTIONS {
-                return Err("at most 64 limit subscriptions".into());
+        ClientMessage::UnsubscribeLimits { book_ids } => ServerMessage::Unsubscribed {
+            subscription_type: "limits".into(),
+            count: session.limits.unfollow(&book_ids)?,
+        },
+        ClientMessage::SubscribeRfqs { book_ids } => {
+            let Some(desk) = desk else {
+                return Err(NO_RFQ_DESK.into());
+            };
+            let listed = session.rfqs.follow(book_ids)?;
+            // Each open request on the listed books, by deadline, then the acknowledgement.
+            // They are read after the subscription is in place, so a transition recorded
+            // meanwhile is either in this read or follows on the stream; one still queued
+            // on the stream can be older than the request sent here.
+            let repo = state.engine.reference_repository().as_ref();
+            let mut reader =
+                RfqReader::new(&authorization.access, Some(&authorization.context), repo);
+            let mut replies = Vec::new();
+            for rfq in desk.open_rfqs().await {
+                if listed.contains(rfq.book_id().as_str()) {
+                    let readable = reader.readable(&rfq).await;
+                    replies.push(rfq_message(rfq, readable));
+                }
             }
-            let count = book_ids.len();
-            for id in &book_ids {
-                session.limit_subscriptions.remove(id);
-            }
-            ServerMessage::Unsubscribed {
-                subscription_type: "limits".into(),
-                count,
-            }
+            replies.push(ServerMessage::Subscribed {
+                subscription_type: "rfqs".into(),
+                count: listed.len(),
+            });
+            return Ok(replies);
         }
+        ClientMessage::UnsubscribeRfqs { book_ids } => ServerMessage::Unsubscribed {
+            subscription_type: "rfqs".into(),
+            count: session.rfqs.unfollow(&book_ids)?,
+        },
         ClientMessage::Ping { timestamp } => ServerMessage::Pong {
             timestamp,
             server_time: current_timestamp(),
@@ -644,7 +801,7 @@ fn session_authorized(
     for id in &session.valuation_subscriptions {
         valuation_permission(id.as_str(), authorization)?;
     }
-    for book in &session.limit_subscriptions {
+    for book in session.limits.followed.iter().chain(&session.rfqs.followed) {
         limit_permission(book, [], authorization)?;
     }
     Ok(())
@@ -668,13 +825,16 @@ fn authorize_subscription(
             return Ok(());
         }
         ClientMessage::SubscribeLimits { book_ids } => {
-            return authorize_limits(book_ids, session, authorization)
+            return authorize_books(book_ids, &session.limits, session, authorization)
+        }
+        ClientMessage::SubscribeRfqs { book_ids } => {
+            return authorize_books(book_ids, &session.rfqs, session, authorization)
         }
         ClientMessage::UnsubscribeLimits { book_ids } => {
-            if book_ids.len() > MAX_LIMIT_SUBSCRIPTIONS {
-                return Err(AccessError::Quota);
-            }
-            return Ok(());
+            return within(book_ids.len(), session.limits.most)
+        }
+        ClientMessage::UnsubscribeRfqs { book_ids } => {
+            return within(book_ids.len(), session.rfqs.most)
         }
         ClientMessage::Ping { .. } => return Ok(()),
     };
@@ -706,20 +866,23 @@ fn authorize_subscription(
     Ok(())
 }
 
-/// Whether the session may follow these books, within its topic quota.
-fn authorize_limits(
+/// Whether a message listing `listed` books fits a topic taking at most `most`.
+fn within(listed: usize, most: usize) -> Result<(), AccessError> {
+    if listed > most {
+        return Err(AccessError::Quota);
+    }
+    Ok(())
+}
+
+/// Whether the session may follow these books on `topic` too, within its topic quota.
+fn authorize_books(
     ids: &[String],
+    topic: &BookTopic,
     session: &ClientSession,
     authorization: &WsAccess,
 ) -> Result<(), AccessError> {
-    if ids.len() > MAX_LIMIT_SUBSCRIPTIONS {
-        return Err(AccessError::Quota);
-    }
-    let mut prospective: HashSet<&str> = session
-        .limit_subscriptions
-        .iter()
-        .map(String::as_str)
-        .collect();
+    within(ids.len(), topic.most)?;
+    let mut prospective: HashSet<&str> = topic.followed.iter().map(String::as_str).collect();
     let before = prospective.len();
     for id in ids {
         if !crate::access::policy::valid_id(id) || id == "*" {
@@ -761,6 +924,9 @@ fn authorize_delivery(
     }
     if let ServerMessage::LimitStatus(change) = message {
         limit_permission(change.book_id.as_str(), [], authorization)?;
+    }
+    if let ServerMessage::Rfq(rfq) = message {
+        limit_permission(rfq.book_id().as_str(), [], authorization)?;
     }
     Ok(())
 }

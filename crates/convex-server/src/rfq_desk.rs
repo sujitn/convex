@@ -20,6 +20,10 @@
 //! text up to 128 bytes, and an entity ID holds 128. A retry is recognised from the key's
 //! first entry, so a source's id stays taken after its request leaves memory, until
 //! retention removes that entry.
+//!
+//! Each transition of a request this run holds is published, once recorded, to the `rfq`
+//! topic's sessions, with its entry's ID; a request a previous run left open is not, since
+//! no session of this run saw it open.
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -32,14 +36,16 @@ use convex_core::contracts::{ExactDecimal, InstrumentId, SourceId, UtcTimestamp,
 use convex_core::types::WidthFactor;
 use convex_engine::ports::limits::LimitStatus;
 use convex_engine::ports::quote_event::QuoteInput;
+use convex_engine::ports::reference_master::BookId;
+use convex_engine::ports::reference_repository::ReferenceError;
 use convex_engine::ports::rfq::{
     transition, ClientTier, DeskSide, ExpiryReason, RfqActor, RfqEvent, RfqRequest, RfqState,
     RfqTransitionError, SourceOutcome, MAX_RFQ_DEADLINE_MS,
 };
 use convex_engine::ports::storage::{AuditEntry, MAX_AUDIT_BATCH, MAX_ENTITY_PAGE};
 use convex_engine::ports::TraitError;
-use serde::{Deserialize, Serialize};
-use tokio::sync::{watch, Mutex, Notify};
+use serde::{Deserialize, Serialize, Serializer};
+use tokio::sync::{broadcast, watch, Mutex, Notify, OnceCell};
 
 use crate::access::AccessError;
 use crate::audit_writer::AuditWriter;
@@ -50,15 +56,22 @@ pub(crate) const RFQ_EVENT: &str = "rfq";
 pub(crate) const RFQ_ENTITY: &str = "rfq";
 /// The most requests open at once; ingest refuses more with `RFQ_CAPACITY`.
 pub const MAX_OPEN_RFQS: usize = 256;
+/// The longest reason a request is unpriced, in bytes; a longer one is cut.
+const MAX_UNPRICED_REASON_BYTES: usize = 512;
 /// Requests open.
 pub const OPEN_RFQS: &str = "convex_rfqs_open";
 /// Time from a request's receipt to its `priced` entry, in seconds.
 pub const RFQ_PRICING_SECONDS: &str = "convex_rfq_pricing_seconds";
 /// How soon a failed read or append is tried again.
 const RETRY: Duration = Duration::from_secs(1);
+/// Transitions a session may fall behind by before it is told to subscribe again: every
+/// open request expiring in one pass, and as many again.
+const FEED_CAPACITY: usize = 2 * MAX_OPEN_RFQS;
 /// The clock is outside the range a timestamp holds.
 const OUT_OF_RANGE: TraitError =
     TraitError::InvalidInput("the clock is outside the supported range");
+/// Why a server without a desk refuses requests for quote.
+pub(crate) const NO_RFQ_DESK: &str = "this server takes no requests for quote";
 
 /// The server's key for a request: a digest of its source and the source's id for it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
@@ -134,6 +147,14 @@ pub(crate) enum AutoPrice {
     Unpriced { reason: String },
 }
 
+impl AutoPrice {
+    /// Unpriced for `reason`, cut to [`MAX_UNPRICED_REASON_BYTES`].
+    pub(crate) fn unpriced(mut reason: String) -> Self {
+        reason.truncate(reason.floor_char_boundary(MAX_UNPRICED_REASON_BYTES));
+        Self::Unpriced { reason }
+    }
+}
+
 /// The desk side's price and what it was made from.
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct PricedSide {
@@ -187,6 +208,7 @@ pub(crate) struct SentQuote {
 }
 
 /// A request received and priced, to be admitted.
+#[derive(Debug)]
 pub(crate) struct Admission {
     pub(crate) rfq_key: RfqKey,
     pub(crate) receipt: Receipt,
@@ -195,12 +217,112 @@ pub(crate) struct Admission {
     pub(crate) sender: String,
 }
 
-/// An open request: what it was admitted with, where it stands, and the quote sent.
-#[derive(Clone)]
-pub(crate) struct OpenRfq {
+/// A request this run holds, as its latest entry left it: what it was admitted with, where
+/// it stands, the quote sent, and that entry's ID. A session keeps, of two, the one with the
+/// higher `record_id`.
+#[derive(Debug, Clone)]
+pub(crate) struct Rfq {
     pub(crate) admission: Arc<Admission>,
     pub(crate) state: RfqState,
     pub(crate) quote: Option<SentQuote>,
+    pub(crate) record_id: u64,
+}
+
+impl Rfq {
+    /// The book it is on.
+    pub(crate) fn book_id(&self) -> &BookId {
+        &self.admission.receipt.request.book_id
+    }
+
+    /// The bond it is for, as resolved at receipt.
+    pub(crate) fn instrument_id(&self) -> &InstrumentId {
+        &self.admission.receipt.instrument_id
+    }
+}
+
+/// A transition on its way to the `rfq` topic's sessions: the request as its entry left
+/// it, and the instruments its book needs a reader to hold, read once, by the first session
+/// that sends it.
+pub(crate) struct RfqFrame {
+    pub(crate) rfq: Arc<Rfq>,
+    pub(crate) book_instruments: OnceCell<Result<Arc<[String]>, ReferenceError>>,
+}
+
+/// A request as the list and the `rfq` topic show it: what was received, the desk side's
+/// auto price, how many of the book's limits the check put in each status, and the quote
+/// sent. Its entries carry what each was made from.
+impl Serialize for Rfq {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let admission = &self.admission;
+        let receipt = &admission.receipt;
+        RfqRow {
+            rfq_key: &admission.rfq_key,
+            record_id: self.record_id,
+            state: self.state,
+            request: &receipt.request,
+            instrument_id: &receipt.instrument_id,
+            instrument_version: receipt.instrument_version,
+            received_at: receipt.received_at,
+            auto_price: match &admission.pricing.auto_price {
+                AutoPrice::Priced(side) => AutoPriceRow::Priced {
+                    desk_side: side.desk_side,
+                    clean_price: &side.clean_price,
+                    level: side.level.as_ref(),
+                    clean_price_mid: &side.clean_price_mid,
+                    mid_only: side.mid_only,
+                },
+                AutoPrice::Unpriced { reason } => AutoPriceRow::Unpriced { reason },
+            },
+            check: match &admission.pricing.check {
+                LimitCheck::Evaluated { statuses, .. } => CheckRow::Evaluated { statuses },
+                LimitCheck::Unavailable { reason } => CheckRow::Unavailable { reason },
+            },
+            quote: self.quote.as_ref(),
+        }
+        .serialize(serializer)
+    }
+}
+
+#[derive(Serialize)]
+struct RfqRow<'a> {
+    rfq_key: &'a RfqKey,
+    record_id: u64,
+    state: RfqState,
+    request: &'a RfqRequest,
+    instrument_id: &'a InstrumentId,
+    instrument_version: Version,
+    received_at: UtcTimestamp,
+    auto_price: AutoPriceRow<'a>,
+    check: CheckRow<'a>,
+    quote: Option<&'a SentQuote>,
+}
+
+/// [`AutoPrice`] without what it was made from.
+#[derive(Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum AutoPriceRow<'a> {
+    Priced {
+        desk_side: DeskSide,
+        clean_price: &'a ExactDecimal,
+        level: Option<&'a ExactDecimal>,
+        clean_price_mid: &'a ExactDecimal,
+        mid_only: Option<&'static str>,
+    },
+    Unpriced {
+        reason: &'a str,
+    },
+}
+
+/// [`LimitCheck`] as the count of limits in each status.
+#[derive(Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum CheckRow<'a> {
+    Evaluated {
+        statuses: &'a BTreeMap<LimitStatus, usize>,
+    },
+    Unavailable {
+        reason: &'static str,
+    },
 }
 
 /// A transition as recorded: the event that makes it and what it carries. Each moves a
@@ -314,11 +436,12 @@ pub(crate) enum Refused {
     Unrecorded(TraitError),
 }
 
-/// The open requests, the writer their transitions are recorded through, and the task's
-/// wake-up.
+/// The open requests, the writer their transitions are recorded through, the topic they
+/// are published to, and the task's wake-up.
 pub(crate) struct RfqDesk {
     writer: Arc<AuditWriter>,
-    open: Mutex<BTreeMap<RfqKey, OpenRfq>>,
+    open: Mutex<BTreeMap<RfqKey, Arc<Rfq>>>,
+    feed: broadcast::Sender<Arc<RfqFrame>>,
     /// A new request may have the nearest deadline.
     wake: Notify,
     /// Every request a previous run left open has been recorded expired, and no expiry
@@ -331,6 +454,7 @@ impl RfqDesk {
         Arc::new(Self {
             writer,
             open: Mutex::new(BTreeMap::new()),
+            feed: broadcast::channel(FEED_CAPACITY).0,
             wake: Notify::new(),
             ready: AtomicBool::new(false),
         })
@@ -346,9 +470,39 @@ impl RfqDesk {
         self.open.lock().await.len()
     }
 
-    /// Every open request, by key.
-    pub(crate) async fn open_rfqs(&self) -> Vec<OpenRfq> {
-        self.open.lock().await.values().cloned().collect()
+    /// Every open request, by deadline, then key.
+    pub(crate) async fn open_rfqs(&self) -> Vec<Arc<Rfq>> {
+        let mut rfqs: Vec<Arc<Rfq>> = self.open.lock().await.values().cloned().collect();
+        rfqs.sort_by(|a, b| {
+            let (a, b) = (&a.admission, &b.admission);
+            (a.receipt.request.deadline, &a.rfq_key).cmp(&(b.receipt.request.deadline, &b.rfq_key))
+        });
+        rfqs
+    }
+
+    /// Each transition from now on, once recorded. A subscriber that falls behind by more
+    /// than [`FEED_CAPACITY`] is told it lagged.
+    pub(crate) fn subscribe(&self) -> broadcast::Receiver<Arc<RfqFrame>> {
+        self.feed.subscribe()
+    }
+
+    /// Apply `rfq` as its entry, just written, left it: publish it, and hold it while it is
+    /// open. Called under the open lock, so a request's transitions are published in their
+    /// entries' order.
+    fn settle(&self, open: &mut BTreeMap<RfqKey, Arc<Rfq>>, rfq: Rfq) {
+        let rfq = Arc::new(rfq);
+        // None subscribed is not a failure.
+        let _ = self.feed.send(Arc::new(RfqFrame {
+            rfq: rfq.clone(),
+            book_instruments: OnceCell::new(),
+        }));
+        let key = rfq.admission.rfq_key.clone();
+        if rfq.state.is_final() {
+            open.remove(&key);
+        } else {
+            open.insert(key, rfq);
+        }
+        metrics::gauge!(OPEN_RFQS).set(open.len() as f64);
     }
 
     /// Every entry of the request `key`, in order, from its receipt: none if no receipt
@@ -438,25 +592,29 @@ impl RfqDesk {
             let chunk: Vec<_> = taking.by_ref().take(MAX_AUDIT_BATCH / 2).collect();
             let admissions: Vec<&Admission> =
                 chunk.iter().map(|(_, admission)| admission).collect();
-            let recorded = match self.record_admissions(&admissions).await {
-                Err(TraitError::CapacityExceeded) if chunk.len() > 1 => {
-                    let mut each = Vec::with_capacity(chunk.len());
-                    for admission in &admissions {
-                        each.push(self.record_admissions(&[admission]).await);
+            let recorded: Vec<Result<u64, TraitError>> =
+                match self.record_admissions(&admissions).await {
+                    Ok(ids) => ids.into_iter().map(Ok).collect(),
+                    Err(TraitError::CapacityExceeded) if chunk.len() > 1 => {
+                        let mut each = Vec::with_capacity(chunk.len());
+                        for admission in &admissions {
+                            let ids = self.record_admissions(&[admission]).await;
+                            each.push(ids.map(|ids| ids[0]));
+                        }
+                        each
                     }
-                    each
-                }
-                recorded => vec![recorded; chunk.len()],
-            };
+                    Err(error) => vec![Err(error); chunk.len()],
+                };
             for ((at, admission), recorded) in chunk.into_iter().zip(recorded) {
                 match recorded {
-                    Ok(()) => {
-                        let rfq = OpenRfq {
+                    Ok(record_id) => {
+                        let rfq = Rfq {
                             admission: Arc::new(admission),
                             state: RfqState::Priced,
                             quote: None,
+                            record_id,
                         };
-                        open.insert(rfq.admission.rfq_key.clone(), rfq);
+                        self.settle(&mut open, rfq);
                     }
                     Err(error) => {
                         if let Some(answer) = answers.get_mut(at) {
@@ -466,13 +624,14 @@ impl RfqDesk {
                 }
             }
         }
-        metrics::gauge!(OPEN_RFQS).set(open.len() as f64);
         drop(open);
         self.wake.notify_one();
         answers
     }
 
-    async fn record_admissions(&self, admissions: &[&Admission]) -> Result<(), TraitError> {
+    /// Record each of `admissions` received and priced: the ID of each one's `priced`
+    /// entry, in order.
+    async fn record_admissions(&self, admissions: &[&Admission]) -> Result<Vec<u64>, TraitError> {
         let mut entries = Vec::with_capacity(admissions.len() * 2);
         for admission in admissions {
             let received = Recorded::Received {
@@ -494,7 +653,10 @@ impl RfqDesk {
                 admission.pricing.priced_at,
             )?);
         }
-        self.append(entries).await
+        let first = self.append(entries).await?;
+        Ok((0..admissions.len() as u64)
+            .map(|index| first + 2 * index + 1)
+            .collect())
     }
 
     /// Move the request `key` as `record` says, sent by `user`, once `allowed` admits the
@@ -513,7 +675,7 @@ impl RfqDesk {
                 "a request is received only at ingest",
             )))?;
         let mut open = self.open.lock().await;
-        let Some(rfq) = open.get_mut(key) else {
+        let Some(rfq) = open.get(key).cloned() else {
             drop(open);
             let known = match self.recorded(key).await {
                 Ok(Some(known)) => known,
@@ -534,49 +696,63 @@ impl RfqDesk {
                 reason: ExpiryReason::Deadline,
             };
             let expired = entry(key, &expiry, None, now).map_err(Refused::Unrecorded)?;
-            self.append(vec![expired])
+            let record_id = self
+                .append(vec![expired])
                 .await
                 .map_err(Refused::Unrecorded)?;
-            open.remove(key);
-            metrics::gauge!(OPEN_RFQS).set(open.len() as f64);
+            let rfq = Rfq {
+                state: RfqState::Expired,
+                record_id,
+                ..Rfq::clone(&rfq)
+            };
+            self.settle(&mut open, rfq);
             return Err(Refused::Transition(RfqTransitionError::Final(
                 RfqState::Expired,
             )));
         }
         let state = transition(rfq.state, event).map_err(Refused::Transition)?;
         let moved = entry(key, &record, Some(user), now).map_err(Refused::Unrecorded)?;
-        self.append(vec![moved])
+        let record_id = self
+            .append(vec![moved])
             .await
             .map_err(Refused::Unrecorded)?;
-        rfq.state = state;
-        if let Recorded::Quoted { quote } = record {
-            rfq.quote = Some(quote.clone());
-        }
-        if state.is_final() {
-            open.remove(key);
-            metrics::gauge!(OPEN_RFQS).set(open.len() as f64);
-        }
+        let quote = match record {
+            Recorded::Quoted { quote } => Some(quote.clone()),
+            _ => rfq.quote.clone(),
+        };
+        let rfq = Rfq {
+            admission: rfq.admission.clone(),
+            state,
+            quote,
+            record_id,
+        };
+        self.settle(&mut open, rfq);
         Ok(state)
     }
 
-    /// Append `entries`, built without IDs, taking their IDs under the writer.
-    async fn append(&self, mut entries: Vec<AuditEntry>) -> Result<(), TraitError> {
+    /// Append `entries`, at least one, built without IDs: they take consecutive IDs under
+    /// the writer, the first of which is returned.
+    async fn append(&self, mut entries: Vec<AuditEntry>) -> Result<u64, TraitError> {
         let mut writer = self.writer.hold().await?;
         for entry in &mut entries {
             entry.id = writer.take_id().ok_or(TraitError::CapacityExceeded)?;
         }
-        writer.append_all(&entries).await
+        writer.append_all(&entries).await?;
+        entries
+            .first()
+            .map(|entry| entry.id)
+            .ok_or(TraitError::InvalidInput("nothing to append"))
     }
 
     /// Record `keys` expired for `reason` at `at`, a batch at a time, and one by one in a
-    /// batch the store refuses for capacity, so what fits is recorded: the keys recorded,
-    /// and the failure that stopped the rest.
+    /// batch the store refuses for capacity, so what fits is recorded: each key recorded
+    /// with its entry's ID, and the failure that stopped the rest.
     async fn expire(
         &self,
         keys: &[RfqKey],
         reason: ExpiryReason,
         at: UtcTimestamp,
-    ) -> (Vec<RfqKey>, Result<(), TraitError>) {
+    ) -> (Vec<(RfqKey, u64)>, Result<(), TraitError>) {
         let expiry = Recorded::Expired { reason };
         let append = |keys: &[RfqKey]| {
             let entries = keys
@@ -588,13 +764,13 @@ impl RfqDesk {
         let mut recorded = Vec::with_capacity(keys.len());
         for chunk in keys.chunks(MAX_AUDIT_BATCH) {
             match append(chunk).await {
-                Ok(()) => recorded.extend_from_slice(chunk),
+                Ok(first) => recorded.extend(chunk.iter().cloned().zip(first..)),
                 Err(TraitError::CapacityExceeded) if chunk.len() > 1 => {
                     for key in chunk {
-                        if let Err(error) = append(std::slice::from_ref(key)).await {
-                            return (recorded, Err(error));
+                        match append(std::slice::from_ref(key)).await {
+                            Ok(record_id) => recorded.push((key.clone(), record_id)),
+                            Err(error) => return (recorded, Err(error)),
                         }
-                        recorded.push(key.clone());
                     }
                 }
                 Err(error) => return (recorded, Err(error)),
@@ -617,9 +793,17 @@ impl RfqDesk {
             .map(|(key, _)| key.clone())
             .collect();
         let (recorded, outcome) = self.expire(&due, ExpiryReason::Deadline, now).await;
-        for key in &recorded {
-            open.remove(key);
+        for (key, record_id) in recorded {
+            if let Some(rfq) = open.get(&key).cloned() {
+                let rfq = Rfq {
+                    state: RfqState::Expired,
+                    record_id,
+                    ..Rfq::clone(&rfq)
+                };
+                self.settle(&mut open, rfq);
+            }
         }
+        // Set on each pass, so the gauge reads 0 before the first request.
         metrics::gauge!(OPEN_RFQS).set(open.len() as f64);
         self.ready.store(outcome.is_ok(), Ordering::Release);
         if let Err(error) = outcome {
@@ -781,6 +965,74 @@ mod tests {
             action: action.into(),
             details: None,
         }
+    }
+
+    /// The largest request the desk can hold, as the list and the topic show it, is far
+    /// inside a stream message's 64 KiB: every name at its longest and escaped twice over,
+    /// the bond named by a provider's identifier, and the longest reason it is unpriced.
+    #[test]
+    fn the_largest_request_shown_fits_one_stream_message_many_times_over() {
+        let name = |bytes: usize| "\"".repeat(bytes);
+        let id = |bytes: usize| "I".repeat(bytes);
+        let request: RfqRequest = serde_json::from_value(serde_json::json!({
+            "source_id": id(128),
+            "rfq_id": name(128),
+            "client_id": name(128),
+            "client_tier": name(32),
+            "identifier": {"kind": "provider", "namespace": id(128), "value": name(128)},
+            "side": "buy",
+            "face": "9999999999999999999999999.99",
+            "settlement_date": "2026-11-25",
+            "book_id": id(128),
+            "deadline": "2026-11-23T12:00:00.000Z",
+        }))
+        .unwrap();
+        let at = UtcTimestamp::parse("2026-11-23T12:00:00Z").unwrap();
+        let price = ExactDecimal::parse("99999999999999.999999999999").unwrap();
+        let client_tier = request.client_tier.clone();
+        let rfq = Rfq {
+            admission: Arc::new(Admission {
+                rfq_key: RfqKey::of(&request),
+                receipt: Receipt {
+                    request,
+                    instrument_id: InstrumentId::new(id(128)).unwrap(),
+                    instrument_version: Version::new(u64::MAX).unwrap(),
+                    received_at: at,
+                },
+                pricing: RfqPricing {
+                    configuration: PricedUnder {
+                        configuration_id: SourceId::new(id(128)).unwrap(),
+                        version: Version::new(u64::MAX).unwrap(),
+                        activation_revision: Version::new(u64::MAX).unwrap(),
+                        client_tier,
+                        width_factor: serde_json::from_value(serde_json::json!("10")).unwrap(),
+                    },
+                    auto_price: AutoPrice::unpriced(name(4 * MAX_UNPRICED_REASON_BYTES)),
+                    check: LimitCheck::Evaluated {
+                        status: serde_json::Value::Null,
+                        statuses: [
+                            LimitStatus::Within,
+                            LimitStatus::Warning,
+                            LimitStatus::Unknown,
+                            LimitStatus::Breach,
+                        ]
+                        .into_iter()
+                        .map(|status| (status, usize::MAX))
+                        .collect(),
+                    },
+                    priced_at: at,
+                },
+                sender: name(128),
+            }),
+            state: RfqState::TradedAway,
+            quote: Some(SentQuote {
+                clean_price: price,
+                quoted_at: at,
+            }),
+            record_id: u64::MAX,
+        };
+        let shown = serde_json::to_string(&rfq).unwrap();
+        assert!(shown.len() < 8 * 1024, "{} bytes", shown.len());
     }
 
     /// Another writer's entry may carry an earlier time than an `rfq` entry before it, as
