@@ -12,6 +12,9 @@
 //! on the latest results; it never queues. The server runs it on a thread of its own, so
 //! its evaluations and audit commits never hold a worker serving requests and ticks.
 //!
+//! The monitor appends through the audit store's one writer, which it shares with the RFQ
+//! desk, so entry IDs commit in order.
+//!
 //! A status *change* is recorded before it is published: one `AuditStore` record per
 //! limit whose status differs from its last recorded one, then one `limit_status` frame.
 //! One evaluation of a book writes all its records in one `append_all`, a single
@@ -45,8 +48,9 @@
 //! pre-trade check read no record, so they still show the status of the moment. A hold of
 //! zero records every change at once.
 //!
-//! Retention: with `limits.record_retention_days` set, the monitor, the
-//! store's only writer, prunes `limit_status` records older than the period. At start,
+//! Retention: with `limits.record_retention_days` set, the monitor, the store's one
+//! pruner, removes `limit_status` and `rfq` records older than the period; the period is
+//! at least 8 days, and a request for quote is open for 300 seconds at most. At start,
 //! after it reads the sets and acknowledgements and before it records any book, it prunes
 //! keeping only the records acknowledgements in force name, so a store at its cap records
 //! the restate that follows. Then once an hour it prunes again, also keeping each watched
@@ -84,6 +88,7 @@ use convex_engine::PricingEngine;
 use serde::Serialize;
 use tokio::sync::{broadcast, watch};
 
+use crate::audit_writer::AuditWriter;
 use crate::books::{accepted_results, book_of};
 use crate::limits::{
     evaluate_book, named_instruments, read_priced_terms, set_of, Accepted, PricedTerms,
@@ -274,7 +279,7 @@ impl Stop {
 
 /// The monitor a server composes over its audit store. [`LimitMonitor::run`] is its task.
 pub(crate) struct LimitMonitor {
-    audit: Arc<dyn AuditStore>,
+    writer: Arc<AuditWriter>,
     feed: broadcast::Sender<Arc<LimitFrame>>,
     /// The clear hold.
     hold: Duration,
@@ -286,10 +291,11 @@ pub(crate) struct LimitMonitor {
 }
 
 impl LimitMonitor {
-    /// A monitor over `audit` with the clear hold `hold` and, if `retention_days` is set, a
-    /// retention of that many days, held to 8 to 3,650 whatever built the configuration.
+    /// A monitor recording through `writer` with the clear hold `hold` and, if
+    /// `retention_days` is set, a retention of that many days, held to 8 to 3,650 whatever
+    /// built the configuration.
     pub(crate) fn new(
-        audit: Arc<dyn AuditStore>,
+        writer: Arc<AuditWriter>,
         hold: Duration,
         retention_days: Option<u64>,
     ) -> Arc<Self> {
@@ -300,7 +306,7 @@ impl LimitMonitor {
                 .and_then(|ms| i64::try_from(ms).ok())
         });
         Arc::new(Self {
-            audit,
+            writer,
             feed: broadcast::channel(FEED_CAPACITY).0,
             hold,
             retention_ms,
@@ -314,7 +320,7 @@ impl LimitMonitor {
 
     /// The store the monitor records in, which the records route reads.
     pub(crate) fn records(&self) -> Arc<dyn AuditStore> {
-        self.audit.clone()
+        self.writer.store().clone()
     }
 
     /// Watch and evaluate until `stop` turns true or the engine shuts down.
@@ -339,9 +345,9 @@ impl LimitMonitor {
         let mut task = Task {
             engine,
             ledger: Ledger {
-                audit: self.audit.clone(),
+                writer: self.writer.clone(),
                 feed: self.feed.clone(),
-                next_id: None,
+                opened: false,
                 started_at,
                 halt: halt.clone(),
                 full_reported: false,
@@ -891,10 +897,10 @@ impl Task {
     }
 
     async fn work(&mut self) {
-        if self.ledger.next_id.is_none() {
-            match self.ledger.audit.last_id().await {
-                Ok(last) => {
-                    self.ledger.next_id = Some(last.map_or(1, |id| id.saturating_add(1)));
+        if !self.ledger.opened {
+            match self.ledger.writer.hold().await {
+                Ok(_) => {
+                    self.ledger.opened = true;
                     self.ledger.count_entries().await;
                 }
                 Err(error) => {
@@ -1224,13 +1230,12 @@ enum Recorded {
     Stopped,
 }
 
-/// The audit store, the feed, and the next entry ID.
+/// The audit store's writer and the feed.
 struct Ledger {
-    audit: Arc<dyn AuditStore>,
+    writer: Arc<AuditWriter>,
     feed: broadcast::Sender<Arc<LimitFrame>>,
-    /// Read from the store's last entry at start; every attempt takes a new one, so a
-    /// write that failed after it committed never makes a retry conflict.
-    next_id: Option<u64>,
+    /// The store's last entry has been read, so IDs can be taken.
+    opened: bool,
     started_at: UtcTimestamp,
     halt: Stop,
     /// A capacity refusal has been logged since the last append that succeeded.
@@ -1249,9 +1254,10 @@ impl Ledger {
         keep: &BTreeSet<u64>,
     ) -> Result<Pruned, TraitError> {
         let pruned = self
-            .audit
+            .writer
+            .store()
             .prune(&AuditPrune {
-                event_type: LIMIT_STATUS_EVENT,
+                event_types: &[LIMIT_STATUS_EVENT, crate::rfq_desk::RFQ_EVENT],
                 before,
                 after,
                 keep,
@@ -1267,7 +1273,7 @@ impl Ledger {
 
     /// Publish how many entries the store holds; an unreadable count leaves the gauge.
     async fn count_entries(&self) {
-        match self.audit.entry_count().await {
+        match self.writer.store().entry_count().await {
             Ok(count) => metrics::gauge!(AUDIT_ENTRIES).set(count as f64),
             Err(error) => {
                 tracing::debug!(%error, "limit monitor: the audit store's entry count is unreadable")
@@ -1290,6 +1296,13 @@ impl Ledger {
         recorded.retain(|id, _| limits.iter().any(|limit| limit.limit_id == *id));
         held.retain(limits);
         let snapshot_ids: Arc<[String]> = evaluation.snapshot_ids.into();
+        let mut writer = match self.writer.hold().await {
+            Ok(writer) => writer,
+            Err(error) => {
+                tracing::warn!(book = %context.book_id, %error, "limit monitor: the audit store's last entry is unreadable");
+                return Recorded::Retry;
+            }
+        };
         let mut complete = true;
         let mut entries = Vec::new();
         let mut changes = Vec::new();
@@ -1304,11 +1317,10 @@ impl Ledger {
             ) {
                 continue;
             }
-            let Some(record_id) = self.next_id else {
+            let Some(record_id) = writer.take_id() else {
                 complete = false;
                 break;
             };
-            self.next_id = record_id.checked_add(1);
             let status = evaluation.status;
             let (lower, upper) = limit.judged_bounds(&evaluation);
             let acknowledgement = AcknowledgementInForce::of(
@@ -1365,7 +1377,9 @@ impl Ledger {
         }
         // Each change counts once, recorded or not.
         let count = entries.len() as u64;
-        match self.audit.append_all(&entries).await {
+        let appended = writer.append_all(&entries).await;
+        drop(writer);
+        match appended {
             Ok(()) => {
                 self.full_reported = false;
                 metrics::counter!(CHANGES).increment(count);
@@ -1525,9 +1539,9 @@ mod tests {
         Task {
             engine,
             ledger: Ledger {
-                audit,
+                writer: AuditWriter::new(audit),
                 feed: broadcast::channel(16).0,
-                next_id: None,
+                opened: false,
                 started_at: stamp("2026-01-01T00:00:00Z"),
                 halt: halt.clone(),
                 full_reported: false,
@@ -1674,6 +1688,35 @@ mod tests {
         assert!(task.pruning.as_ref().unwrap().pass.is_none());
     }
 
+    /// Retention removes old RFQ records too, and passes over other kinds.
+    #[tokio::test]
+    async fn retention_prunes_old_rfq_records_beside_status_records() {
+        let directory = tempfile::tempdir().unwrap();
+        let storage =
+            convex_ext_redb::create_redb_storage(directory.path().join("audit.redb")).unwrap();
+        let audit = storage.audit.clone();
+        let now = chrono::Utc::now().timestamp_millis();
+        let old = now - 365 * 86_400_000;
+        let of = |id: u64, event_type: &str| AuditEntry {
+            event_type: event_type.into(),
+            entity_type: event_type.into(),
+            ..record(id, old, "BOOK-A")
+        };
+        audit
+            .append_all(&[
+                of(1, crate::rfq_desk::RFQ_EVENT),
+                record(2, old, "BOOK-A"),
+                of(3, "reference_write"),
+                of(4, crate::rfq_desk::RFQ_EVENT),
+                record(5, now, "BOOK-A"),
+            ])
+            .await
+            .unwrap();
+        let mut task = pruning_task(storage, audit.clone(), false);
+        task.prune_at_start().await;
+        assert_eq!(ids(&audit).await, [3, 5]);
+    }
+
     /// The monitor's own loop: the start's pass, then an hourly pass that starts on its
     /// deadline with no tick or commit to wake it, and runs call after call until done.
     #[tokio::test]
@@ -1716,7 +1759,7 @@ mod tests {
                 .unwrap(),
         );
         let monitor = Arc::new(LimitMonitor {
-            audit: audit.clone(),
+            writer: AuditWriter::new(audit.clone()),
             feed: broadcast::channel(16).0,
             hold: Duration::ZERO,
             retention_ms: Some(DAYS_8),
@@ -1806,10 +1849,10 @@ mod tests {
             crate::access::AccessControl::local_development(),
         );
         server.limits = Some(Arc::new(LimitMonitor {
-            audit: Arc::new(Capped {
+            writer: AuditWriter::new(Arc::new(Capped {
                 inner: inner.clone(),
                 cap: 10,
-            }),
+            })),
             feed: broadcast::channel(16).0,
             hold: Duration::ZERO,
             retention_ms: Some(1000),

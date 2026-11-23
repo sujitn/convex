@@ -351,7 +351,7 @@ fn classify(error: ReferenceError) -> Result<(&'static str, &'static str), Refer
 }
 
 /// Resolve one external identifier through the mapping history, never guessing.
-async fn resolve_identifier(
+pub(crate) async fn resolve_identifier(
     repo: &dyn ReferenceRepository,
     identifier: &ExternalIdentifier,
     lookup: ReferenceLookup,

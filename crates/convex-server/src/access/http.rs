@@ -337,8 +337,37 @@ fn requirement(
                     Resource::new(R::Source, "*"),
                 ]);
             } else {
-                req.action = CurveWrite;
+                req.action = LevelWrite;
             }
+        }
+        // Clients' requests for quote. Reading them needs the book: each handler also
+        // checks each request's book and bond, and leaves out what the caller cannot read.
+        // A source sends requests and outcomes: the body scan covers each `instrument_id`
+        // and `book_id`, and the handler each request's source and each bond it resolves.
+        "/api/v1/rfqs" => {
+            req.data = vec![D::Books, D::Reference];
+            if read {
+                req.action = BookRead;
+                req.data.extend([D::Market, D::Results]);
+                req.body_required = false;
+            } else {
+                req.action = RfqIngest;
+            }
+        }
+        "/api/v1/rfqs/:rfq_key" => {
+            req.action = BookRead;
+            req.data = vec![D::Books, D::Reference, D::Market, D::Results];
+            req.body_required = false;
+        }
+        "/api/v1/rfqs/:rfq_key/outcome" => {
+            req.action = RfqIngest;
+            req.data = vec![D::Books, D::Reference];
+        }
+        // A trader's answer reads what the request was priced from.
+        "/api/v1/rfqs/:rfq_key/quote" | "/api/v1/rfqs/:rfq_key/pass" => {
+            req.action = RfqRespond;
+            req.data = vec![D::Books, D::Reference, D::Market, D::Results];
+            req.body_required = path.ends_with("/quote");
         }
         "/api/v1/analytics"
         | "/api/v1/analytics/snapshots"
@@ -810,6 +839,8 @@ async fn enforce_inner(
             8 * 1024 * 1024
         } else if path.starts_with("/api/v1/configuration/") {
             MAX_CONFIGURATION_REQUEST
+        } else if path == "/api/v1/rfqs" {
+            convex_engine::ports::rfq::MAX_RFQ_BODY_BYTES
         } else {
             MAX_BODY
         };

@@ -56,7 +56,7 @@ use serde::{Deserialize, Serialize};
 use crate::access::{recorded_subject, AccessContext, Action, DataScope, Resource, ResourceKind};
 use crate::books::{
     accepted_runtime_results, book_id, book_of, in_force, optional_expected, resolve_rows,
-    rows_rejected, too_large, typed_error, Resolved, RowError, RowRequest, MAX_ROW_ERRORS,
+    rows_rejected, too_large, typed_error, RowError, RowRequest, MAX_ROW_ERRORS,
 };
 use crate::handlers::AppState;
 use crate::limit_monitor::{AcknowledgementInForce, LIMIT_STATUS_ENTITY, LIMIT_STATUS_EVENT};
@@ -1156,6 +1156,7 @@ async fn status(
         evaluated_at,
     )
     .await
+    .map(|view| Json(view).into_response())
 }
 
 /// Evaluate `limits` on `book` at `at` against the current Live results.
@@ -1210,8 +1211,8 @@ pub(crate) async fn acknowledgements_of(
     }
 }
 
-/// Evaluate `limits` on `book` against the current Live results, and answer in the status
-/// route's shape, with the acknowledgement in force for each `breach` or `unknown` limit.
+/// Evaluate `limits` on `book` against the current Live results, in the status route's
+/// shape, with the acknowledgement in force for each `breach` or `unknown` limit.
 /// `versions` are the book and limit set versions read.
 async fn evaluated(
     state: &AppState,
@@ -1220,7 +1221,7 @@ async fn evaluated(
     book: &BookDefinition,
     acknowledgements: &[LimitAcknowledgement],
     evaluated_at: UtcTimestamp,
-) -> Result<Response, Response> {
+) -> Result<serde_json::Value, Response> {
     let evaluation = evaluate_now(state, book, limits, evaluated_at).await?;
     let items = limits
         .iter()
@@ -1250,7 +1251,10 @@ async fn evaluated(
         snapshot_ids: evaluation.snapshot_ids,
         limits: items,
     };
-    Ok(Json(view).into_response())
+    serde_json::to_value(view).map_err(|error| {
+        tracing::error!(%error, "limit status: an evaluation cannot be serialized");
+        reference_error(ReferenceError::Unavailable)
+    })
 }
 
 // =============================================================================
@@ -1626,7 +1630,8 @@ async fn check(
         .iter()
         .map(|row| row.position.instrument_id.as_str().to_owned());
     authorize(state, ctx, Action::BookRead, STATUS_DATA, &id, proposed)?;
-    let book = applied(held, &resolved, &units)?;
+    let changes: Vec<BookPosition> = resolved.into_iter().map(|row| row.position).collect();
+    let book = applied(held, &changes, &units).map_err(NotApplied::into_response)?;
     let acknowledgements = acknowledgements_of(state, &id).await?;
     let versions = (book_record.version, set_record.version);
     evaluated(
@@ -1638,6 +1643,75 @@ async fn check(
         evaluated_at,
     )
     .await
+    .map(|view| Json(view).into_response())
+}
+
+/// The pre-trade check of one trade, in the check route's shape: the current limit set of
+/// `book`, a book in force, evaluated at `evaluated_at` against the current Live results
+/// with `change` added. Nothing is authorized here: what it answers is read back under
+/// status's read rule. A book with no limits, or a change the book cannot take, says why.
+pub(crate) async fn check_trade(
+    state: &AppState,
+    book: &MasterRecord,
+    change: BookPosition,
+    evaluated_at: UtcTimestamp,
+) -> Result<serde_json::Value, &'static str> {
+    const UNREADABLE: &str = "the book's limits could not be read or evaluated";
+    let held = book_of(book).map_err(|_| UNREADABLE)?;
+    let repo: &dyn ReferenceRepository = state.engine.reference_repository().as_ref();
+    let set_record = current(repo, MasterKey::LimitSet(held.book_id.clone()))
+        .await
+        .map_err(|_| UNREADABLE)?
+        .ok_or("the book has no limits")?;
+    let set = set_of(&set_record).map_err(|_| UNREADABLE)?;
+    if set.limits.is_empty() {
+        return Err("the book has no limits");
+    }
+    let unit = Some(change.unit);
+    let applied =
+        applied(held, std::slice::from_ref(&change), &[unit]).map_err(|refused| match refused {
+            NotApplied::Rows(rows) => rows.first().map_or(UNREADABLE, |row| row.reason),
+            NotApplied::TooLarge => "the trade would take the book past its position bound",
+            NotApplied::Invalid(_) => UNREADABLE,
+        })?;
+    let acknowledgements = acknowledgements_of(state, &held.book_id)
+        .await
+        .map_err(|_| UNREADABLE)?;
+    evaluated(
+        state,
+        (book.version, set_record.version),
+        &set.limits,
+        &applied,
+        &acknowledgements,
+        evaluated_at,
+    )
+    .await
+    .map_err(|_| UNREADABLE)
+}
+
+/// Why changes cannot be applied to a book.
+enum NotApplied {
+    /// Rows that change a held position other than in quantity, or past exact
+    /// representation.
+    Rows(Vec<RowError>),
+    /// The changed book holds too many positions.
+    TooLarge,
+    /// The changed book is invalid.
+    Invalid(ReferenceError),
+}
+
+impl NotApplied {
+    fn into_response(self) -> Response {
+        match self {
+            Self::Rows(mut errors) => {
+                let truncated = errors.len() > MAX_ROW_ERRORS;
+                errors.truncate(MAX_ROW_ERRORS);
+                rows_rejected(CHECK_REJECTED, &errors, truncated)
+            }
+            Self::TooLarge => too_large(),
+            Self::Invalid(error) => reference_error(error),
+        }
+    }
 }
 
 /// Why a row may not change a held position, if it may not: a row changes only the
@@ -1667,9 +1741,9 @@ fn differs(
 /// follows the held positions in row order. `units` are the units the rows stated.
 fn applied(
     held: &BookDefinition,
-    rows: &[Resolved],
+    rows: &[BookPosition],
     units: &[Option<QuantityUnit>],
-) -> Result<BookDefinition, Response> {
+) -> Result<BookDefinition, NotApplied> {
     let index: HashMap<&str, usize> = held
         .positions
         .iter()
@@ -1681,13 +1755,12 @@ fn applied(
     let mut added = Vec::new();
     let mut errors = Vec::new();
     for (row_index, (row, unit)) in rows.iter().zip(units).enumerate() {
-        let row = &row.position;
         let Some(&at) = index.get(row.instrument_id.as_str()) else {
             added.push(row.clone());
             continue;
         };
         let (Some(position), Some(flag)) = (book.positions.get_mut(at), changed.get_mut(at)) else {
-            return Err(reference_error(ReferenceError::Unavailable));
+            return Err(NotApplied::Invalid(ReferenceError::Unavailable));
         };
         let refused = differs(position, row, *unit).or_else(|| {
             match position
@@ -1712,9 +1785,7 @@ fn applied(
         }
     }
     if !errors.is_empty() {
-        let truncated = errors.len() > MAX_ROW_ERRORS;
-        errors.truncate(MAX_ROW_ERRORS);
-        return Err(rows_rejected(CHECK_REJECTED, &errors, truncated));
+        return Err(NotApplied::Rows(errors));
     }
     let mut positions: Vec<BookPosition> = std::mem::take(&mut book.positions)
         .into_iter()
@@ -1728,10 +1799,10 @@ fn applied(
             .filter(|position| !position.quantity.decimal().is_zero()),
     );
     if positions.len() > MAX_BOOK_POSITIONS {
-        return Err(too_large());
+        return Err(NotApplied::TooLarge);
     }
     book.positions = positions;
-    book.validate().map_err(reference_error)?;
+    book.validate().map_err(NotApplied::Invalid)?;
     Ok(book)
 }
 

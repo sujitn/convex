@@ -59,6 +59,16 @@ pub fn create_router_with_access(
             "/api/v1/market/levels",
             get(crate::desk_levels::get_levels).post(crate::desk_levels::post_levels),
         )
+        .route(
+            "/api/v1/rfqs",
+            get(crate::rfqs::list).post(crate::rfqs::ingest).layer(
+                axum::extract::DefaultBodyLimit::max(convex_engine::ports::rfq::MAX_RFQ_BODY_BYTES),
+            ),
+        )
+        .route("/api/v1/rfqs/:rfq_key", get(crate::rfqs::records))
+        .route("/api/v1/rfqs/:rfq_key/quote", post(crate::rfqs::quote))
+        .route("/api/v1/rfqs/:rfq_key/pass", post(crate::rfqs::pass))
+        .route("/api/v1/rfqs/:rfq_key/outcome", post(crate::rfqs::outcome))
         .route("/api/v1/analytics", post(crate::analytics::calculate))
         .route("/api/v1/analytics/curves", post(crate::curves::save_curve))
         .route(

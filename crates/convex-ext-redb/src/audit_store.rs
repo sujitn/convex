@@ -149,7 +149,9 @@ impl RedbAuditStore {
                     break;
                 }
                 pruned.next_after = id.value();
-                if entry.event_type == prune.event_type && !prune.keep.contains(&id.value()) {
+                if prune.event_types.contains(&entry.event_type.as_str())
+                    && !prune.keep.contains(&id.value())
+                {
                     removals.push(Removal {
                         id: id.value(),
                         entity_type: entry.entity_type,
@@ -445,7 +447,7 @@ mod tests {
 
     fn pruning(before: i64, after: u64, keep: &std::collections::BTreeSet<u64>) -> AuditPrune<'_> {
         AuditPrune {
-            event_type: "limit_status",
+            event_types: &["limit_status"],
             before,
             after,
             keep,

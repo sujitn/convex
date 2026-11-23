@@ -189,6 +189,26 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **Requests for quote.** `POST /api/v1/rfqs` takes a source's batch of up to 64 requests
+  (128 KiB) and answers each: accepted and priced, a retry of one received before, or
+  refused with a code. Each is priced at receipt from the bond's Live level through its
+  rule's stage, at the rule's width for its size scaled by its client tier's factor in the
+  active configuration, on the desk side the client trades on; a bond without a width is
+  priced at the mid, flagged, and one that cannot be priced is recorded with the reason for
+  the trader to price. It is checked against its book's limits as if done.
+  `POST /api/v1/rfqs/:rfq_key/quote` and `/pass` are the trader's;
+  `POST /api/v1/rfqs/:rfq_key/outcome` the source's. `GET /api/v1/rfqs` lists the open
+  requests and `GET /api/v1/rfqs/:rfq_key` one request's entries. At most 256 are open; a
+  deadline expires one once, and a restart expires every one left open. `done` changes no
+  book. Every transition is an `rfq` audit entry written before it applies, carrying what
+  it was made from, and retention prunes them with limit records.
+- **Breaking:** two roles, `trader` (`LevelWrite`, `RfqRespond`) and `rfq_source`
+  (`RfqIngest`). Marking desk levels needs `trader`; `reference_writer` no longer marks
+  them. A grant may hold each of the eight roles once.
+- **One audit writer.** The limit monitor and the RFQ desk take entry ids and append under
+  one lock, so ids commit in order. `Server::with_limit_monitor` is now
+  `Server::with_audit_records`, which composes both.
+
 - **The desk app and the desk's levels.**
   - `desk_ui_dir` serves the built desk app (`desk/`: the pricing sheet and the bond
     calculator) at `/desk`, as `admin_ui_dir` serves `/admin`, under the same policy and
@@ -587,6 +607,8 @@ the changes that matter when you upgrade.
   `ClientTier`'s `WidthFactor`, at most 64, each tier once; a change is a hot activation.
   **Breaking:** the field is required, so a stored document compiled before it must be
   compiled again. `RfqRequest::client_tier` is a `ClientTier`.
+- **A prune names its event types.** `AuditPrune::event_types` replaces `event_type`: 1
+  to 4 types removed in one walk.
 - **`QuoteInput`**: the field of its quote a valuation read the bond's mark from, with its
   `FieldObservation`. `PublishedValuation::quote_input` carries it, and is omitted when the
   attempt read no quote.

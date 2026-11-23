@@ -30,6 +30,25 @@ pub enum Role {
     /// Propose, approve and withdraw changes to scoped books' limits. Reading
     /// limits and their status needs `Reader` or `Analyst`, as other book reads do.
     RiskManager,
+    /// Quote or pass clients' requests for quote on scoped books, and mark the desk's
+    /// levels.
+    Trader,
+    /// Send clients' requests for quote and their outcomes: a venue's adapter or its
+    /// simulator, never a person quoting.
+    RfqSource,
+}
+impl Role {
+    /// Every role; a grant holds each at most once.
+    pub const ALL: [Self; 8] = [
+        Self::Reader,
+        Self::Analyst,
+        Self::ReferenceWriter,
+        Self::BookWriter,
+        Self::Operator,
+        Self::RiskManager,
+        Self::Trader,
+        Self::RfqSource,
+    ];
 }
 /// Capabilities checked identically at HTTP, WS and future job admission.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,6 +75,12 @@ pub enum Action {
     ConfigurationWrite,
     /// Propose, approve or withdraw a change to a book's limits.
     LimitWrite,
+    /// Mark the desk's levels.
+    LevelWrite,
+    /// Quote or pass a client's request for quote.
+    RfqRespond,
+    /// Send a client's request for quote, or its outcome.
+    RfqIngest,
     /// Read a job.
     JobRead,
     /// Submit a job.
@@ -82,6 +107,8 @@ impl Action {
             Self::BookWrite => roles.contains(&Role::BookWriter),
             Self::Operate | Self::ConfigurationWrite => roles.contains(&Role::Operator),
             Self::LimitWrite => roles.contains(&Role::RiskManager),
+            Self::LevelWrite | Self::RfqRespond => roles.contains(&Role::Trader),
+            Self::RfqIngest => roles.contains(&Role::RfqSource),
         }
     }
 }
@@ -281,7 +308,7 @@ impl PolicyDocument {
                 || !subjects.insert(&grant.subject)
                 || grant.valid_until <= 0
                 || grant.valid_until > self.valid_until
-                || grant.roles.len() > 6
+                || grant.roles.len() > Role::ALL.len()
                 || grant.data.len() > 6
                 || grant.token_scopes.is_empty()
                 || grant.token_scopes.len() > 32

@@ -628,7 +628,7 @@ pub async fn audit_is_append_only(store: Arc<dyn AuditStore>) {
     assert_eq!(page.total, 1);
 }
 
-/// A prune removes old entries of one type with their index keys, passes over
+/// A prune removes old entries of the named types with their index keys, passes over
 /// kept IDs and other types, stops at the first newer entry, never removes the last entry,
 /// continues from its cursor, and is bounded. The default refuses.
 pub async fn audit_prune_removes_old_entries_and_keeps_what_it_must(store: Arc<dyn AuditStore>) {
@@ -660,7 +660,7 @@ pub async fn audit_prune_removes_old_entries_and_keeps_what_it_must(store: Arc<d
         async move {
             store
                 .prune(&AuditPrune {
-                    event_type: STATUS,
+                    event_types: &[STATUS],
                     before,
                     after,
                     keep: &keep,
@@ -746,6 +746,46 @@ pub async fn audit_prune_removes_old_entries_and_keeps_what_it_must(store: Arc<d
     assert_eq!(book(store.clone(), "A", 1).await, [8]);
     assert_eq!(ids(store.clone()).await, [3, 5, 7, 8]);
 
+    // Several types in one walk: each named type goes, and any other is passed over.
+    store
+        .append_all(&[
+            audit(9, 300, "rfq", "rfq", "R", None),
+            audit(10, 300, "write", "bond", "A", None),
+            at(11, 400, STATUS, "B"),
+        ])
+        .await
+        .unwrap();
+    let both = |event_types: &'static [&'static str]| {
+        let store = store.clone();
+        let none = none.clone();
+        async move {
+            store
+                .prune(&AuditPrune {
+                    event_types,
+                    before: 350,
+                    after: 0,
+                    keep: &none,
+                    max: MAX_PRUNE_BATCH,
+                })
+                .await
+        }
+    };
+    assert_eq!(
+        both(&[STATUS, "rfq"]).await.unwrap(),
+        Pruned {
+            removed: 3,
+            next_after: 10,
+            more: false
+        }
+    );
+    assert_eq!(ids(store.clone()).await, [3, 5, 10, 11]);
+    for event_types in [&[][..], &["a", "b", "c", "d", "e"][..]] {
+        assert!(matches!(
+            both(event_types).await,
+            Err(TraitError::InvalidInput(_))
+        ));
+    }
+
     // Bounds.
     for max in [0, MAX_PRUNE_BATCH + 1] {
         assert!(matches!(
@@ -758,7 +798,7 @@ pub async fn audit_prune_removes_old_entries_and_keeps_what_it_must(store: Arc<d
         prune(i64::MAX, 0, &many, 1).await,
         Err(TraitError::InvalidInput(_))
     ));
-    assert_eq!(ids(store.clone()).await, [3, 5, 7, 8]);
+    assert_eq!(ids(store.clone()).await, [3, 5, 10, 11]);
 
     // A store that cannot remove entries refuses, so it is never pruned.
     struct Unpruned(Arc<dyn AuditStore>);
@@ -779,7 +819,7 @@ pub async fn audit_prune_removes_old_entries_and_keeps_what_it_must(store: Arc<d
     assert!(matches!(
         unpruned
             .prune(&AuditPrune {
-                event_type: STATUS,
+                event_types: &[STATUS],
                 before: i64::MAX,
                 after: 0,
                 keep: &none,
@@ -788,7 +828,7 @@ pub async fn audit_prune_removes_old_entries_and_keeps_what_it_must(store: Arc<d
             .await,
         Err(TraitError::Unsupported(_))
     ));
-    assert_eq!(ids(store).await, [3, 5, 7, 8]);
+    assert_eq!(ids(store).await, [3, 5, 10, 11]);
 }
 
 /// A curve recipe sourced and recorded at `recorded`.
