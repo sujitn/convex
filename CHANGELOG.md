@@ -170,6 +170,18 @@ the changes that matter when you upgrade.
   tables instead of rebuilding them from 1970 to 2100 on every call, about 32 µs each.
   Building a stored bond's contract looks its calendar up several times. Valuing a
   three-call callable on its workouts falls from about 440 µs to 90 µs.
+- **Cash entitled between two settlement dates**, per 100 face: what a holder
+  settling at the first date is owed and one settling at the second is not.
+  Each coupon, sink or redemption paid in between or gone ex-coupon is counted;
+  a coupon already ex at the first date is not.
+  - `cashflows::entitled_cash` reads a bond's cash flows from the first date
+    less those from the second, the schedule its accrued interest reads. It is
+    zero when the dates are the same, without projecting.
+  - `BondContract::entitled_cash` computes only the coupons that fall between
+    the two dates, so a floating rate note needs a fixing only when a coupon
+    falls between; it is `Unsupported` then.
+- `CallableBond` refuses through `try_cash_flows` and `try_accrued_interest`, as
+  its bond does, instead of panicking.
 
 ### convex-analytics
 
@@ -190,6 +202,18 @@ the changes that matter when you upgrade.
 ### convex-portfolio
 
 - **Breaking:** `KeyRateProfile::to_key_rate_durations` is removed.
+- **P&L since a desk close** (`pnl_since_close`). For each position, it is the
+  value now less the value at the close, plus the cash owed in between:
+  `face held through × (dirty price now − dirty price at the close + entitled
+  cash) / 100`. A value is face × dirty price / 100, the net dirty value the
+  limit evaluator reads; the cash is convex-bonds' `entitled_cash`.
+  - The face held through is the smaller of the two sizes, on the side held at
+    both. There is no trade price, so a position added since the close,
+    removed, or now on the other side has no P&L; nor does one unvalued at the
+    close or now, or whose cash could not be projected. Each says why
+    (`NoPnlReason`), and the total leaves it out (`excluded_count`).
+  - Sums are exact through `BoundedDecimal`; only each reported amount is
+    rounded.
 
 ### convex-ffi
 

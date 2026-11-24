@@ -900,6 +900,8 @@ def inventory_paths(root: Path) -> set[str]:
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex/src/library').glob('*.rs'))
     paths.update(str(p.relative_to(root)) for p in (root / 'crates/convex-analytics/src/lifecycle').glob('*.rs'))
     paths.add('crates/convex-portfolio/src/signed_risk.rs')
+    paths.add('crates/convex-portfolio/src/pnl_since_close.rs')
+    paths.add('crates/convex-bonds/src/cashflows/entitled.rs')
     paths.add('crates/convex-core/src/contracts/risk.rs')
     paths.add('crates/convex-core/src/contracts/units.rs')
     paths.update(['crates/convex-ports/src/futures_reference.rs',

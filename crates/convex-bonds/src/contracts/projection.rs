@@ -415,6 +415,43 @@ impl BondContract {
         self.check_settlement(settlement)?;
         self.assemble(settlement, on_payment, &[], &BTreeMap::new(), None)
     }
+    /// The cash per 100 face at issue that a holder settling at `from` is owed and one
+    /// settling at `to` is not: each coupon and principal payment paid in between or gone
+    /// ex-coupon, as [`crate::cashflows::entitled_cash`] reads a bond's cash flows. Only
+    /// those coupons are computed, so a floating coupon needs its fixing only when it
+    /// falls between the two dates.
+    ///
+    /// # Errors
+    ///
+    /// [`BondContractError::Unsupported`] when a floating coupon falls between the two
+    /// dates; an invalid-terms error when `to` is before `from`, `from` is before issue
+    /// with a coupon between, or an amount overflows.
+    pub fn entitled_cash(&self, from: Date, to: Date) -> Result<Decimal, BondContractError> {
+        if to < from {
+            return Err(invalid(
+                "settlement",
+                "the later settlement date is before the earlier",
+            ));
+        }
+        let on_payment = PaymentDateEntitlement::Exclude;
+        let is_coupon_between = |plan: &CouponPlan| {
+            plan.period.is_entitled(from, on_payment) && !plan.period.is_entitled(to, on_payment)
+        };
+        let mut amounts: Vec<Decimal> = self
+            .principal
+            .iter()
+            .filter(|flow| flow.is_entitled(from, on_payment) && !flow.is_entitled(to, on_payment))
+            .map(|flow| flow.amount)
+            .collect();
+        if self.coupons.iter().any(is_coupon_between) {
+            let mut between = self.clone();
+            between.coupons.retain(is_coupon_between);
+            let projection = between.fixed_projection(from, on_payment)?;
+            amounts.extend(projection.coupons.iter().map(|coupon| coupon.amount));
+        }
+        crate::cashflows::per_100_face(amounts, self.terms.face_value)
+            .map_err(|_| invalid("entitled_cash", "exceeds what a Decimal holds"))
+    }
     /// Preflight the ENTIRE missing history list before any forecast. Core
     /// resolution uses bounded batches and retains actual revision origins.
     pub fn project<P>(

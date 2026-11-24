@@ -557,6 +557,14 @@ impl Bond for CallableBond {
         self.base.cash_flows(from)
     }
 
+    fn try_cash_flows(&self, from: Date) -> BondResult<Vec<BondCashFlow>> {
+        self.base.try_cash_flows(from)
+    }
+
+    fn try_accrued_interest(&self, settlement: Date) -> BondResult<Decimal> {
+        self.base.try_accrued_interest(settlement)
+    }
+
     fn next_coupon_date(&self, after: Date) -> Option<Date> {
         self.base.next_coupon_date(after)
     }
