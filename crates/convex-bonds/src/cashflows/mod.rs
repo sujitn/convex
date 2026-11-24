@@ -4,13 +4,17 @@
 //! - Accrued interest calculation (`AccruedInterestCalculator`)
 //! - Irregular-period handling for bonds with odd first/last coupons
 //! - Settlement calculations
+//! - Cash entitled between two settlement dates (`entitled_cash`)
 
 mod accrued;
+mod entitled;
 pub mod irregular;
 mod schedule;
 pub mod settlement;
 
 pub use accrued::AccruedInterestCalculator;
+pub use entitled::entitled_cash;
+pub(crate) use entitled::per_100_face;
 pub use irregular::IrregularPeriodHandler;
 pub use schedule::{Schedule, ScheduleConfig, StubType};
 // Shared native building blocks retain one implementation below product crates.
