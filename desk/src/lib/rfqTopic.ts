@@ -50,6 +50,8 @@ export class RfqTopicReader {
   private covered: Set<string> | null = null
   /** A subscription owed because a request could not be read again. */
   private retry: ReturnType<typeof setTimeout> | undefined
+  /** No longer followed: a catch-up still reading gives nothing and owes nothing. */
+  private isStopped = false
 
   constructor(
     private readonly bookIds: readonly string[],
@@ -66,8 +68,9 @@ export class RfqTopicReader {
     send(rfqSubscription(this.bookIds))
   }
 
-  /** Owe no subscription: the topic is no longer followed. */
+  /** Give and owe nothing more: the topic is no longer followed. */
   stop(): void {
+    this.isStopped = true
     clearTimeout(this.retry)
   }
 
@@ -124,6 +127,7 @@ export class RfqTopicReader {
         }
       }),
     )
+    if (this.isStopped) return
     if (gone.length > 0) this.handlers.onGone(gone)
     if (failure !== undefined) {
       this.handlers.onReadFailure(failure)
@@ -133,7 +137,7 @@ export class RfqTopicReader {
 
   /** Give `row` if it is later than any given of its request. */
   private give(row: RfqRow): void {
-    if (this.remember(row)) this.handlers.onRow(row)
+    if (!this.isStopped && this.remember(row)) this.handlers.onRow(row)
   }
 
   /** Whether `row` is later than any held of its request; if so it is now the latest. */

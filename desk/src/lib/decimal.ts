@@ -53,8 +53,5 @@ export function roundToTick(text: string, tick: string, direction: 'down' | 'up'
   let ticks = value / step
   const remainder = value % step
   if (remainder !== 0n && (direction === 'up') === remainder > 0n) ticks += direction === 'up' ? 1n : -1n
-  const rounded = written(ticks * step, scale)
-  const trimmed = rounded.replace(/0+$/, '')
-  const point = trimmed.indexOf('.')
-  return point === -1 || trimmed.length - point - 1 >= 3 ? trimmed : rounded.slice(0, point + 4)
+  return written(ticks * step, scale).replace(/(\.\d{3}\d*?)0+$/, '$1')
 }

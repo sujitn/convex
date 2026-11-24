@@ -1,6 +1,7 @@
 import type { QuoteInput, QuoteValue } from '@convex/api-client'
 import { addDecimal, roundToTick } from './decimal'
 import { formatThirtySeconds } from './format'
+import { isQuotedInThirtySeconds, type Bond } from './sheet'
 
 // The RFQ blotter's model: each request for quote on the followed books as the `rfq` topic
 // last showed it, in the order a trader works them, with what may be done with each. Pure,
@@ -233,34 +234,43 @@ export function checkSummary(check: LimitCheck): string {
   return counted.length > 0 ? counted.join(' · ') : 'no limits'
 }
 
-/** A price's tick: a thousandth of a point, or for a Treasury the 256th the sheet shows in 32nds. */
-function priceTick(thirtySeconds: boolean): string {
-  return thirtySeconds ? '0.00390625' : '0.001'
+/** A thousandth of a point, a corporate bond's tick. */
+const PRICE_TICK = '0.001'
+/** A 256th of a point, the finest 32nds a Treasury is shown in. */
+export const TREASURY_TICK = '0.00390625'
+
+/**
+ * The tick a bond's price is quoted on: a Treasury's 256th, any other's thousandth. None
+ * while the bond is unread, or if it cannot be read, since whether it is a Treasury is then
+ * unknown.
+ */
+export function quotingTick(bond: Bond | null | undefined): string | null {
+  if (!bond) return null
+  return isQuotedInThirtySeconds(bond) ? TREASURY_TICK : PRICE_TICK
 }
 
 /**
- * The auto price on the quoting tick, in the desk's favour, so never tighter than priced:
- * a bid rounds down, an ask up. A mid is rounded as its side would be. None when unpriced.
+ * The auto price on `tick`, in the desk's favour, so never tighter than priced: a bid
+ * rounds down, an ask up. A mid is rounded as its side would be. None when unpriced.
  */
-export function tickedPrice(autoPrice: AutoPrice, thirtySeconds: boolean): string | null {
+export function tickedPrice(autoPrice: AutoPrice, tick: string): string | null {
   if (autoPrice.kind !== 'priced') return null
-  return roundToTick(autoPrice.clean_price, priceTick(thirtySeconds), autoPrice.desk_side === 'bid' ? 'down' : 'up')
+  return roundToTick(autoPrice.clean_price, tick, autoPrice.desk_side === 'bid' ? 'down' : 'up')
 }
 
 /**
  * The price Send quotes on one key: the ticked auto price of a two-way. None for a mid or an
  * unpriced request, whose price the trader sets.
  */
-export function sentPrice(autoPrice: AutoPrice, thirtySeconds: boolean): string | null {
-  return autoPrice.kind === 'priced' && autoPrice.mid_only === null ? tickedPrice(autoPrice, thirtySeconds) : null
+export function sentPrice(autoPrice: AutoPrice, tick: string): string | null {
+  return autoPrice.kind === 'priced' && autoPrice.mid_only === null ? tickedPrice(autoPrice, tick) : null
 }
 
 /**
  * `price` moved one tick, exactly, onto the tick: up lands on the tick above a typed price
  * off the tick, and down on the one below.
  */
-export function nudgedPrice(price: string, thirtySeconds: boolean, direction: 1 | -1): string {
-  const tick = priceTick(thirtySeconds)
+export function nudgedPrice(price: string, tick: string, direction: 1 | -1): string {
   return roundToTick(addDecimal(price, direction < 0 ? `-${tick}` : tick), tick, direction < 0 ? 'up' : 'down')
 }
 

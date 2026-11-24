@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom'
 import { StreamBadge } from '../components/StreamBadge'
 import { serverNow, useServerNow } from '../lib/clock'
 import { isPositiveDecimal } from '../lib/decimal'
-import { failureNotice } from '../lib/failure'
+import { failureNotice, failureStatus } from '../lib/failure'
 import { formatQuoteValue, formatThirtySeconds } from '../lib/format'
 import { readBond, readLiveBookIds, readRfqRecords } from '../lib/reads'
 import {
@@ -23,6 +23,8 @@ import {
   sentPrice,
   stateLabel,
   tickedPrice,
+  TREASURY_TICK,
+  quotingTick,
   withoutRows,
   withRows,
   worstStatus,
@@ -122,7 +124,11 @@ export function RfqBlotter() {
           pendingRows.current.push(row)
           schedule()
         },
-        onGone: (rfqKeys) => update((current) => withoutRows(current, rfqKeys)),
+        onGone: (rfqKeys) => {
+          // Rows still to merge are merged first, so none of these comes back with them.
+          flush()
+          update((current) => withoutRows(current, rfqKeys))
+        },
         onWithheld: (bookId) => {
           pendingWithheld.current.set(bookId, (pendingWithheld.current.get(bookId) ?? 0) + 1)
           schedule()
@@ -162,7 +168,9 @@ export function RfqBlotter() {
       queryKey: ['bond', instrumentId],
       queryFn: () => readBond(call, instrumentId),
       staleTime: Infinity,
-      retry: false,
+      // A bond read is needed for its tick: one refused for a while is read again, one the
+      // identity may not read or the server does not hold is not.
+      retry: (failures: number, error: Error) => failures < 3 && ![403, 404].includes(failureStatus(error) ?? 0),
     })),
   })
   const bonds = new Map<string, BondRead>(
@@ -172,9 +180,15 @@ export function RfqBlotter() {
     }),
   )
 
+  // Every answer is checked as it is sent, a typed price included: the request may have
+  // moved or passed its deadline since the key was pressed.
   const answer = useCallback(
     async (rfqKey: string, action: 'quote' | 'pass', cleanPrice?: string) => {
-      if (answering.current.has(rfqKey)) return
+      const row = rowsRef.current.get(rfqKey)
+      if (!row || !isAnswerable(row, serverNow(), answering.current.has(rfqKey))) {
+        setNotice(row?.state === 'priced' ? 'The request is past its deadline: nothing was sent.' : null)
+        return
+      }
       setAnswering(rfqKey, true)
       try {
         await call(`/api/v1/rfqs/${rfqKey}/${action}`, {
@@ -218,22 +232,23 @@ export function RfqBlotter() {
     }
     const row = ordered[index]
     if (!row || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return
-    const bond = bonds.get(row.instrument_id)
-    // The tick depends on the bond, so nothing is answered before it is read.
-    if (bond === undefined || !isAnswerable(row, serverNow(), answering.current.has(row.rfq_key))) return
-    const price = sentPrice(row.auto_price, isQuotedInThirtySeconds(bond))
+    if (!isAnswerable(row, serverNow(), answering.current.has(row.rfq_key))) return
     const key = event.key.toLowerCase()
-    if (key === 's' && price !== null) {
-      event.preventDefault()
-      void answer(row.rfq_key, 'quote', price)
-    } else if (key === 's' || key === 'a') {
-      // A mid or an unpriced request is never sent on one key: its price is typed.
-      event.preventDefault()
-      setEditingKey(row.rfq_key)
-    } else if (key === 'p') {
+    if (key === 'p') {
       event.preventDefault()
       void answer(row.rfq_key, 'pass')
+      return
     }
+    // A price's tick depends on the bond, so no price is set before it is read.
+    const bond = bonds.get(row.instrument_id)
+    if (bond === undefined || (key !== 's' && key !== 'a')) return
+    event.preventDefault()
+    // Sent on one key only on a known tick and from a two-way: a mid, an unpriced request
+    // or a bond that could not be read has its price typed.
+    const tick = quotingTick(bond)
+    const price = tick === null ? null : sentPrice(row.auto_price, tick)
+    if (key === 's' && price !== null) void answer(row.rfq_key, 'quote', price)
+    else setEditingKey(row.rfq_key)
   }
 
   const selected = selectedKey === null ? undefined : rows.get(selectedKey)
@@ -415,8 +430,9 @@ const Row = memo(function Row({
   onAdjusted: (rfqKey: string, cleanPrice: string | null, returnsFocus: boolean) => void
 }) {
   const { request, auto_price: autoPrice } = row
-  const thirtySeconds = isQuotedInThirtySeconds(bond ?? null)
-  const price = bond === undefined ? null : tickedPrice(autoPrice, thirtySeconds)
+  const tick = quotingTick(bond)
+  const thirtySeconds = tick === TREASURY_TICK
+  const price = tick === null ? null : tickedPrice(autoPrice, tick)
   const worst = worstStatus(row.check)
   const open = isOpen(row.state)
   return (
@@ -445,7 +461,7 @@ const Row = memo(function Row({
         {isEditing ? (
           <PriceInput
             initial={price ?? ''}
-            thirtySeconds={thirtySeconds}
+            tick={tick}
             onDone={(typed, returnsFocus) => onAdjusted(row.rfq_key, typed, returnsFocus)}
           />
         ) : autoPrice.kind === 'unpriced' ? (
@@ -453,7 +469,11 @@ const Row = memo(function Row({
             unpriced
           </span>
         ) : price === null ? (
-          ''
+          bond === null && (
+            <span className="text-slate-500" title="The bond could not be read, so its tick is not known: type the price.">
+              type
+            </span>
+          )
         ) : (
           <span title={autoPrice.mid_only ?? undefined}>
             {autoPrice.mid_only && <span className="mr-1 text-amber-300">mid</span>}
@@ -475,14 +495,14 @@ const Row = memo(function Row({
   )
 })
 
-/** A typed clean price, sent as written; ↑ and ↓ move it a tick. */
+/** A typed clean price, sent as written; ↑ and ↓ move it a tick, when the tick is known. */
 function PriceInput({
   initial,
-  thirtySeconds,
+  tick,
   onDone,
 }: {
   initial: string
-  thirtySeconds: boolean
+  tick: string | null
   onDone: (cleanPrice: string | null, returnsFocus: boolean) => void
 }) {
   const [text, setText] = useState(initial)
@@ -496,13 +516,13 @@ function PriceInput({
         event.stopPropagation()
         if (event.key === 'Enter' && isValid && !event.repeat) onDone(text, true)
         else if (event.key === 'Escape') onDone(null, true)
-        else if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && isValid) {
+        else if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && isValid && tick !== null) {
           event.preventDefault()
-          setText(nudgedPrice(text, thirtySeconds, event.key === 'ArrowUp' ? 1 : -1))
+          setText(nudgedPrice(text, tick, event.key === 'ArrowUp' ? 1 : -1))
         }
       }}
       onBlur={() => onDone(null, false)}
-      title={isValid && thirtySeconds ? formatThirtySeconds(text) : undefined}
+      title={isValid && tick === TREASURY_TICK ? formatThirtySeconds(text) : undefined}
       className={`w-28 rounded border bg-slate-950 px-1 text-right font-mono ${isValid ? 'border-sky-700' : 'border-red-700'}`}
     />
   )

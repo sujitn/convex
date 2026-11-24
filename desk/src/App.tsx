@@ -12,6 +12,7 @@ const SCREENS = [
 ]
 
 export function App() {
+  const { token } = useSession()
   return (
     <div className="min-h-screen">
       <header className="border-b border-slate-800 bg-slate-900">
@@ -35,7 +36,8 @@ export function App() {
           <TokenBar />
         </div>
       </header>
-      <main className="px-4 py-4">
+      {/* Begun again for each token, so nothing one identity read stays for the next. */}
+      <main key={token ?? ''} className="px-4 py-4">
         <Routes>
           {SCREENS.map((screen) => (
             <Route key={screen.path} path={`/${screen.path}`} element={screen.element} />

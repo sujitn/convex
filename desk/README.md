@@ -61,14 +61,16 @@ server publishes it, from its `desk_ui_dir` setting, at `/desk`.
   why); the trader types either's price.
 - **Keys.** ↑ and ↓ select a request, and the selection stays on it as rows arrive and
   end:
-  - `S` sends the price shown. On a mid or unpriced request it opens the price instead.
+  - `S` sends the price shown. On a mid or unpriced request, or one whose bond could not
+    be read (its tick is unknown, and the row says `type`), it opens the price instead.
   - `A` types a price, from the one shown: ↑ and ↓ move it a tick, Enter sends it as
     written, Escape cancels.
   - `P` passes.
   - Enter opens the request's inputs, Escape closes them.
 
-  Only a priced request before its deadline is answered, once: the keys do nothing while
-  an answer is in flight, and a refusal shows the server's code and reason.
+  Only a priced request before its deadline is answered, once, checked again as the
+  answer is sent: the keys do nothing while an answer is in flight, and a refusal shows
+  the server's code and reason.
 - **Inputs.** The drawer reads the request's entries again each time it moves: the request
   and the bond it resolved to; the configuration and the tier's factor; the Live quote,
   the rule, its benchmark set and the two-way the price came from; each limit as checked;
@@ -88,6 +90,7 @@ level is sent as typed, in the method's unit.
 
 ## Access
 
+A new token begins each screen again, so nothing one identity read stays for the next.
 The page calls only its own origin, at most 4 calls at once (the server refuses a subject
 past its concurrent requests, 8 by default); the rest wait their turn. The blotter's
 identity needs `trader` (answering) and

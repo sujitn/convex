@@ -15,6 +15,8 @@ import {
   secondsLeft,
   sentPrice,
   tickedPrice,
+  TREASURY_TICK,
+  quotingTick,
   withRows,
   worstStatus,
   type AutoPrice,
@@ -26,6 +28,7 @@ import { MAX_RFQ_BOOKS, RfqTopicReader, rfqSubscription, type RfqTopicHandlers }
 import type { StreamMessage } from './stream'
 
 const NOW = Date.parse('2026-11-24T12:00:00Z')
+const PRICE = '0.001'
 
 function row(rfqKey: string, recordId: number, state: RfqState, overrides: Partial<RfqRow> = {}): RfqRow {
   return {
@@ -99,26 +102,41 @@ describe('a sent price', () => {
     expect(roundToTick('99.5', '0.00390625', 'down')).toBe('99.500')
     expect(roundToTick('100', '0.001', 'up')).toBe('100.000')
     expect(roundToTick('-0.0015', '0.001', 'down')).toBe('-0.002')
+    // A whole tick keeps a whole number's zeros.
+    expect(roundToTick('100', '1', 'up')).toBe('100')
+    expect(roundToTick('0', '1', 'down')).toBe('0')
+    expect(roundToTick('100.5', '1', 'up')).toBe('101.0')
+    expect(roundToTick('99.37', '0.25', 'down')).toBe('99.25')
   })
   it('is the auto price on the tick in the desk’s favour: a bid down, an ask up', () => {
-    expect(sentPrice(twoWay('bid', '99.2437'), false)).toBe('99.243')
-    expect(sentPrice(twoWay('ask', '99.2431'), false)).toBe('99.244')
-    expect(sentPrice(twoWay('ask', '99.2431'), true)).toBe('99.24609375')
+    expect(sentPrice(twoWay('bid', '99.2437'), PRICE)).toBe('99.243')
+    expect(sentPrice(twoWay('ask', '99.2431'), PRICE)).toBe('99.244')
+    expect(sentPrice(twoWay('ask', '99.2431'), TREASURY_TICK)).toBe('99.24609375')
   })
   it('is never a mid or an unpriced request on one key, though an adjust starts from the mid', () => {
     const mid = twoWay('ask', '99.2431', 'the bond’s rule sets no two-way width')
-    expect(sentPrice(mid, false)).toBeNull()
-    expect(tickedPrice(mid, false)).toBe('99.244')
+    expect(sentPrice(mid, PRICE)).toBeNull()
+    expect(tickedPrice(mid, PRICE)).toBe('99.244')
     const unpriced: AutoPrice = { kind: 'unpriced', reason: 'no rule' }
-    expect(sentPrice(unpriced, false)).toBeNull()
-    expect(tickedPrice(unpriced, false)).toBeNull()
+    expect(sentPrice(unpriced, PRICE)).toBeNull()
+    expect(tickedPrice(unpriced, PRICE)).toBeNull()
+  })
+  it('is quoted on a Treasury’s 256th or a thousandth, and on no tick while the bond is unknown', () => {
+    const corporate = { issuer_type: 'Corporate', currency: 'USD', bond_type: 'FixedBullet' } as never
+    const treasury = { issuer_type: 'Sovereign', currency: 'USD', bond_type: 'FixedBullet' } as never
+    expect([quotingTick(corporate), quotingTick(treasury), quotingTick(null), quotingTick(undefined)]).toEqual([
+      PRICE,
+      TREASURY_TICK,
+      null,
+      null,
+    ])
   })
   it('moves a tick at a time, onto the tick from a typed price off it', () => {
-    expect(nudgedPrice('99.243', false, 1)).toBe('99.244')
-    expect(nudgedPrice('99.243', false, -1)).toBe('99.242')
-    expect(nudgedPrice('99.2435', false, 1)).toBe('99.244')
-    expect(nudgedPrice('99.2435', false, -1)).toBe('99.243')
-    expect(nudgedPrice('99.5', true, 1)).toBe('99.50390625')
+    expect(nudgedPrice('99.243', PRICE, 1)).toBe('99.244')
+    expect(nudgedPrice('99.243', PRICE, -1)).toBe('99.242')
+    expect(nudgedPrice('99.2435', PRICE, 1)).toBe('99.244')
+    expect(nudgedPrice('99.2435', PRICE, -1)).toBe('99.243')
+    expect(nudgedPrice('99.5', TREASURY_TICK, 1)).toBe('99.50390625')
   })
 })
 
@@ -273,6 +291,19 @@ describe('the rfq topic', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+  it('gives nothing from a catch-up still reading once stopped', async () => {
+    let finish: (records: RfqRecord[]) => void = () => {}
+    const { topic, seen, send, read } = reader(
+      [row('ended', 2, 'priced')],
+      () => new Promise<RfqRecord[]>((resolve) => (finish = resolve)),
+    )
+    topic.subscribe(send)
+    const caughtUp = read(subscribed)
+    topic.stop()
+    finish(entries(9, 'expired'))
+    await caughtUp
+    expect(seen.rows).toEqual([])
   })
   it('gives each request’s later rows only, and nothing after its final row', () => {
     const { seen, read } = reader()

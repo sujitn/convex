@@ -65,12 +65,12 @@ describe('exact JSON', () => {
 
 describe('callQueue', () => {
   it('runs at most its limit at once, the rest in the order asked, a failure included', async () => {
-    const queued = callQueue(2)
+    const queue = callQueue(2)
     let running = 0
     let most = 0
     const order: number[] = []
     const run = (index: number) =>
-      queued(async () => {
+      queue.run(async () => {
         running += 1
         most = Math.max(most, running)
         await new Promise((resolve) => setTimeout(resolve, 5))
@@ -83,5 +83,24 @@ describe('callQueue', () => {
     expect(most).toBe(2)
     expect(order).toEqual([0, 1, 2, 3, 4])
     expect(settled.map((result) => result.status)).toEqual(['fulfilled', 'rejected', 'fulfilled', 'fulfilled', 'fulfilled'])
+  })
+})
+
+describe('a closed callQueue', () => {
+  it('refuses the calls still waiting and those asked later; the running one finishes', async () => {
+    const queue = callQueue(1)
+    let finish = () => {}
+    const running = queue.run(() => new Promise<string>((resolve) => (finish = () => resolve('sent'))))
+    let isWaitingSent = false
+    const waiting = queue.run(async () => {
+      isWaitingSent = true
+      return 'late'
+    })
+    queue.close()
+    finish()
+    await expect(running).resolves.toBe('sent')
+    await expect(waiting).rejects.toThrow('the token was changed')
+    await expect(queue.run(async () => 'after')).rejects.toThrow('the token was changed')
+    expect(isWaitingSent).toBe(false)
   })
 })
