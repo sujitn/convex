@@ -103,4 +103,23 @@ describe('a closed callQueue', () => {
     await expect(queue.run(async () => 'after')).rejects.toThrow('the token was changed')
     expect(isWaitingSent).toBe(false)
   })
+  it('never runs a call once closed, however soon after the handoff it closes', async () => {
+    for (let hops = 0; hops < 8; hops += 1) {
+      const queue = callQueue(1)
+      let finish = () => {}
+      let isClosed = false
+      let isSentAfterClose = false
+      const running = queue.run(() => new Promise<void>((resolve) => (finish = resolve)))
+      const waiting = queue.run(async () => {
+        isSentAfterClose = isClosed
+      })
+      finish()
+      for (let hop = 0; hop < hops; hop += 1) await Promise.resolve()
+      queue.close()
+      isClosed = true
+      await running
+      await waiting.catch(() => {})
+      expect(isSentAfterClose).toBe(false)
+    }
+  })
 })

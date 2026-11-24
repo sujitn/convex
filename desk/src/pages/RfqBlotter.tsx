@@ -24,6 +24,7 @@ import {
   stateLabel,
   tickedPrice,
   TREASURY_TICK,
+  unanswerable,
   quotingTick,
   withoutRows,
   withRows,
@@ -184,9 +185,10 @@ export function RfqBlotter() {
   // moved or passed its deadline since the key was pressed.
   const answer = useCallback(
     async (rfqKey: string, action: 'quote' | 'pass', cleanPrice?: string) => {
+      if (answering.current.has(rfqKey)) return
       const row = rowsRef.current.get(rfqKey)
-      if (!row || !isAnswerable(row, serverNow(), answering.current.has(rfqKey))) {
-        setNotice(row?.state === 'priced' ? 'The request is past its deadline: nothing was sent.' : null)
+      if (!row || !isAnswerable(row, serverNow(), false)) {
+        setNotice(`Nothing was sent: ${unanswerable(row)}.`)
         return
       }
       setAnswering(rfqKey, true)

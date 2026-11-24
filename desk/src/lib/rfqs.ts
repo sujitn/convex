@@ -282,6 +282,13 @@ export function isAnswerable(row: RfqRow, serverNow: number, isAnswering: boolea
   return row.state === 'priced' && !isAnswering && Date.parse(row.request.deadline) > serverNow
 }
 
+/** Why `row`, if it is not in flight, cannot be answered now: it is gone, has moved, or is past its deadline. */
+export function unanswerable(row: RfqRow | undefined): string {
+  if (!row) return 'the request is no longer on the blotter'
+  if (row.state !== 'priced') return `the request is ${stateLabel(row.state)}`
+  return 'the request is past its deadline'
+}
+
 /** Whole seconds to the deadline at `serverNow`; zero once it has passed. */
 export function secondsLeft(deadline: string, serverNow: number): number {
   return Math.max(0, Math.floor((Date.parse(deadline) - serverNow) / 1000))

@@ -16,6 +16,7 @@ import {
   sentPrice,
   tickedPrice,
   TREASURY_TICK,
+  unanswerable,
   quotingTick,
   withRows,
   worstStatus,
@@ -122,8 +123,8 @@ describe('a sent price', () => {
     expect(tickedPrice(unpriced, PRICE)).toBeNull()
   })
   it('is quoted on a Treasury’s 256th or a thousandth, and on no tick while the bond is unknown', () => {
-    const corporate = { issuer_type: 'Corporate', currency: 'USD', bond_type: 'FixedBullet' } as never
-    const treasury = { issuer_type: 'Sovereign', currency: 'USD', bond_type: 'FixedBullet' } as never
+    const corporate = { issuer_type: 'Corporate', currency: 'USD', bond_type: 'FixedBullet', cusip: '000000AA0' } as never
+    const treasury = { issuer_type: 'Sovereign', currency: 'USD', bond_type: 'FixedBullet', cusip: '91282CBB6' } as never
     expect([quotingTick(corporate), quotingTick(treasury), quotingTick(null), quotingTick(undefined)]).toEqual([
       PRICE,
       TREASURY_TICK,
@@ -180,6 +181,11 @@ describe('answering a request', () => {
     expect(isAnswerable(priced, Date.parse('2026-11-24T12:00:30Z'), false)).toBe(false)
     expect(isAnswerable(row('a', 2, 'quoted'), NOW, false)).toBe(false)
     expect(isAnswerable(row('a', 3, 'expired'), NOW, false)).toBe(false)
+  })
+  it('says why nothing was sent', () => {
+    expect(unanswerable(undefined)).toBe('the request is no longer on the blotter')
+    expect(unanswerable(row('a', 2, 'traded_away'))).toBe('the request is traded away')
+    expect(unanswerable(row('a', 1, 'priced'))).toBe('the request is past its deadline')
   })
 })
 

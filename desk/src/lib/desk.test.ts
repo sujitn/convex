@@ -104,8 +104,12 @@ describe('nudges', () => {
 
 describe('formats', () => {
   it('show only Treasury notes and bonds in 32nds', () => {
-    const treasury = { ...corporate, issuer_type: 'Sovereign' }
+    const treasury = { ...corporate, issuer_type: 'Sovereign', cusip: '91282CBB6' }
     expect(isQuotedInThirtySeconds(treasury)).toBe(true)
+    // Named by its US ISIN alone; another government's dollar bond is quoted in decimals.
+    expect(isQuotedInThirtySeconds({ ...treasury, cusip: null, isin: 'US91282CBB63' })).toBe(true)
+    expect(isQuotedInThirtySeconds({ ...treasury, cusip: '91087BAA8' })).toBe(false)
+    expect(isQuotedInThirtySeconds({ ...treasury, cusip: null, isin: null })).toBe(false)
     expect(isQuotedInThirtySeconds(corporate)).toBe(false)
     expect(isQuotedInThirtySeconds({ ...treasury, bond_type: 'ZeroCoupon' })).toBe(false)
     expect(isQuotedInThirtySeconds({ ...treasury, currency: 'EUR' })).toBe(false)

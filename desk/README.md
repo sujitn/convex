@@ -16,7 +16,8 @@ server publishes it, from its `desk_ui_dir` setting, at `/desk`.
   CUSIP, coupon, maturity and method (`Price`, `Yield`, `Sprd 10Y`, `Z`, `DM`, `OAS`),
   then its level and its Live clean price, yield, Z-spread, G-spread and DV01.
 - **Numbers.** Right-aligned in tabular figures. Prices per 100 at three decimals, and
-  US Treasury notes and bonds in 32nds (`99-16+` is 99 16.5/32, `99-162` is 99 16 2/8/32). Yields in
+  US Treasury notes and bonds (a fixed bullet whose CUSIP, or US ISIN, is the Treasury's,
+  `912…`) in 32nds (`99-16+` is 99 16.5/32, `99-162` is 99 16 2/8/32). Yields in
   percent, spreads and margins in basis points. A level is sent back exactly as
   written, never as a float.
 - **Live.** The sheet follows every row on the stream once its rows are built.

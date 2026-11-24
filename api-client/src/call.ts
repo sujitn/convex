@@ -74,6 +74,8 @@ export function callQueue(most: number = MAX_CALLS_IN_FLIGHT): CallQueue {
       if (running >= most) await new Promise<void>((start, refuse) => waiting.push({ start, refuse }))
       else running += 1
       try {
+        // Closed after this call was handed its turn, before it resumed.
+        if (isClosed) throw closed()
         return await task()
       } finally {
         // A waiting call takes this one's turn, so the count stays as it is.
