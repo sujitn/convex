@@ -34,7 +34,7 @@ use axum::{Extension, Json};
 use convex_core::contracts::{DataQuality, ExactDecimal, InstrumentId, UtcTimestamp};
 use convex_core::types::WidthFactor;
 use convex_engine::level_pricing::{live_price, live_quote_input, BidAsk, QuotedInput, TradeSize};
-use convex_engine::ports::quote_event::QuoteField;
+use convex_engine::ports::quote_event::{QuoteField, QuoteValue};
 use convex_engine::ports::reference_master::{
     BookId, BookPosition, MasterKey, QuantityUnit, ReferenceLookup, ResolvedBondReference,
 };
@@ -538,6 +538,9 @@ impl Intake<'_> {
             .map_err(|error| error.to_string())?;
         let method = in_force.as_ref().map(|in_force| &in_force.rule.method);
         let level = quote_input.observation.value.value;
+        // A side's level is in the unit of the quote it moves from.
+        let unit = quote_input.observation.value.unit;
+        let in_quote_unit = |value| QuoteValue { value, unit };
         let quoted = match method {
             Some(method) if method.quote_field() == quote_input.field => {
                 QuotedInput::quoted_by(method, level)
@@ -583,7 +586,7 @@ impl Intake<'_> {
         let mut side = PricedSide {
             desk_side,
             clean_price: ExactDecimal::new(pricing.clean_price_mid),
-            level: is_level.then_some(ExactDecimal::new(level)),
+            level: is_level.then(|| in_quote_unit(level)),
             clean_price_mid: ExactDecimal::new(pricing.clean_price_mid),
             mid_only: Some(NO_RULE_WIDTH),
             quote_input: Some(quote_input),
@@ -598,7 +601,7 @@ impl Intake<'_> {
                 DeskSide::Ask => (two_way.clean_price_ask, two_way.ask_level),
             };
             side.clean_price = ExactDecimal::new(price);
-            side.level = is_level.then_some(ExactDecimal::new(side_level));
+            side.level = is_level.then(|| in_quote_unit(side_level));
             side.mid_only = None;
         }
         Ok(side)

@@ -284,7 +284,8 @@ async fn a_request_is_priced_at_its_size_and_tier_on_the_desk_side_and_checked_a
     let price = &rfq_1["auto_price"];
     assert_eq!(price["kind"], "priced", "{rfq_1}");
     assert_eq!(price["desk_side"], "bid");
-    assert_eq!(number(&price["level"]), 127.0, "{price}");
+    assert_eq!(number(&price["level"]["value"]), 127.0, "{price}");
+    assert_eq!(price["level"]["unit"], "spread_basis_points", "{price}");
     assert!(price.get("mid_only").is_none(), "{price}");
     assert!(number(&price["clean_price"]) < number(&price["clean_price_mid"]));
     assert_eq!(
@@ -316,25 +317,25 @@ async fn a_request_is_priced_at_its_size_and_tier_on_the_desk_side_and_checked_a
     // first bucket.
     let halved = accepted(server, rfq("RFQ-2", "sell", "5000000", "1", MINUTE)).await;
     let halved = priced(server, &halved).await;
-    assert_eq!(number(&halved["auto_price"]["level"]), 126.0);
+    assert_eq!(number(&halved["auto_price"]["level"]["value"]), 126.0);
     let bought = accepted(server, rfq("RFQ-3", "buy", "500000", "2", MINUTE)).await;
     let bought = priced(server, &bought).await;
     let price = &bought["auto_price"];
     assert_eq!(price["desk_side"], "ask");
-    assert_eq!(number(&price["level"]), 124.0, "{price}");
+    assert_eq!(number(&price["level"]["value"]), 124.0, "{price}");
     assert!(number(&price["clean_price"]) > number(&price["clean_price_mid"]));
     // Selling the client 500,000 shortens the book to 500,000: within.
     assert_eq!(limit(&bought["check"], "face")["status"], "within");
     // Past the schedule's 10,000,000 bucket, the last takes it.
     let large = accepted(server, rfq("RFQ-4", "buy", "25000000", "2", MINUTE)).await;
     let large = priced(server, &large).await;
-    assert_eq!(number(&large["auto_price"]["level"]), 121.0);
+    assert_eq!(number(&large["auto_price"]["level"]["value"]), 121.0);
 
     // The list shows each open request's desk side price and how many limits the check
     // put in each status; its entries carry what each was made from.
     let row = open_rfq(server, &full).await;
     assert_eq!(row["state"], "priced");
-    assert_eq!(number(&row["auto_price"]["level"]), 127.0, "{row}");
+    assert_eq!(number(&row["auto_price"]["level"]["value"]), 127.0, "{row}");
     assert!(row["auto_price"].get("pricing_rule").is_none(), "{row}");
     assert_eq!(
         row["check"],

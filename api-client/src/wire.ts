@@ -8,11 +8,17 @@ export interface Measure {
   method: string
 }
 
+/** A quote's value, exact, with its unit: `price_per100`, `yield_decimal` or `spread_basis_points`. */
+export interface QuoteValue {
+  value: string
+  unit: string
+}
+
 /** The field of its quote a result was valued from, as observed: its value is exact. */
 export interface QuoteInput {
   field: string
   observation: {
-    value: { value: string; unit: string }
+    value: QuoteValue
     source_time_ms: number
     receive_time_ms: number
     sequence: number

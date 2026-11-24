@@ -3,9 +3,11 @@ import { useState } from 'react'
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { Calculator } from './pages/Calculator'
 import { PricingSheet } from './pages/PricingSheet'
+import { RfqBlotter } from './pages/RfqBlotter'
 
 const SCREENS = [
   { path: 'sheet', label: 'Pricing sheet', element: <PricingSheet /> },
+  { path: 'rfqs', label: 'RFQ blotter', element: <RfqBlotter /> },
   { path: 'calculator', label: 'Calculator', element: <Calculator /> },
 ]
 

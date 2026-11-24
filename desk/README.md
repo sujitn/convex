@@ -1,12 +1,13 @@
 # Convex desk
 
-The trader's screens for a running `convex-server`: the pricing sheet and the bond
-calculator. It is a separate build from the operator's `admin/` app, and only the
+The trader's screens for a running `convex-server`: the pricing sheet, the RFQ blotter and
+the bond calculator. It is a separate build from the operator's `admin/` app, and only the
 server publishes it, from its `desk_ui_dir` setting, at `/desk`.
 
 | Screen | Reads | Writes |
 |---|---|---|
 | Pricing sheet | `/api/v1/reference/masters/pricing_rule`, `/api/v1/bonds`, `/api/v1/market/levels`, the `/api/v1/ws` stream | `POST /api/v1/market/levels` |
+| RFQ blotter | `/api/v1/books`, `/api/v1/bonds/:instrument_id`, `/api/v1/rfqs/:rfq_key`, the `/api/v1/ws` stream | `POST /api/v1/rfqs/:rfq_key/quote`, `/pass` |
 | Calculator | none | `POST /api/v1/bonds/:instrument_id/calculate` (read-only) |
 
 ## The pricing sheet
@@ -42,6 +43,42 @@ server publishes it, from its `desk_ui_dir` setting, at `/desk`.
   restart holds no level, as the Live runtime holds none, so levels are marked again
   after one.
 
+## The RFQ blotter
+
+- **Books.** Every book that is not retired, the first 64 by id, when the identity may list
+  books (that needs every book). Otherwise, or to choose, type the books: they are kept in
+  the URL (`/desk/rfqs?books=BOOK-IG,BOOK-HY`), and a session follows at most 64.
+- **Rows.** Each open request on the books, the soonest deadline first, then the latest
+  100 final ones, dimmed. A row shows the time left on the server's clock, the client and
+  its tier, the client's side and size (`250K`, `5MM`), the bond, the book, the side of the
+  desk's quote it trades on, the auto level (basis points of spread, or yield in percent)
+  and price, the check (how many of the book's limits it puts in each status, the worst
+  first, as if done), the state and the price quoted.
+- **The price.** The auto price rounded to the tick in the desk's favour, so never tighter
+  than priced: a bid down, an ask up, to a thousandth, and a Treasury's to a 256th, shown
+  in 32nds. What the row shows is the price Send quotes. A bond without a two-way width is
+  priced at the mid (`mid`), and one that could not be priced says `unpriced` (hover for
+  why); the trader types either's price.
+- **Keys.** ↑ and ↓ select a request, and the selection stays on it as rows arrive and
+  end:
+  - `S` sends the price shown. On a mid or unpriced request it opens the price instead.
+  - `A` types a price, from the one shown: ↑ and ↓ move it a tick, Enter sends it as
+    written, Escape cancels.
+  - `P` passes.
+  - Enter opens the request's inputs, Escape closes them.
+
+  Only a priced request before its deadline is answered, once: the keys do nothing while
+  an answer is in flight, and a refusal shows the server's code and reason.
+- **Inputs.** The drawer reads the request's entries again each time it moves: the request
+  and the bond it resolved to; the configuration and the tier's factor; the Live quote,
+  the rule, its benchmark set and the two-way the price came from; each limit as checked;
+  the quote; who sent each event and when.
+- **Live.** The stream sends each open request, then every transition. After a
+  reconnection or a `RESYNC_REQUIRED` the page subscribes again, and reads over HTTP each
+  request it held open that the new subscription does not name, so one that ended
+  meanwhile shows how; one that cannot be read then is read by a subscription 5 seconds
+  later. A request the identity may not read is counted as withheld.
+
 ## The calculator
 
 One level of a stored bond, by any method (price, yield, benchmark spread to a tenor,
@@ -51,7 +88,11 @@ level is sent as typed, in the method's unit.
 
 ## Access
 
-The page calls only its own origin. In required access mode, paste a bearer token into
+The page calls only its own origin, at most 4 calls at once (the server refuses a subject
+past its concurrent requests, 8 by default); the rest wait their turn. The blotter's
+identity needs `trader` (answering) and
+`reader` on the books, every instrument they hold or their limits name, and the bonds
+quoted. In required access mode, paste a bearer token into
 the header bar; it stays in page memory, never in storage, the URL or a cookie. The
 stream receives it in the `convex.bearer.<base64url token>` subprotocol beside
 `convex.v1`, since a browser cannot send `Authorization` on a WebSocket.

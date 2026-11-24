@@ -11,3 +11,8 @@ export function failureNotice(error: unknown): string {
   }
   return error instanceof Error ? error.message : String(error)
 }
+
+/** The HTTP status of a refused call; none for any other failure. */
+export function failureStatus(error: unknown): number | undefined {
+  return error instanceof ApiFailure ? error.status : undefined
+}

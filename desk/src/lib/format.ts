@@ -1,3 +1,5 @@
+import type { QuoteValue } from '@convex/api-client'
+
 // How the desk reads numbers: prices per 100 in decimals or, for Treasuries, in 32nds;
 // yields in percent; spreads and margins in basis points. Display only: what is sent
 // back is the exact level string, never a formatted one.
@@ -64,6 +66,18 @@ export function formatMeasure(value: WireNumber, unit: string, thirtySeconds = f
     default:
       return String(typeof value === 'number' ? Number(value.toPrecision(8)) : value)
   }
+}
+
+/** The measure unit each quote unit is shown in. */
+const QUOTE_UNIT_SHOWN: Record<string, string> = {
+  price_per100: 'price_per_100',
+  yield_decimal: 'decimal_rate',
+  spread_basis_points: 'bp',
+}
+
+/** A quote's value as the desk reads it, by its unit: a price, a yield in percent or a spread in basis points. */
+export function formatQuoteValue(quoted: QuoteValue, thirtySeconds = false): string {
+  return formatMeasure(quoted.value, QUOTE_UNIT_SHOWN[quoted.unit] ?? quoted.unit, thirtySeconds)
 }
 
 /**

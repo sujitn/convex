@@ -47,3 +47,27 @@ export async function call<T>(token: string | null, path: string, options: CallO
   return { data: parsed as T, text, headers: response.headers }
 }
 
+
+/**
+ * Calls a session keeps in flight at once, half the server's default concurrent requests
+ * for one subject, past which it refuses a call (429); the rest wait their turn.
+ */
+export const MAX_CALLS_IN_FLIGHT = 4
+
+/** A queue that runs at most `most` calls at once, each in the order it was asked. */
+export function callQueue(most: number = MAX_CALLS_IN_FLIGHT): <T>(run: () => Promise<T>) => Promise<T> {
+  let running = 0
+  const waiting: (() => void)[] = []
+  return async (run) => {
+    if (running >= most) await new Promise<void>((resolve) => waiting.push(resolve))
+    else running += 1
+    try {
+      return await run()
+    } finally {
+      // A waiting call takes this one's turn, so the count stays as it is.
+      const next = waiting.shift()
+      if (next) next()
+      else running -= 1
+    }
+  }
+}

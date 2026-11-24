@@ -35,7 +35,7 @@ use std::time::Duration;
 use convex_core::contracts::{ExactDecimal, InstrumentId, SourceId, UtcTimestamp, Version};
 use convex_core::types::WidthFactor;
 use convex_engine::ports::limits::LimitStatus;
-use convex_engine::ports::quote_event::QuoteInput;
+use convex_engine::ports::quote_event::{QuoteInput, QuoteValue};
 use convex_engine::ports::reference_master::BookId;
 use convex_engine::ports::reference_repository::ReferenceError;
 use convex_engine::ports::rfq::{
@@ -161,9 +161,9 @@ pub(crate) struct PricedSide {
     pub(crate) desk_side: DeskSide,
     /// The desk side's clean price.
     pub(crate) clean_price: ExactDecimal,
-    /// The desk side's level in the rule's unit, for a bond quoted by a level.
+    /// The desk side's level with its unit, for a bond quoted by a level.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) level: Option<ExactDecimal>,
+    pub(crate) level: Option<QuoteValue>,
     pub(crate) clean_price_mid: ExactDecimal,
     /// Why the price is the mid: the bond has no two-way width.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -304,7 +304,7 @@ enum AutoPriceRow<'a> {
     Priced {
         desk_side: DeskSide,
         clean_price: &'a ExactDecimal,
-        level: Option<&'a ExactDecimal>,
+        level: Option<&'a QuoteValue>,
         clean_price_mid: &'a ExactDecimal,
         mid_only: Option<&'static str>,
     },
