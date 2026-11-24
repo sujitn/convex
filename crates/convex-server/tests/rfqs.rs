@@ -642,6 +642,354 @@ async fn the_desk_holds_256_open_requests() {
     desk.server.stop().await;
 }
 
+#[tokio::test]
+async fn the_rfq_topic_sends_each_open_request_then_every_transition_on_its_books() {
+    let desk = desk().await;
+    let server = &desk.server;
+    let other = "BOOK-OTHER";
+    server
+        .put(
+            &format!("/api/v1/books/{other}"),
+            &json!({"currency": "USD", "positions": [
+                {"instrument_id": BOND, "quantity": "1000000"},
+            ]}),
+        )
+        .await;
+    let later = accepted(server, rfq("RFQ-1", "sell", "5000000", "2", 2 * MINUTE)).await;
+    let sooner = accepted(server, rfq("RFQ-2", "buy", "1000000", "1", MINUTE)).await;
+
+    // The seed is every open request on the books, by deadline, each as the list shows it.
+    let mut socket = server.session(None).await;
+    let seed = subscribe_rfqs(&mut socket, &[BOOK]).await;
+    let keys: Vec<&str> = seed
+        .iter()
+        .map(|frame| frame["rfq_key"].as_str().unwrap())
+        .collect();
+    assert_eq!(keys, [sooner.as_str(), later.as_str()]);
+    let mut listed = open_rfq(server, &sooner).await;
+    listed["type"] = json!("rfq");
+    assert_eq!(seed[0], listed);
+    assert_eq!(seed[1]["state"], "priced");
+    assert_eq!(seed[1]["auto_price"]["kind"], "priced");
+    assert_eq!(seed[1]["check"]["kind"], "evaluated");
+    let priced_id = seed[1]["record_id"].as_u64().unwrap();
+
+    // Then each transition, once recorded, with its entry's ID.
+    let (status, _) = answer(
+        server,
+        &later,
+        "quote",
+        Some(json!({"clean_price": "99.125"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let quoted = next_frame(&mut socket).await;
+    assert_eq!(
+        (quoted["type"].as_str(), quoted["rfq_key"].as_str()),
+        (Some("rfq"), Some(later.as_str())),
+        "{quoted}"
+    );
+    assert_eq!(quoted["state"], "quoted");
+    assert_eq!(quoted["quote"]["clean_price"], "99.125");
+    let quoted_id = quoted["record_id"].as_u64().unwrap();
+    assert!(quoted_id > priced_id);
+    let (status, _) = answer(server, &later, "outcome", Some(json!({"outcome": "done"}))).await;
+    assert_eq!(status, StatusCode::OK);
+    let done = next_frame(&mut socket).await;
+    assert_eq!(done["state"], "done", "{done}");
+    assert!(done["record_id"].as_u64().unwrap() > quoted_id);
+    let recorded = entries(server, &later).await;
+    assert_eq!(done["record_id"], recorded.last().unwrap()["record_id"]);
+
+    // A request on a book the session does not follow is not sent; a new one on its book
+    // is, and so is its expiry.
+    let (status, answers) = ingest(
+        server,
+        vec![{
+            let mut request = rfq("RFQ-3", "buy", "1000000", "2", MINUTE);
+            request["book_id"] = json!(other);
+            request
+        }],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{answers:?}");
+    let brief = accepted(
+        server,
+        rfq("RFQ-4", "buy", "1000000", "2", Duration::from_millis(1500)),
+    )
+    .await;
+    let received = next_frame(&mut socket).await;
+    assert_eq!(
+        (received["rfq_key"].as_str(), received["state"].as_str()),
+        (Some(brief.as_str()), Some("priced")),
+        "{received}"
+    );
+    let expired = next_frame(&mut socket).await;
+    assert_eq!(
+        (expired["rfq_key"].as_str(), expired["state"].as_str()),
+        (Some(brief.as_str()), Some("expired")),
+        "{expired}"
+    );
+
+    // Subscribing again resends the seed; after unsubscribing nothing more is sent.
+    let again = subscribe_rfqs(&mut socket, &[BOOK]).await;
+    assert_eq!(again.len(), 1);
+    assert_eq!(again[0]["rfq_key"], sooner.as_str());
+    send_frame(
+        &mut socket,
+        json!({"type": "unsubscribe_rfqs", "book_ids": [BOOK]}),
+    )
+    .await;
+    assert_eq!(next_frame(&mut socket).await["type"], "unsubscribed");
+    let (status, _) = answer(server, &sooner, "pass", None).await;
+    assert_eq!(status, StatusCode::OK);
+    send_frame(&mut socket, json!({"type": "ping", "timestamp": 1})).await;
+    assert_eq!(next_frame(&mut socket).await["type"], "pong");
+
+    // A message lists at most 64 books.
+    let many: Vec<String> = (0..65).map(|index| format!("BOOK-{index}")).collect();
+    send_frame(
+        &mut socket,
+        json!({"type": "subscribe_rfqs", "book_ids": many}),
+    )
+    .await;
+    let refused = next_frame(&mut socket).await;
+    assert_eq!(refused["type"], "error", "{refused}");
+    desk.server.stop().await;
+}
+
+/// A simulator's binary, run against `server` with `args`.
+struct Simulator {
+    child: tokio::process::Child,
+    lines: tokio::io::Lines<tokio::io::BufReader<tokio::process::ChildStdout>>,
+}
+
+impl Simulator {
+    fn start(binary: &str, server: &Running, args: &[&str]) -> Self {
+        let mut child = tokio::process::Command::new(binary)
+            .arg("--server")
+            .arg(&server.base)
+            .args(args)
+            .stdout(std::process::Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let stdout = child.stdout.take().unwrap();
+        Self {
+            child,
+            lines: tokio::io::AsyncBufReadExt::lines(tokio::io::BufReader::new(stdout)),
+        }
+    }
+
+    /// The next event it prints.
+    async fn event(&mut self) -> Value {
+        let line = tokio::time::timeout(Duration::from_secs(30), self.lines.next_line())
+            .await
+            .expect("no event")
+            .unwrap()
+            .expect("the simulator ended");
+        serde_json::from_str(&line).unwrap()
+    }
+
+    /// Every event it prints until it exits, which it must do successfully.
+    async fn events_to_exit(mut self) -> Vec<Value> {
+        let mut events = Vec::new();
+        while let Some(line) = tokio::time::timeout(Duration::from_secs(60), self.lines.next_line())
+            .await
+            .expect("the simulator did not exit")
+            .unwrap()
+        {
+            events.push(serde_json::from_str(&line).unwrap());
+        }
+        assert!(self.child.wait().await.unwrap().success());
+        events
+    }
+}
+
+const RFQ_SIM: &str = env!("CARGO_BIN_EXE_convex-rfq-sim");
+const BMS_SIM: &str = env!("CARGO_BIN_EXE_convex-bms-sim");
+
+/// The face the book holds of the bond.
+async fn held(server: &Running) -> f64 {
+    let (status, book) = server
+        .send(Method::GET, &format!("/api/v1/books/{BOOK}"), None)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{book}");
+    book["positions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|position| position["instrument_id"] == BOND)
+        .map_or(0.0, |position| number(&position["quantity"]))
+}
+
+/// The BMS simulator applies a done trade to the book, and the book's limit status is then
+/// what the request's check said at receipt: the check is the trade as if done.
+#[tokio::test]
+async fn the_bms_books_a_done_trade_and_the_status_is_then_the_check_at_receipt() {
+    let desk = desk().await;
+    let server = &desk.server;
+    let mut bms = Simulator::start(BMS_SIM, server, &["--books", BOOK, "--trades", "1"]);
+    assert_eq!(bms.event().await["event"], "following");
+
+    // The desk buys 1,000,000 from the client: the book then holds 2,000,000.
+    let key = accepted(server, rfq("RFQ-1", "sell", "1000000", "2", MINUTE)).await;
+    let check = priced(server, &key).await["check"].clone();
+    let (status, _) = answer(server, &key, "quote", Some(json!({"clean_price": "99.5"}))).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = answer(server, &key, "outcome", Some(json!({"outcome": "done"}))).await;
+    assert_eq!(status, StatusCode::OK);
+    let events = bms.events_to_exit().await;
+    assert_eq!(events.len(), 1, "{events:?}");
+    assert_eq!(
+        (events[0]["event"].as_str(), events[0]["rfq_key"].as_str()),
+        (Some("applied"), Some(key.as_str())),
+        "{events:?}"
+    );
+    assert_eq!(events[0]["position_change"], "1000000");
+    assert_eq!(held(server).await, 2_000_000.0);
+
+    let (status, booked) = server
+        .send(
+            Method::GET,
+            &format!("/api/v1/books/{BOOK}/limits/status"),
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{booked}");
+    let booked = json!({ "status": booked });
+    for limit_id in ["face", "net"] {
+        let (before, after) = (limit(&check, limit_id), limit(&booked, limit_id));
+        assert_eq!(
+            before["status"], after["status"],
+            "{limit_id}: {before} {after}"
+        );
+        assert_eq!(
+            number(&before["value"]),
+            number(&after["value"]),
+            "{limit_id}"
+        );
+    }
+    desk.server.stop().await;
+}
+
+/// The trader: quote every request on the book at its auto price, or 99 when it has none.
+fn quote_every_request(server: &Running) -> tokio::task::JoinHandle<()> {
+    let (client, base) = (server.client.clone(), server.base.clone());
+    let ws_url = server.ws_url();
+    tokio::spawn(async move {
+        let (mut socket, _) = tokio_tungstenite::connect_async(ws_url).await.unwrap();
+        send_frame(
+            &mut socket,
+            json!({"type": "subscribe_rfqs", "book_ids": [BOOK]}),
+        )
+        .await;
+        loop {
+            let frame = next_frame(&mut socket).await;
+            if frame["type"] != "rfq" || frame["state"] != "priced" {
+                continue;
+            }
+            let price = match frame["auto_price"]["kind"].as_str() {
+                Some("priced") => frame["auto_price"]["clean_price"].clone(),
+                _ => json!("99"),
+            };
+            let key = frame["rfq_key"].as_str().unwrap();
+            client
+                .post(format!("{base}/api/v1/rfqs/{key}/quote"))
+                .json(&json!({"clean_price": price}))
+                .send()
+                .await
+                .unwrap();
+        }
+    })
+}
+
+/// The source simulator's requests are quoted by the desk and answered by its clients, and
+/// the BMS simulator books each done trade once.
+#[tokio::test]
+async fn the_simulators_trade_with_a_quoting_desk_and_each_done_trade_is_booked_once() {
+    let desk = desk().await;
+    let server = &desk.server;
+    let mut bms = Simulator::start(BMS_SIM, server, &["--books", BOOK]);
+    assert_eq!(bms.event().await["event"], "following");
+    let trader = quote_every_request(server);
+    let source = Simulator::start(
+        RFQ_SIM,
+        server,
+        &[
+            "--source-id",
+            SOURCE,
+            "--books",
+            BOOK,
+            "--bonds",
+            BOND,
+            "--tiers",
+            "1,2",
+            "--rate",
+            "20",
+            "--count",
+            "12",
+            "--seed",
+            "7",
+        ],
+    );
+    let events = source.events_to_exit().await;
+    trader.abort();
+
+    let of = |kind: &str| -> Vec<&Value> {
+        events
+            .iter()
+            .filter(|event| event["event"] == kind)
+            .collect()
+    };
+    let sent = of("sent");
+    let finals = of("final");
+    assert_eq!(sent.len(), 12, "{events:?}");
+    assert_eq!(finals.len(), 12, "{events:?}");
+    let summary = of("summary");
+    assert_eq!(summary[0]["taken"], 12);
+    let done: std::collections::BTreeSet<&str> = finals
+        .iter()
+        .filter(|event| event["state"] == "done")
+        .map(|event| event["rfq_key"].as_str().unwrap())
+        .collect();
+    assert!(!done.is_empty(), "{events:?}");
+    // Each request is final as its client answered: none expired.
+    assert!(
+        finals.iter().all(|event| event["state"] != "expired"),
+        "{events:?}"
+    );
+    let expected = 1_000_000.0
+        + sent
+            .iter()
+            .filter(|event| done.contains(event["rfq_key"].as_str().unwrap()))
+            .map(|event| {
+                let face = number(&event["request"]["face"]);
+                if event["request"]["side"] == "buy" {
+                    -face
+                } else {
+                    face
+                }
+            })
+            .sum::<f64>();
+    let mut applied = std::collections::BTreeSet::new();
+    while applied.len() < done.len() {
+        let event = bms.event().await;
+        assert_eq!(event["event"], "applied", "{event}");
+        assert!(applied.insert(event["rfq_key"].as_str().unwrap().to_owned()));
+    }
+    assert_eq!(
+        applied
+            .iter()
+            .map(String::as_str)
+            .collect::<std::collections::BTreeSet<_>>(),
+        done
+    );
+    assert_eq!(held(server).await, expected);
+    drop(bms);
+    desk.server.stop().await;
+}
+
 /// Receipt to `priced` for one request with the desk empty and with 255 open.
 #[tokio::test]
 #[ignore]

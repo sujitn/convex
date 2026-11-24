@@ -208,6 +208,17 @@ the changes that matter when you upgrade.
 - **One audit writer.** The limit monitor and the RFQ desk take entry ids and append under
   one lock, so ids commit in order. `Server::with_limit_monitor` is now
   `Server::with_audit_records`, which composes both.
+- **The `rfq` topic.** `subscribe_rfqs` with up to 64 books sends each open request on
+  them, then the acknowledgement, then every recorded transition, each as the list's row
+  with its entry's `record_id`. Each message is read as `GET /api/v1/rfqs` reads it, and
+  checked again as it goes out if the policy changed since; one the session may not read
+  is an `rfq_withheld` message naming the book. List rows carry `record_id` too, and an
+  unpriced reason is cut to 512 bytes. A session's topics
+  are at most 4,224 (was 4,160): 64 RFQ books beside the instruments and limit books.
+- **Simulators.** `convex-rfq-sim` sends clients' requests of realistic sizes, sides,
+  tiers and deadlines and reports each client's answer once quoted; `convex-bms-sim` books
+  each `done` trade through `PUT /api/v1/books/:book_id`.
+- **Breaking:** `websocket::ClientMessage` and `ServerMessage` are no longer public.
 
 - **The desk app and the desk's levels.**
   - `desk_ui_dir` serves the built desk app (`desk/`: the pricing sheet and the bond

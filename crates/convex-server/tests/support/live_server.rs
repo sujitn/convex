@@ -74,6 +74,20 @@ impl Running {
         format!("{}/ws", self.base.replacen("http://", "ws://", 1))
     }
 
+    /// A session, under `token` when one is given, past its `connected` frame.
+    pub async fn session(&self, token: Option<&str>) -> Socket {
+        use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+        let mut request = self.ws_url().into_client_request().unwrap();
+        if let Some(token) = token {
+            request
+                .headers_mut()
+                .insert("authorization", format!("Bearer {token}").parse().unwrap());
+        }
+        let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
+        assert_eq!(next_frame(&mut socket).await["type"], "connected");
+        socket
+    }
+
     pub async fn runtime(&self) -> Value {
         self.client
             .get(format!("{}/api/v1/runtime", self.base))
@@ -445,4 +459,60 @@ pub async fn activate_client_tiers(database: &Path, tiers: Value) {
         .activate(&configuration_fixture::activate(1, 0, "client-tiers"))
         .await
         .unwrap();
+}
+
+pub type Socket =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+/// The next frame other than a heartbeat.
+pub async fn next_frame(socket: &mut Socket) -> Value {
+    use futures_util::StreamExt;
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            match socket.next().await {
+                Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
+                    let value: Value = serde_json::from_str(&text).unwrap();
+                    if value["type"] != "heartbeat" {
+                        return value;
+                    }
+                }
+                Some(Ok(_)) => {}
+                other => panic!("socket ended: {other:?}"),
+            }
+        }
+    })
+    .await
+    .expect("no frame")
+}
+
+pub async fn send_frame(socket: &mut Socket, message: Value) {
+    use futures_util::SinkExt;
+    socket
+        .send(tokio_tungstenite::tungstenite::Message::Text(
+            message.to_string().into(),
+        ))
+        .await
+        .unwrap();
+}
+
+/// Follow the requests for quote on `books`: every frame sent before the acknowledgement,
+/// which must count the books, or the refusal as the last.
+pub async fn subscribe_rfqs(socket: &mut Socket, books: &[&str]) -> Vec<Value> {
+    send_frame(socket, json!({"type": "subscribe_rfqs", "book_ids": books})).await;
+    let mut frames = Vec::new();
+    loop {
+        let frame = next_frame(socket).await;
+        match frame["type"].as_str() {
+            Some("subscribed") => {
+                assert_eq!(frame["subscription_type"], "rfqs", "{frame}");
+                assert_eq!(frame["count"], books.len(), "{frame}");
+                return frames;
+            }
+            Some("error") => {
+                frames.push(frame);
+                return frames;
+            }
+            _ => frames.push(frame),
+        }
+    }
 }
