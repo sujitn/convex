@@ -304,7 +304,11 @@ the `subscribed` acknowledgement; then each transition once it is recorded, the 
 that entry left it, until it is final. `record_id` is the entry's id: a request sent at
 subscription can be newer than a transition already on its way, so of two messages for one
 `rfq_key` keep the higher `record_id`. Listing a followed book again resends its open
-requests and costs nothing, which is the path after `RESYNC_REQUIRED`. A session follows at
+requests and costs nothing, which is the path after `RESYNC_REQUIRED` or a reconnection.
+The seed and its acknowledgement are sent together, so only rows before a
+`RESYNC_REQUIRED` may be missing later ones; a client that held requests open reads
+again, through `GET /api/v1/rfqs/:rfq_key`, each one the new subscription does not name
+after its last `RESYNC_REQUIRED`, since one that ended meanwhile is not in the seed. A session follows at
 most 64 books, and a message lists at most 64. A request a previous run left open is
 expired at start without a message, since no session of this run saw it open. Each
 message is read as `GET /api/v1/rfqs` reads it: the session needs read access to the
@@ -1366,7 +1370,9 @@ new position through `PUT /api/v1/books/:book_id`.
   Live record, through its rule's stage at the request's settlement date, at the width of
   the rule for the trade's size bucket scaled by the client tier's factor
   (`client_tiers` in the configuration). The price is the side of the desk's quote the
-  client trades on: a client buy lifts the ask, a client sell hits the bid. A bond whose
+  client trades on: a client buy lifts the ask, a client sell hits the bid. A bond quoted
+  by a level also gets that side's `level` with its unit, as a quote carries one
+  (`{"value": "127", "unit": "spread_basis_points"}`, or `yield_decimal`). A bond whose
   rule sets no width, a callable and a floating rate note are priced at the mid, with
   `mid_only` saying why. A bond that cannot be priced (no rule, no usable Live level, a
   benchmark unavailable, a size past the schedule) is `unpriced` with the reason, and the

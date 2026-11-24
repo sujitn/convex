@@ -1,8 +1,10 @@
 import type { PublishedValuation } from '@convex/api-client'
+import { observeServerTime } from './clock'
 
-// The Live valuation stream, `/api/v1/ws`. A browser cannot send `Authorization` on a
-// WebSocket, so the page offers its token as a subprotocol beside the stream's own,
-// which the server selects. The token never goes in the URL.
+// The stream, `/api/v1/ws`: Live valuations, and requests for quote by book. A browser
+// cannot send `Authorization` on a WebSocket, so the page offers its token as a
+// subprotocol beside the stream's own, which the server selects. The token never goes in
+// the URL.
 
 /** The stream's protocol, which the server selects. */
 const STREAM_PROTOCOL = 'convex.v1'
@@ -32,6 +34,70 @@ export function subscriptionMessages(instrumentIds: string[]): string[] {
 
 export type StreamStatus = 'connecting' | 'open' | 'reconnecting'
 
+/** A message the stream sent: its type, and the fields of that type. */
+export interface StreamMessage {
+  type: string
+  code?: string
+  message?: string
+  [field: string]: unknown
+}
+
+/** Send one message on the open connection. */
+export type Send = (message: string) => void
+
+export interface ConnectionHandlers {
+  /** The connection opened, or opened again: subscribe. */
+  onOpen: (send: Send) => void
+  onMessage: (message: StreamMessage, send: Send) => void
+  onStatus: (status: StreamStatus) => void
+}
+
+/**
+ * Connect to the stream until the returned function is called, connecting again after
+ * each close, at most 30 seconds apart. Each connection starts with no subscription, so
+ * `onOpen` subscribes each time.
+ */
+export function openStream(token: string | null, handlers: ConnectionHandlers): () => void {
+  let socket: WebSocket | null = null
+  let stopped = false
+  let attempts = 0
+  let retry: ReturnType<typeof setTimeout> | undefined
+  // A message for a connection not open is dropped: the next one subscribes when it opens.
+  const send: Send = (message) => {
+    if (socket?.readyState === WebSocket.OPEN) socket.send(message)
+  }
+  const connect = () => {
+    handlers.onStatus(attempts === 0 ? 'connecting' : 'reconnecting')
+    const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
+    socket = new WebSocket(`${scheme}://${window.location.host}/api/v1/ws`, streamProtocols(token))
+    socket.onopen = () => {
+      if (stopped) return
+      attempts = 0
+      handlers.onStatus('open')
+      handlers.onOpen(send)
+    }
+    socket.onmessage = (event: MessageEvent<string>) => {
+      if (stopped) return
+      const message = JSON.parse(event.data) as StreamMessage
+      // The connection and each heartbeat carry the server's clock.
+      if (typeof message.server_time === 'number') observeServerTime(message.server_time)
+      handlers.onMessage(message, send)
+    }
+    socket.onclose = () => {
+      if (stopped) return
+      attempts += 1
+      handlers.onStatus('reconnecting')
+      retry = setTimeout(connect, Math.min(MAX_RECONNECT_MS, 1000 * 2 ** Math.min(attempts - 1, 5)))
+    }
+  }
+  connect()
+  return () => {
+    stopped = true
+    clearTimeout(retry)
+    socket?.close()
+  }
+}
+
 export interface StreamHandlers {
   onValuation: (valuation: PublishedValuation) => void
   onStatus: (status: StreamStatus) => void
@@ -49,44 +115,21 @@ export function followValuations(
   instrumentIds: string[],
   handlers: StreamHandlers,
 ): () => void {
-  let socket: WebSocket | null = null
-  let stopped = false
-  let attempts = 0
-  let retry: ReturnType<typeof setTimeout> | undefined
-  const subscribe = () => {
-    for (const message of subscriptionMessages(instrumentIds)) socket?.send(message)
+  if (instrumentIds.length === 0) return () => {}
+  const subscribe = (send: Send) => {
+    for (const message of subscriptionMessages(instrumentIds)) send(message)
   }
-  const connect = () => {
-    handlers.onStatus(attempts === 0 ? 'connecting' : 'reconnecting')
-    const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    socket = new WebSocket(`${scheme}://${window.location.host}/api/v1/ws`, streamProtocols(token))
-    socket.onopen = () => {
-      if (stopped) return
-      attempts = 0
-      handlers.onStatus('open')
-      subscribe()
-    }
-    socket.onmessage = (event: MessageEvent<string>) => {
-      const message = JSON.parse(event.data) as { type: string; code?: string; message?: string }
+  return openStream(token, {
+    onOpen: subscribe,
+    onStatus: handlers.onStatus,
+    onMessage: (message, send) => {
       if (message.type === 'valuation') {
         handlers.onValuation(message as unknown as PublishedValuation)
       } else if (message.type === 'error' && message.code === 'RESYNC_REQUIRED') {
-        subscribe()
+        subscribe(send)
       } else if (message.type === 'error') {
         handlers.onRefusal(message.code ?? 'ERROR', message.message ?? '')
       }
-    }
-    socket.onclose = () => {
-      if (stopped) return
-      attempts += 1
-      handlers.onStatus('reconnecting')
-      retry = setTimeout(connect, Math.min(MAX_RECONNECT_MS, 1000 * 2 ** Math.min(attempts - 1, 5)))
-    }
-  }
-  if (instrumentIds.length > 0) connect()
-  return () => {
-    stopped = true
-    clearTimeout(retry)
-    socket?.close()
-  }
+    },
+  })
 }

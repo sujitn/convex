@@ -91,12 +91,17 @@ const FIELD_UNIT: Record<string, string> = {
   mid_spread: 'bp',
 }
 
+/** The CUSIP issuer number of the US Treasury. */
+const US_TREASURY_CUSIP_ISSUER = '912'
+
 /**
- * A US Treasury note or bond, quoted and shown in 32nds. Bills are quoted on discount
- * and floating rate notes in decimals.
+ * A US Treasury note or bond, quoted and shown in 32nds: a fixed bullet whose CUSIP, or
+ * the CUSIP inside its US ISIN, is the US Treasury's. Another government's dollar bond is
+ * quoted in decimals, bills on discount and floating rate notes in decimals.
  */
 export function isQuotedInThirtySeconds(bond: Bond | null): boolean {
-  return bond?.issuer_type === 'Sovereign' && bond.currency === 'USD' && bond.bond_type === 'FixedBullet'
+  if (bond?.issuer_type !== 'Sovereign' || bond.currency !== 'USD' || bond.bond_type !== 'FixedBullet') return false
+  return bond.cusip?.startsWith(US_TREASURY_CUSIP_ISSUER) ?? bond.isin?.startsWith(`US${US_TREASURY_CUSIP_ISSUER}`) ?? false
 }
 
 /** One basis point in a field's unit, or a quarter of one when `fine`. */

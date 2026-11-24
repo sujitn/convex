@@ -101,6 +101,15 @@ the changes that matter when you upgrade.
 
 ### Web apps
 
+- **The RFQ blotter** (`/desk/rfqs`): each request for quote on the followed books with
+  a countdown on the server's clock, the auto level and price, and the check; `S` sends
+  the auto price on the tick in the desk's favour, `A` a typed price, `P` passes, and
+  Enter shows what the price and the check were made from. A mid or unpriced request is
+  never sent on one key. After a reconnection it reads again each request it held open
+  that the new subscription does not name.
+- **Calls queue.** The apps' session keeps at most 4 calls in flight, the rest in order,
+  so a page's burst of reads stays inside the server's concurrent requests for one
+  subject (8 by default), past which it answers 429.
 - **The desk app, `desk/`:** the pricing sheet (every bond with a pricing rule, repriced
   from the stream, Treasuries in 32nds, tick colours, each row's state as the server
   judged it, and keyboard nudges of a desk level) and the bond calculator. A bond the
@@ -215,6 +224,9 @@ the changes that matter when you upgrade.
   is an `rfq_withheld` message naming the book. List rows carry `record_id` too, and an
   unpriced reason is cut to 512 bytes. A session's topics
   are at most 4,224 (was 4,160): 64 RFQ books beside the instruments and limit books.
+- **Breaking:** an RFQ's `auto_price.level`, in its row and its `priced` entry, is a
+  quote's value with its unit (`{"value": "127", "unit": "spread_basis_points"}`), not a
+  bare decimal, so a spread and a yield are told apart.
 - **Simulators.** `convex-rfq-sim` sends clients' requests of realistic sizes, sides,
   tiers and deadlines and reports each client's answer once quoted; `convex-bms-sim` books
   each `done` trade through `PUT /api/v1/books/:book_id`.

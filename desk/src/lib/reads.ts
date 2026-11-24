@@ -1,7 +1,10 @@
 import type { BondPage, MasterPage, Reply } from '@convex/api-client'
+import { failureStatus } from './failure'
+import type { RfqRecord } from './rfqs'
 import type { Bond, DeskLevels, PricingRule } from './sheet'
 
-// The sheet's reads: every pricing rule and bond, a page at a time, and the desk's marks.
+// The screens' reads: every pricing rule and bond, a page at a time, the desk's marks, the
+// books and one bond, and a request for quote's entries.
 
 /**
  * Records a page. In required access mode the server checks every bond a reply names
@@ -40,7 +43,51 @@ export async function readDeskLevels(call: Call): Promise<DeskLevels | null> {
   try {
     return (await call<DeskLevels>('/api/v1/market/levels')).data
   } catch (error) {
-    if ((error as { status?: number }).status === 503) return null
+    if (failureStatus(error) === 503) return null
     throw error
   }
+}
+
+/** A book as `GET /api/v1/books` lists it. */
+interface BookSummary {
+  book_id: string
+  effective_until: string | null
+}
+
+/** The books a page of the list holds, at most the server's 500. */
+const BOOK_PAGE = 500
+
+/**
+ * The first `most` books by id that are not retired; none when the caller may not list
+ * books (403), which needs every book.
+ */
+export async function readLiveBookIds(call: Call, most: number): Promise<string[] | null> {
+  const bookIds: string[] = []
+  let after: string | null = null
+  try {
+    for (;;) {
+      const cursor: string = after === null ? '' : `&after=${encodeURIComponent(after)}`
+      const page = (await call<{ books: BookSummary[]; next_after: string | null }>(`/api/v1/books?limit=${BOOK_PAGE}${cursor}`)).data
+      for (const book of page.books) {
+        if (book.effective_until !== null) continue
+        bookIds.push(book.book_id)
+        if (bookIds.length === most) return bookIds
+      }
+      if (page.next_after === null) return bookIds
+      after = page.next_after
+    }
+  } catch (error) {
+    if (failureStatus(error) === 403) return null
+    throw error
+  }
+}
+
+/** The bond stored as `instrumentId`. */
+export async function readBond(call: Call, instrumentId: string): Promise<Bond> {
+  return (await call<Bond>(`/api/v1/bonds/${encodeURIComponent(instrumentId)}`)).data
+}
+
+/** Every entry of the request `rfqKey`, in order. */
+export async function readRfqRecords(call: Call, rfqKey: string): Promise<RfqRecord[]> {
+  return (await call<{ records: RfqRecord[] }>(`/api/v1/rfqs/${rfqKey}`)).data.records
 }

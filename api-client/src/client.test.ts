@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ApiFailure, decodeFailure, rawObject, readAllPages } from './index'
+import { ApiFailure, callQueue, decodeFailure, rawObject, readAllPages } from './index'
 
 describe('readAllPages', () => {
   const record = (id: string, revision: number) =>
@@ -60,5 +60,66 @@ describe('exact JSON', () => {
     expect(rawObject({ document, reason: JSON.stringify('a "quoted" reason') })).toBe(
       '{"document":{"value": 1.0},"reason":"a \\"quoted\\" reason"}',
     )
+  })
+})
+
+describe('callQueue', () => {
+  it('runs at most its limit at once, the rest in the order asked, a failure included', async () => {
+    const queue = callQueue(2)
+    let running = 0
+    let most = 0
+    const order: number[] = []
+    const run = (index: number) =>
+      queue.run(async () => {
+        running += 1
+        most = Math.max(most, running)
+        await new Promise((resolve) => setTimeout(resolve, 5))
+        running -= 1
+        order.push(index)
+        if (index === 1) throw new Error('refused')
+        return index
+      })
+    const settled = await Promise.allSettled([0, 1, 2, 3, 4].map(run))
+    expect(most).toBe(2)
+    expect(order).toEqual([0, 1, 2, 3, 4])
+    expect(settled.map((result) => result.status)).toEqual(['fulfilled', 'rejected', 'fulfilled', 'fulfilled', 'fulfilled'])
+  })
+})
+
+describe('a closed callQueue', () => {
+  it('refuses the calls still waiting and those asked later; the running one finishes', async () => {
+    const queue = callQueue(1)
+    let finish = () => {}
+    const running = queue.run(() => new Promise<string>((resolve) => (finish = () => resolve('sent'))))
+    let isWaitingSent = false
+    const waiting = queue.run(async () => {
+      isWaitingSent = true
+      return 'late'
+    })
+    queue.close()
+    finish()
+    await expect(running).resolves.toBe('sent')
+    await expect(waiting).rejects.toThrow('the token was changed')
+    await expect(queue.run(async () => 'after')).rejects.toThrow('the token was changed')
+    expect(isWaitingSent).toBe(false)
+  })
+  it('never runs a call once closed, however soon after the handoff it closes', async () => {
+    for (let hops = 0; hops < 8; hops += 1) {
+      const queue = callQueue(1)
+      let finish = () => {}
+      let isClosed = false
+      let isSentAfterClose = false
+      const running = queue.run(() => new Promise<void>((resolve) => (finish = resolve)))
+      const waiting = queue.run(async () => {
+        isSentAfterClose = isClosed
+      })
+      finish()
+      for (let hop = 0; hop < hops; hop += 1) await Promise.resolve()
+      queue.close()
+      isClosed = true
+      await running
+      await waiting.catch(() => {})
+      expect(isSentAfterClose).toBe(false)
+    }
   })
 })

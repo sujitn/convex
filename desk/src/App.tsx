@@ -3,13 +3,16 @@ import { useState } from 'react'
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { Calculator } from './pages/Calculator'
 import { PricingSheet } from './pages/PricingSheet'
+import { RfqBlotter } from './pages/RfqBlotter'
 
 const SCREENS = [
   { path: 'sheet', label: 'Pricing sheet', element: <PricingSheet /> },
+  { path: 'rfqs', label: 'RFQ blotter', element: <RfqBlotter /> },
   { path: 'calculator', label: 'Calculator', element: <Calculator /> },
 ]
 
 export function App() {
+  const { token } = useSession()
   return (
     <div className="min-h-screen">
       <header className="border-b border-slate-800 bg-slate-900">
@@ -33,7 +36,8 @@ export function App() {
           <TokenBar />
         </div>
       </header>
-      <main className="px-4 py-4">
+      {/* Begun again for each token, so nothing one identity read stays for the next. */}
+      <main key={token ?? ''} className="px-4 py-4">
         <Routes>
           {SCREENS.map((screen) => (
             <Route key={screen.path} path={`/${screen.path}`} element={screen.element} />

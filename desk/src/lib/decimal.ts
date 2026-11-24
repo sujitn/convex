@@ -35,3 +35,23 @@ export function addDecimal(a: string, b: string): string {
   const scale = Math.max(scaleOf(a), scaleOf(b))
   return written(scaled(a, scale) + scaled(b, scale), scale)
 }
+
+/** Whether `text` is a decimal above zero. */
+export function isPositiveDecimal(text: string): boolean {
+  return isDecimal(text) && !text.startsWith('-') && /[1-9]/.test(text)
+}
+
+/**
+ * `text` rounded to a multiple of `tick`, down or up, exactly, written at the tick's scale
+ * but without trailing zeros past three places: 99.2437 to the 0.001 below is 99.243, and
+ * to the 1/256 (0.00390625) above is 99.24609375.
+ */
+export function roundToTick(text: string, tick: string, direction: 'down' | 'up'): string {
+  const scale = Math.max(scaleOf(text), scaleOf(tick))
+  const value = scaled(text, scale)
+  const step = scaled(tick, scale)
+  let ticks = value / step
+  const remainder = value % step
+  if (remainder !== 0n && (direction === 'up') === remainder > 0n) ticks += direction === 'up' ? 1n : -1n
+  return written(ticks * step, scale).replace(/(\.\d{3}\d*?)0+$/, '$1')
+}

@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useSession, type PublishedValuation } from '@convex/api-client'
-import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { StreamBadge } from '../components/StreamBadge'
+import { useNow } from '../lib/clock'
 import { isDecimal } from '../lib/decimal'
 import { formatAge, formatCoupon, formatMeasure } from '../lib/format'
 import { failureNotice } from '../lib/failure'
@@ -241,39 +243,6 @@ export function PricingSheet() {
       </div>
     </div>
   )
-}
-
-function StreamBadge({ status }: { status: StreamStatus | 'idle' }) {
-  const tone = status === 'open' ? 'text-emerald-400' : status === 'idle' ? 'text-slate-500' : 'text-amber-300'
-  return <span className={tone}>{status}</span>
-}
-
-// One clock for every cell that reads the time, so a second's tick re-renders those cells only.
-const clock = (() => {
-  let now = Date.now()
-  const listeners = new Set<() => void>()
-  let timer: ReturnType<typeof setInterval> | undefined
-  return {
-    subscribe(listener: () => void) {
-      listeners.add(listener)
-      timer ??= setInterval(() => {
-        now = Date.now()
-        listeners.forEach((notify) => notify())
-      }, 1000)
-      return () => {
-        listeners.delete(listener)
-        if (listeners.size === 0) {
-          clearInterval(timer)
-          timer = undefined
-        }
-      }
-    },
-    now: () => now,
-  }
-})()
-
-function useNow(): number {
-  return useSyncExternalStore(clock.subscribe, clock.now)
 }
 
 const STATE_TONE: Record<RowState, string> = {
