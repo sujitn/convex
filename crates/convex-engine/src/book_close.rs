@@ -95,10 +95,7 @@ pub fn dirty_price(value: &PositionValue) -> Result<Option<Decimal>, EngineError
     else {
         return Ok(None);
     };
-    let mut dirty = BoundedDecimal::decimal(clean_price_mid.decimal());
-    dirty
-        .add(&BoundedDecimal::decimal(accrued_interest.decimal()))
-        .and_then(|()| dirty.finish())
+    BoundedDecimal::rounded_sum(clean_price_mid.decimal(), accrued_interest.decimal())
         .map(Some)
         .map_err(|error| EngineError::PricingError(format!("dirty price: {error}")))
 }

@@ -1125,7 +1125,7 @@ pub(crate) async fn evaluate_now(
     book: &BookDefinition,
     limits: &[LimitDefinition],
     at: UtcTimestamp,
-) -> Result<BookEvaluation, Response> {
+) -> Result<StatusEvaluation, Response> {
     evaluate_with(state, book, limits, at, &mut PricedTerms::new()).await
 }
 
@@ -1137,7 +1137,7 @@ async fn evaluate_with(
     limits: &[LimitDefinition],
     at: UtcTimestamp,
     terms: &mut PricedTerms,
-) -> Result<BookEvaluation, Response> {
+) -> Result<StatusEvaluation, Response> {
     let accepted = accepted_runtime_results(state, book);
     read_priced_terms(
         state.engine.reference_repository().as_ref(),
@@ -1972,7 +1972,7 @@ pub(crate) fn read_positions<'t>(
 
 /// One evaluation of a book's limits, in set order, and the snapshots whose results it
 /// read.
-pub(crate) struct BookEvaluation {
+pub(crate) struct StatusEvaluation {
     pub(crate) evaluations: Vec<LimitEvaluation>,
     pub(crate) snapshot_ids: Vec<String>,
 }
@@ -1988,10 +1988,47 @@ pub(crate) fn evaluate_book(
     terms: &PricedTerms,
     settlement: Option<convex_core::contracts::BusinessDate>,
     at: UtcTimestamp,
-) -> Result<BookEvaluation, convex_engine::EngineError> {
+) -> Result<StatusEvaluation, convex_engine::EngineError> {
     let read = read_positions(book, accepted, terms, settlement);
-    let positions: Vec<LimitPosition<'_>> = book
-        .positions
+    let positions = limit_positions(book, &read);
+    let limit_book = LimitBook {
+        currency: book.reporting_currency(),
+        positions: &positions,
+    };
+    Ok(StatusEvaluation {
+        evaluations: evaluate_limits(&limit_book, limits, at)?,
+        snapshot_ids: snapshot_ids(read.snapshot_ids),
+    })
+}
+
+/// [`evaluate_book`] on positions already read, and the book's risk at each of `tenors`
+/// from the same evaluation.
+pub(crate) fn evaluate_book_risk(
+    book: &BookDefinition,
+    limits: &[LimitDefinition],
+    read: &PositionReads<'_>,
+    tenors: &[convex_core::contracts::FactorTenor],
+    at: UtcTimestamp,
+) -> Result<convex_engine::limits::BookEvaluation, convex_engine::EngineError> {
+    let positions = limit_positions(book, read);
+    let limit_book = LimitBook {
+        currency: book.reporting_currency(),
+        positions: &positions,
+    };
+    convex_engine::limits::evaluate_book(&limit_book, limits, tenors, at)
+}
+
+/// The distinct snapshots read, as limit status records name them.
+pub(crate) fn snapshot_ids(ids: BTreeSet<SnapshotId>) -> Vec<String> {
+    ids.into_iter().map(|id| id.as_str().to_owned()).collect()
+}
+
+/// Each position of `book` as limits read it, from its read.
+fn limit_positions<'b>(
+    book: &'b BookDefinition,
+    read: &'b PositionReads<'_>,
+) -> Vec<LimitPosition<'b>> {
+    book.positions
         .iter()
         .zip(&read.reads)
         .map(|(position, read)| LimitPosition {
@@ -2002,17 +2039,5 @@ pub(crate) fn evaluate_book(
             quote: read.as_ref().map(|read| &read.quote),
             terms: read.as_ref().map(|read| LimitTerms::of(read.bond)),
         })
-        .collect();
-    let limit_book = LimitBook {
-        currency: book.reporting_currency(),
-        positions: &positions,
-    };
-    Ok(BookEvaluation {
-        evaluations: evaluate_limits(&limit_book, limits, at)?,
-        snapshot_ids: read
-            .snapshot_ids
-            .into_iter()
-            .map(|id| id.as_str().to_owned())
-            .collect(),
-    })
+        .collect()
 }

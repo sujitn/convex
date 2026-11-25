@@ -1011,7 +1011,7 @@ async fn policy_replacement_has_one_winner_and_file_errors_do_not_retain_authori
     // One session's topics cover every instrument a runtime values, every book the limit
     // monitor watches and as many books' requests for quote, and that is both the default
     // and the most a grant may set.
-    assert_eq!(MAX_SESSION_TOPICS, 4096 + 64 + 64);
+    assert_eq!(MAX_SESSION_TOPICS, 4096 + 64 + 64 + 64);
     assert_eq!(Quotas::default().subscriptions, MAX_SESSION_TOPICS);
     let mut full = policy();
     full.grants[0].quotas.subscriptions = MAX_SESSION_TOPICS;

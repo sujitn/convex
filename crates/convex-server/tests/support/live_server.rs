@@ -136,6 +136,54 @@ impl Running {
         (status, response.json().await.unwrap_or(Value::Null))
     }
 
+    /// `method` on `path` under the idempotency `key`, over `version` in `If-Match` when
+    /// given, with a JSON `body`: its status and JSON reply (`null` if none).
+    pub async fn send_with(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        key: &str,
+        version: Option<u64>,
+        body: Option<&Value>,
+    ) -> (reqwest::StatusCode, Value) {
+        let mut request = self
+            .client
+            .request(method, format!("{}{path}", self.base))
+            .header("idempotency-key", key);
+        if let Some(version) = version {
+            request = request.header("if-match", format!("\"{version}\""));
+        }
+        if let Some(body) = body {
+            request = request.json(body);
+        }
+        let response = request.send().await.unwrap();
+        let status = response.status();
+        (status, response.json().await.unwrap_or(Value::Null))
+    }
+
+    /// `/metrics` as text.
+    pub async fn metrics(&self) -> String {
+        self.client
+            .get(format!("{}/metrics", self.base))
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap()
+    }
+
+    /// Wait until `/metrics` shows `line`.
+    pub async fn wait_for_metric(&self, line: &str) {
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while !self.metrics().await.lines().any(|shown| shown == line) {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("/metrics never showed {line}"));
+    }
+
     /// `PUT` `body` on `path` with an idempotency key of its path, which must succeed.
     pub async fn put(&self, path: &str, body: &Value) {
         let response = self
@@ -210,8 +258,28 @@ pub async fn wide_live_setup(
     ServerConfig,
     Vec<QuoteKey>,
 ) {
+    wide_live_setup_measuring(width, &[]).await
+}
+
+/// [`wide_live_setup`] with the runtime computing `measures`, or the plan's own when none
+/// is named.
+pub async fn wide_live_setup_measuring(
+    width: usize,
+    measures: &[&str],
+) -> (
+    tempfile::TempDir,
+    std::path::PathBuf,
+    ServerConfig,
+    Vec<QuoteKey>,
+) {
     let s = setup().await;
     let mut plan = live_plan(&s);
+    if !measures.is_empty() {
+        plan.measures = measures
+            .iter()
+            .map(|measure| convex_core::contracts::MeasureId::new(*measure).unwrap())
+            .collect();
+    }
     widen(&s, &mut plan, width).await;
     let keys = plan.assembly.quotes.iter().map(|q| q.key.clone()).collect();
     let (dir, database, live) = live_config(s, &plan);
@@ -509,17 +577,45 @@ pub async fn send_frame(socket: &mut Socket, message: Value) {
 /// Follow the requests for quote on `books`: every frame sent before the acknowledgement,
 /// which must count the books, or the refusal as the last.
 pub async fn subscribe_rfqs(socket: &mut Socket, books: &[&str]) -> Vec<Value> {
-    send_frame(socket, json!({"type": "subscribe_rfqs", "book_ids": books})).await;
+    subscribe(socket, "rfqs", books, |_| false).await
+}
+
+/// Follow the summaries of `books`: every frame sent before the acknowledgement, which must
+/// count the books, or the refusal as the last. A summary withheld from the session is sent
+/// in its place as an error, which does not refuse the subscription.
+pub async fn subscribe_books(socket: &mut Socket, books: &[&str]) -> Vec<Value> {
+    subscribe(socket, "books", books, |frame| {
+        frame["message"]
+            .as_str()
+            .is_some_and(|message| message.starts_with("the summary of book"))
+    })
+    .await
+}
+
+/// Follow `books` on `topic`: every frame sent before the acknowledgement, which must count
+/// the books, or the refusal as the last. An error `is_withheld` holds stands in for one
+/// item and does not refuse the subscription.
+async fn subscribe(
+    socket: &mut Socket,
+    topic: &str,
+    books: &[&str],
+    is_withheld: impl Fn(&Value) -> bool,
+) -> Vec<Value> {
+    send_frame(
+        socket,
+        json!({"type": format!("subscribe_{topic}"), "book_ids": books}),
+    )
+    .await;
     let mut frames = Vec::new();
     loop {
         let frame = next_frame(socket).await;
         match frame["type"].as_str() {
             Some("subscribed") => {
-                assert_eq!(frame["subscription_type"], "rfqs", "{frame}");
+                assert_eq!(frame["subscription_type"], topic, "{frame}");
                 assert_eq!(frame["count"], books.len(), "{frame}");
                 return frames;
             }
-            Some("error") => {
+            Some("error") if !is_withheld(&frame) => {
                 frames.push(frame);
                 return frames;
             }

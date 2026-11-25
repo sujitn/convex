@@ -722,29 +722,6 @@ async fn records(live: &ServerConfig) -> Vec<(u64, Value)> {
         .collect()
 }
 
-/// Wait until `/metrics` shows `line`: the gauges follow each book's records.
-async fn metric(server: &Running, line: &str) {
-    tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            let text = server
-                .client
-                .get(format!("{}/metrics", server.base))
-                .send()
-                .await
-                .unwrap()
-                .text()
-                .await
-                .unwrap();
-            if text.lines().any(|l| l == line) {
-                return;
-            }
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .unwrap_or_else(|_| panic!("/metrics never showed {line}"))
-}
-
 /// The acknowledgement of the last request, failing on an error frame.
 async fn acknowledged(socket: &mut Socket) -> Value {
     use futures_util::StreamExt;
@@ -933,7 +910,9 @@ async fn the_monitor_records_and_publishes_each_status_change_and_restates_them_
     assert_eq!(change["limit_set_version"], 2);
     assert!(number(&change["value"]) > net, "{change}");
     published.push(change.clone());
-    metric(&server, "convex_limit_breaches{book_id=\"WATCHED\"} 1").await;
+    server
+        .wait_for_metric("convex_limit_breaches{book_id=\"WATCHED\"} 1")
+        .await;
 
     // A book commit is evaluated too: a larger position breaches the face limit.
     put_over(
@@ -1007,7 +986,9 @@ async fn the_monitor_records_and_publishes_each_status_change_and_restates_them_
             break;
         }
     }
-    metric(&server, "convex_limit_breaches{book_id=\"WATCHED\"} 2").await;
+    server
+        .wait_for_metric("convex_limit_breaches{book_id=\"WATCHED\"} 2")
+        .await;
 
     // Cleared, the set is no longer watched: the book returning within both bounds
     // records nothing.
@@ -1019,7 +1000,9 @@ async fn the_monitor_records_and_publishes_each_status_change_and_restates_them_
         json!({"limits": []}),
     )
     .await;
-    metric(&server, "convex_limit_breaches{book_id=\"WATCHED\"} 0").await;
+    server
+        .wait_for_metric("convex_limit_breaches{book_id=\"WATCHED\"} 0")
+        .await;
     put_over(
         &server,
         "/api/v1/books/WATCHED",
@@ -1093,7 +1076,9 @@ async fn a_retired_book_is_not_watched_until_a_new_snapshot_revives_it() {
         face,
     )
     .await;
-    metric(&server, "convex_limit_breaches{book_id=\"RETIRING\"} 1").await;
+    server
+        .wait_for_metric("convex_limit_breaches{book_id=\"RETIRING\"} 1")
+        .await;
 
     let retired = server
         .client
@@ -1104,7 +1089,9 @@ async fn a_retired_book_is_not_watched_until_a_new_snapshot_revives_it() {
         .await
         .unwrap();
     assert_eq!(retired.status(), StatusCode::NO_CONTENT);
-    metric(&server, "convex_limit_breaches{book_id=\"RETIRING\"} 0").await;
+    server
+        .wait_for_metric("convex_limit_breaches{book_id=\"RETIRING\"} 0")
+        .await;
 
     put_over(
         &server,
@@ -1114,7 +1101,9 @@ async fn a_retired_book_is_not_watched_until_a_new_snapshot_revives_it() {
         over,
     )
     .await;
-    metric(&server, "convex_limit_breaches{book_id=\"RETIRING\"} 1").await;
+    server
+        .wait_for_metric("convex_limit_breaches{book_id=\"RETIRING\"} 1")
+        .await;
     server.stop().await;
 }
 
@@ -1170,15 +1159,7 @@ async fn hops(
 
 /// The monitor's counts so far: seconds evaluating, passes, and changes recorded.
 async fn monitor_counts(server: &Running) -> (f64, u64, u64) {
-    let text = server
-        .client
-        .get(format!("{}/metrics", server.base))
-        .send()
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap();
+    let text = server.metrics().await;
     let read = |name: &str| {
         text.lines()
             .find_map(|line| line.strip_prefix(name))
@@ -1405,7 +1386,9 @@ async fn monitor_and_refresh_at_4096_instruments() {
 ///   records those first changes, and while it evaluates every book after each quote.
 /// - The monitor's time per tick with 1, 64 and 256 instruments revalued. Every book
 ///   holds every instrument, so even a tick of one evaluates all 64 books. Prices move
-///   within every bound, so nothing is recorded: this is evaluation time alone.
+///   within every bound, so nothing is recorded: this is evaluation time alone, each pass
+///   with every book's summary. Then again with every book closed, so each pass also
+///   totals each book's P&L since its close.
 // Multi-threaded, as the server runs.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
@@ -1487,29 +1470,47 @@ async fn monitor_time_per_tick_at_the_bounds() {
     println!("valuation hop, same, while the monitor records those 4,096 changes: {recording}");
     println!("valuation hop, same, monitor evaluating 64 books after each quote: {busy}");
 
-    for revalued in [1usize, 64, 256] {
-        let (before_sum, before_count, _) = monitor_counts(&server).await;
-        for round in 0..ROUNDS {
-            sequence += 1;
-            let price = if round % 2 == 0 { "99.30" } else { "99.25" };
-            let events: Vec<QuoteEvent> = images[..revalued]
-                .iter()
-                .map(|image_event| {
-                    let mut event = steady_image(sequence, price);
-                    event.key = image_event.key.clone();
-                    event
-                })
-                .collect();
-            let posted = server.post_quotes(events).await;
-            assert!(posted.status().is_success(), "{}", posted.status());
+    // Each book unclosed, then closed: a closed book's pass also totals its P&L.
+    for closed in [false, true] {
+        if closed {
+            for i in 0..64 {
+                let path = format!("/api/v1/books/MON-{i:02}/close");
+                let key = format!("close-MON-{i:02}");
+                let (status, reply) =
+                    send(&server, reqwest::Method::POST, &path, Some(&key), None).await;
+                assert_eq!(status, StatusCode::CREATED, "{path}: {reply}");
+            }
             passes = monitor_settled(&server, passes).await.1;
         }
-        let (sum, count, _) = monitor_counts(&server).await;
-        let per_pass = (sum - before_sum) / (count - before_count) as f64 * 1e3;
-        println!(
-            "monitor, {revalued:>3} revalued, 64 books x 256 positions x 64 limits: {per_pass:.2} ms a pass, {} passes for {ROUNDS} ticks",
-            count - before_count
-        );
+        for revalued in [1usize, 64, 256] {
+            let (before_sum, before_count, _) = monitor_counts(&server).await;
+            for round in 0..ROUNDS {
+                sequence += 1;
+                let price = if round % 2 == 0 { "99.30" } else { "99.25" };
+                let events: Vec<QuoteEvent> = images[..revalued]
+                    .iter()
+                    .map(|image_event| {
+                        let mut event = steady_image(sequence, price);
+                        event.key = image_event.key.clone();
+                        event
+                    })
+                    .collect();
+                let posted = server.post_quotes(events).await;
+                assert!(posted.status().is_success(), "{}", posted.status());
+                passes = monitor_settled(&server, passes).await.1;
+            }
+            let (sum, count, _) = monitor_counts(&server).await;
+            let per_pass = (sum - before_sum) / (count - before_count) as f64 * 1e3;
+            let books = if closed {
+                "64 closed books"
+            } else {
+                "64 books"
+            };
+            println!(
+                "monitor, {revalued:>3} revalued, {books} x 256 positions x 64 limits: {per_pass:.2} ms a pass, {} passes for {ROUNDS} ticks",
+                count - before_count
+            );
+        }
     }
     server.stop().await;
     let mut sizes: Vec<usize> = records(&live)
@@ -2211,15 +2212,7 @@ async fn records_by_limit_at_the_cap() {
 
 /// One value from `/metrics`, or 0 when absent.
 async fn metric_value(server: &Running, name: &str) -> f64 {
-    let text = server
-        .client
-        .get(format!("{}/metrics", server.base))
-        .send()
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap();
+    let text = server.metrics().await;
     text.lines()
         .find_map(|line| line.strip_prefix(name)?.strip_prefix(' '))
         .map(|value| value.trim().parse::<f64>().unwrap())

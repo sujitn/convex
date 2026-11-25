@@ -199,6 +199,13 @@ the changes that matter when you upgrade.
   given yield, on the same path. Holder puts are reported but never selected, and
   a supplied notice forces its path.
 
+### convex-math
+
+- `BoundedDecimal::rounded_sum(a, b)` rounds a sum of two `Decimal`s as
+  `finish` does, digit for digit and scale for scale, in 128-bit integers when
+  they hold it, and through `finish` otherwise. A dirty price from a 28-place
+  accrued is about ten times faster to round.
+
 ### convex-portfolio
 
 - **Breaking:** `KeyRateProfile::to_key_rate_durations` is removed.
@@ -217,6 +224,8 @@ the changes that matter when you upgrade.
     show as one, is refused rather than erased.
   - `HoldingSinceClose::needs_entitled_cash`: whether a position's P&L reads its
     cash, so a caller projects only that.
+  - `pnl_total_since_close` gives the same total and `excluded_count` without
+    rounding each position's amounts, for a stream that shows the total alone.
 
 ### convex-ffi
 
@@ -245,6 +254,22 @@ the changes that matter when you upgrade.
     first close and with a book snapshot that revives a retired, closed book.
   - Measured: a close of 1,000 positions takes 16.3 ms. P&L takes 7.2 ms, and
     13.6 ms across a settlement roll.
+
+- **Book summaries: the `book` topic.** `subscribe_books` follows up to 64
+  books' `book_summary` messages: each book's latest on subscribing, then each
+  later one, at most four a second a book, the last of a burst always sent.
+  - The limit monitor builds each from its evaluation of the book: its risk
+    (`BookRisk`), its P&L since its latest close as `GET .../pnl` totals it, and
+    each limit's status, value and utilisation of the moment.
+  - The monitor now watches each book in force with a close, as well as each
+    with a non-empty limit set, and rereads a book when its close commits.
+  - A summary needs what P&L needs: `BookRead` on the book and every instrument
+    it holds, a limit names or its close holds; without them the session gets
+    a `FORBIDDEN` error in its place.
+  - A session may hold 4,288 topics (was 4,224), the 64 more for this topic.
+  - Measured with 64 books of 256 positions and 64 limits: a monitor pass takes
+    84.8–86.5 ms with summaries, against 83.6–88.1 ms before, and 92.0–93.7 ms
+    with every book closed.
 
 - **Requests for quote.** `POST /api/v1/rfqs` takes a source's batch of up to 64 requests
   (128 KiB) and answers each: accepted and priced, a retry of one received before, or
@@ -557,11 +582,17 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **Book risk from the limit evaluation.** `limits::evaluate_book` evaluates a
+  book's limits and gives its risk from the same market values and aggregates:
+  market value, gross market value, DV01, CS01, modified duration and key-rate
+  DV01 at each tenor a position's result carries, each the value a limit on it
+  reports, or why it is unknown. `pricing_router::runtime_key_rate_tenors` lists
+  the tenors the runtime computes.
 - **Desk closes** (`book_close`):
   - `position_value` values one position as the limit evaluator admits its
     quote.
   - `dirty_price` is the one rounding of clean plus accrued that both the
-    close and now go through.
+    close and now go through, through `BoundedDecimal::rounded_sum`.
   - `holdings_since_close` lines a close up against the book now.
   - `PricingEngine::entitled_cash` projects one priced version's cash between
     two settlement dates. A fixed bullet or callable reads its bullet schedule,
@@ -689,6 +720,8 @@ the changes that matter when you upgrade.
 
 ### convex-ports
 
+- **`BookRisk`**, `RiskMeasures`, `RiskMeasure` and `KeyRateDv01`: a book's risk
+  from one evaluation, each measure known or unknown with a limit's reason.
 - **`MasterKey::BookClose`**: a book's closes, one versioned
   `BookCloseDefinition` per book, each version one close for a UTC date.
   - Each `ClosedPosition` holds a `PositionValue`: valued, or unvalued with an

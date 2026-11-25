@@ -1,6 +1,7 @@
 //! Desk closes under required access, over a Live server: a close needs the trader's
 //! `BookClose` on the book and each instrument it holds, records the trader's audit
-//! fingerprint, and a close or P&L since it is read under status's read rule.
+//! fingerprint, and a close, P&L since it or the book's summary is read under status's
+//! read rule.
 #[allow(dead_code)] // This suite uses the issuer and policy subset.
 #[path = "support/access_fixture.rs"]
 mod fixture;
@@ -184,5 +185,24 @@ async fn a_close_needs_the_traders_grant_on_the_book_and_its_bonds() {
         let (status, reply) = send(&server, token, Method::GET, path, "read", None).await;
         assert_eq!(status, expected, "{token} {path}: {reply}");
     }
+
+    // A summary is read as P&L is: the reader gets BOOK-A's, which its close watches; the
+    // trader who may not read the bond gets why in its place; no one follows a book it may
+    // not read.
+    let mut reader = server.session(Some(READER)).await;
+    let seed = live_server::subscribe_books(&mut reader, &["BOOK-A"]).await;
+    let summary = match seed.first() {
+        Some(frame) => frame.clone(),
+        None => live_server::next_frame(&mut reader).await,
+    };
+    assert_eq!(summary["type"], "book_summary", "{summary}");
+    assert_eq!(summary["book_id"], "BOOK-A", "{summary}");
+    let mut unread = server.session(Some(TRADER_W)).await;
+    let seed = live_server::subscribe_books(&mut unread, &["BOOK-A"]).await;
+    assert_eq!(seed.len(), 1, "{seed:?}");
+    assert_eq!(seed[0]["code"], "FORBIDDEN", "{seed:?}");
+    let refused = live_server::subscribe_books(&mut reader, &["BOOK-B"]).await;
+    assert_eq!(refused.len(), 1, "{refused:?}");
+    assert_eq!(refused[0]["code"], "FORBIDDEN", "{refused:?}");
     server.stop().await;
 }
