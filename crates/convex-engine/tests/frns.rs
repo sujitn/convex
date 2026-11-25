@@ -292,6 +292,36 @@ async fn a_request_time_note_valuation_matches_the_stream_and_fails_as_it_does()
     }
 }
 
+/// A stored note's entitled cash between two settlement dates, resolved from its pinned
+/// version: none when no payment falls between them, and not projected across one, since
+/// a floating coupon needs its fixings. The note pays 15 October 2026 two business days
+/// late.
+#[tokio::test]
+async fn a_notes_entitled_cash_is_projected_only_when_no_payment_falls_between() {
+    let setup = frn_setup(published(), true).await;
+    let engine = request_runtime(&setup).await;
+    let note = products::frn(fixture::bond());
+    let cash = |from: &str, to: &str| {
+        engine.entitled_cash(
+            fixture::version(2),
+            &note,
+            Date::parse(from).unwrap(),
+            Date::parse(to).unwrap(),
+        )
+    };
+    assert_eq!(
+        cash("2026-10-20", "2026-11-20").await.unwrap(),
+        Some(Decimal::ZERO)
+    );
+    assert_eq!(cash("2026-10-06", "2026-10-20").await.unwrap(), None);
+    // The payment date itself: a holder settling on it is not owed the coupon.
+    assert_eq!(
+        cash("2026-10-19", "2026-10-20").await.unwrap(),
+        Some(Decimal::ZERO)
+    );
+    engine.shutdown().await.unwrap();
+}
+
 /// A note quoted by its discount margin is priced at it in Live: the margin solved from a
 /// clean mid gives that mid back, with the same accrued and dirty price, and the margin
 /// as quoted. A request at the stream's cutoff gives the stream's values from the margin,

@@ -329,33 +329,23 @@ impl SnapshotAssembler {
                     "reference adapter returned another/later revision",
                 ));
             }
-            let bond = record.bond.as_ref().ok_or(TraitError::InvalidInput(
-                "snapshot reference is a tombstone",
-            ))?;
-            let (issuer, calendar, convention) = self
+            if record.bond.is_none() {
+                return Err(TraitError::InvalidInput(
+                    "snapshot reference is a tombstone",
+                ));
+            }
+            let mut resolved = self
                 .references
-                .resources_for_valuation(bond, lookup)
-                .await
-                .map_err(reference_error)?;
-            let floating = self
-                .references
-                .floating_resources_for_valuation(bond)
+                .resolve_pinned(record, lookup)
                 .await
                 .map_err(reference_error)?;
             // The rule in force at the cutoff, pinned with the references.
-            let pricing_rule = self
+            resolved.pricing_rule = self
                 .references
                 .pricing_rule_for_valuation(&id, lookup)
                 .await
                 .map_err(reference_error)?;
-            references.push(ResolvedBondReference {
-                record,
-                issuer,
-                calendar,
-                convention,
-                floating,
-                pricing_rule,
-            });
+            references.push(resolved);
         }
         let named: BTreeSet<_> = references
             .iter()

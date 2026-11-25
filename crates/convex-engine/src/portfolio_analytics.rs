@@ -240,6 +240,32 @@ pub(crate) fn admit_quote(
     if date.is_some_and(|d| d != quote.settlement_date) {
         return Err(failure(id, "mixed settlement dates"));
     }
+    let prices = quoted_prices(id, quote)?;
+    *date = Some(quote.settlement_date);
+    *timestamp = Some(timestamp.map_or(quote.timestamp, |t: i64| t.max(quote.timestamp)));
+    prices
+        .dirty
+        .multiply(notional)
+        .and_then(|v| v.divide_power_of_ten(2))
+        .map_err(arithmetic)
+}
+
+/// A quote's prices per 100 face, as analytics by book admit them.
+pub(crate) struct QuotedPrices {
+    /// Clean price mid.
+    pub(crate) clean: Decimal,
+    /// Accrued interest.
+    pub(crate) accrued: Decimal,
+    /// Their exact sum.
+    pub(crate) dirty: BoundedDecimal,
+}
+
+/// Admit one quote's prices: non-stale with a bounded lineage, with a non-negative clean
+/// and dirty price. Its currency and settlement date are the caller's to check.
+pub(crate) fn quoted_prices(
+    id: &str,
+    quote: &BondQuoteOutput,
+) -> Result<QuotedPrices, EngineError> {
     if quote.is_stale
         || quote.timestamp < 0
         || quote.quality > 100
@@ -251,8 +277,6 @@ pub(crate) fn admit_quote(
             "valid supplied quote lineage and non-stale status required",
         ));
     }
-    *date = Some(quote.settlement_date);
-    *timestamp = Some(timestamp.map_or(quote.timestamp, |t: i64| t.max(quote.timestamp)));
     let clean = required(quote.clean_price_mid, id, "clean mid price is absent")?;
     let accrued = required(quote.accrued_interest, id, "accrued per100 is absent")?;
     if clean < Decimal::ZERO {
@@ -265,10 +289,11 @@ pub(crate) fn admit_quote(
     if dirty.is_negative() {
         return Err(failure(id, "dirty price cannot be negative"));
     }
-    dirty
-        .multiply(notional)
-        .and_then(|v| v.divide_power_of_ten(2))
-        .map_err(arithmetic)
+    Ok(QuotedPrices {
+        clean,
+        accrued,
+        dirty,
+    })
 }
 fn ratio(value: &BoundedDecimal, total: &BoundedDecimal) -> Result<Decimal, EngineError> {
     if total.is_zero() {

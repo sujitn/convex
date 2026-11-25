@@ -26,6 +26,7 @@
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
+pub mod book_close;
 pub mod calibration;
 pub mod config;
 pub mod configuration;

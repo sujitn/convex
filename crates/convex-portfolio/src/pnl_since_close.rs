@@ -22,7 +22,8 @@
 //! leaves it out.
 //!
 //! The sums are exact through `convex-math` `BoundedDecimal`; only each reported amount is
-//! rounded, nearest/even, to what a `Decimal` holds.
+//! rounded, nearest/even, to what a `Decimal` holds. An amount that is too large for a
+//! `Decimal`, or not zero but too small to show as one, is refused rather than erased.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::cmp;
@@ -51,6 +52,19 @@ pub struct HoldingSinceClose<'a> {
     /// Cash per 100 face entitled between the close's settlement date and now's;
     /// `None` when it could not be projected.
     pub entitled_cash: Option<Decimal>,
+}
+
+impl HoldingSinceClose<'_> {
+    /// Whether its P&L reads entitled cash: it is held through the close on one side,
+    /// and valued at the close and now. Only then need the cash be projected.
+    #[must_use]
+    pub fn needs_entitled_cash(&self) -> bool {
+        held_through(&HoldingSinceClose {
+            entitled_cash: Some(Decimal::ZERO),
+            ..*self
+        })
+        .is_ok()
+    }
 }
 
 /// Why a position has no P&L since the close.
@@ -118,8 +132,8 @@ impl PnlSinceClose {
 /// # Errors
 ///
 /// [`PortfolioError::InvalidHolding`] for an instrument given twice, one held neither at
-/// the close nor now, a negative dirty price, negative entitled cash, or an amount that
-/// overflows; [`PortfolioError::InvalidPortfolio`] when the total overflows.
+/// the close nor now, a negative dirty price, negative entitled cash, or an amount a
+/// `Decimal` cannot hold; [`PortfolioError::InvalidPortfolio`] for a total it cannot hold.
 pub fn pnl_since_close(holdings: &[HoldingSinceClose<'_>]) -> PortfolioResult<PnlSinceClose> {
     let mut seen = BTreeSet::new();
     let mut total = BoundedDecimal::zero();
@@ -157,7 +171,7 @@ pub fn pnl_since_close(holdings: &[HoldingSinceClose<'_>]) -> PortfolioResult<Pn
     })
 }
 
-const OVERFLOW: &str = "an amount exceeds what a Decimal holds";
+const OVERFLOW: &str = "an amount is too large, or too small, for a Decimal";
 
 /// A position held through the close, with the prices and cash its P&L reads.
 struct HeldThrough {

@@ -528,6 +528,13 @@ impl BookDefinition {
         self.effective.until.is_some()
     }
 
+    /// The book's reporting currency, when it names a known one.
+    pub fn reporting_currency(&self) -> Option<convex_core::Currency> {
+        self.currency
+            .as_deref()
+            .and_then(convex_core::Currency::from_code)
+    }
+
     /// Validate bounds and uniqueness independently of backend state.
     pub fn validate(&self) -> Result<(), ReferenceError> {
         if self.positions.len() > MAX_BOOK_POSITIONS {
@@ -602,6 +609,8 @@ pub enum MasterKey {
     LimitProposal(BookId),
     /// A book's acknowledgements of breached or unknown limits.
     LimitAcknowledgements(BookId),
+    /// A book's desk closes.
+    BookClose(BookId),
     /// How a stored bond is quoted.
     PricingRule(InstrumentId),
     /// Government securities that spreads are quoted to.
@@ -640,6 +649,8 @@ pub enum MasterKind {
     LimitProposal,
     /// Book limit acknowledgements.
     LimitAcknowledgements,
+    /// Book desk closes.
+    BookClose,
     /// Bond pricing rules.
     PricingRule,
     /// Benchmark sets.
@@ -677,7 +688,8 @@ impl MasterKind {
             | Self::RateIndex
             | Self::LimitSet
             | Self::LimitProposal
-            | Self::LimitAcknowledgements => VersionSelection::NewestHolding,
+            | Self::LimitAcknowledgements
+            | Self::BookClose => VersionSelection::NewestHolding,
         }
     }
 
@@ -698,6 +710,7 @@ impl MasterKind {
             Self::LimitSet => "limit_set",
             Self::LimitProposal => "limit_proposal",
             Self::LimitAcknowledgements => "limit_acknowledgements",
+            Self::BookClose => "book_close",
             Self::PricingRule => "pricing_rule",
             Self::BenchmarkSet => "benchmark_set",
         }
@@ -722,6 +735,7 @@ impl MasterKey {
             Self::LimitSet(_) => MasterKind::LimitSet,
             Self::LimitProposal(_) => MasterKind::LimitProposal,
             Self::LimitAcknowledgements(_) => MasterKind::LimitAcknowledgements,
+            Self::BookClose(_) => MasterKind::BookClose,
             Self::PricingRule(_) => MasterKind::PricingRule,
             Self::BenchmarkSet(_) => MasterKind::BenchmarkSet,
         }
@@ -746,6 +760,7 @@ impl MasterKey {
             Self::LimitAcknowledgements(id) => {
                 format!("limit_acknowledgements/{}", id.as_str())
             }
+            Self::BookClose(id) => format!("book_close/{}", id.as_str()),
             Self::PricingRule(id) => format!("pricing_rule/{}", id.as_str()),
             Self::BenchmarkSet(id) => format!("benchmark_set/{}", id.as_str()),
         }
@@ -789,6 +804,8 @@ pub enum MasterDefinition {
     LimitProposal(Box<crate::limits::LimitProposalDefinition>),
     /// A book's limit acknowledgements; written only through the book limit routes.
     LimitAcknowledgements(Box<crate::limits::LimitAcknowledgementsDefinition>),
+    /// A book's desk closes; written only through the book close routes and schedule.
+    BookClose(Box<crate::book_close::BookCloseDefinition>),
     /// How a stored bond is quoted.
     PricingRule(Box<crate::level_pricing::PricingRuleDefinition>),
     /// Government securities that spreads are quoted to.
@@ -813,6 +830,7 @@ impl MasterDefinition {
             Self::LimitSet(_) => MasterKind::LimitSet,
             Self::LimitProposal(_) => MasterKind::LimitProposal,
             Self::LimitAcknowledgements(_) => MasterKind::LimitAcknowledgements,
+            Self::BookClose(_) => MasterKind::BookClose,
             Self::PricingRule(_) => MasterKind::PricingRule,
             Self::BenchmarkSet(_) => MasterKind::BenchmarkSet,
         }
@@ -834,6 +852,7 @@ impl MasterDefinition {
             Self::LimitSet(v) => MasterKey::LimitSet(v.book_id.clone()),
             Self::LimitProposal(v) => MasterKey::LimitProposal(v.book_id.clone()),
             Self::LimitAcknowledgements(v) => MasterKey::LimitAcknowledgements(v.book_id.clone()),
+            Self::BookClose(v) => MasterKey::BookClose(v.book_id.clone()),
             Self::PricingRule(v) => MasterKey::PricingRule(v.instrument_id.clone()),
             Self::BenchmarkSet(v) => MasterKey::BenchmarkSet(v.benchmark_set_id.clone()),
         }
@@ -855,6 +874,7 @@ impl MasterDefinition {
             Self::LimitSet(v) => v.effective,
             Self::LimitProposal(v) => v.effective,
             Self::LimitAcknowledgements(v) => v.effective,
+            Self::BookClose(v) => v.effective,
             Self::PricingRule(v) => v.effective,
             Self::BenchmarkSet(v) => v.effective,
         }
@@ -936,6 +956,10 @@ impl MasterDefinition {
                 &v.provenance
             }
             Self::LimitAcknowledgements(v) => {
+                v.validate()?;
+                &v.provenance
+            }
+            Self::BookClose(v) => {
                 v.validate()?;
                 &v.provenance
             }

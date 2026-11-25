@@ -65,6 +65,8 @@ path = "src/main.rs"
 
 [dev-dependencies]
 convex-ports = { workspace = true }
+# Paused time for the close schedule's tests.
+tokio = { version = "1", features = ["full", "test-util"] }
 async-trait = "0.1"
 tempfile = "3"
 reqwest = { version = "0.13", features = ["json"] }

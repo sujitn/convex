@@ -24,6 +24,7 @@
 pub mod access;
 mod analytics;
 mod audit_writer;
+mod book_close;
 mod books;
 mod calculator;
 mod composition;
@@ -45,6 +46,7 @@ pub mod rfq_desk;
 mod rfqs;
 pub mod routes;
 pub mod telemetry;
+mod watched_books;
 pub mod websocket;
 
 use std::sync::Arc;
@@ -61,7 +63,7 @@ use tracing::info;
 use convex_engine::PricingEngine;
 
 pub use composition::{compose, Composition};
-pub use config::{ConfigError, LimitSettings, ServerConfig, ServerProfile};
+pub use config::{BookSettings, ConfigError, LimitSettings, ServerConfig, ServerProfile};
 
 /// Startup failures preserve configuration and listener error classifications.
 #[derive(Debug, Error)]
@@ -107,6 +109,8 @@ pub struct Server {
     quotes: Option<Arc<market::QuoteIngress>>,
     limits: Option<Arc<limit_monitor::LimitMonitor>>,
     rfqs: Option<Arc<rfq_desk::RfqDesk>>,
+    /// The state the routes and the scheduled close share.
+    state: Arc<handlers::AppState>,
 }
 
 impl Server {
@@ -117,15 +121,7 @@ impl Server {
         } else {
             access::AccessControl::deny_all()
         };
-        Self {
-            config,
-            engine,
-            access,
-            core: None,
-            quotes: None,
-            limits: None,
-            rfqs: None,
-        }
+        Self::with_access_control(config, engine, access)
     }
 
     /// Explicit verified composition; start/serve both enforce listener and access settings.
@@ -135,6 +131,7 @@ impl Server {
         access: Arc<access::AccessControl>,
     ) -> Self {
         Self {
+            state: routes::app_state(engine.clone(), access.clone()),
             config,
             engine,
             access,
@@ -216,11 +213,7 @@ impl Server {
             ]);
 
         let profile = self.config.profile;
-        let mut router = routes::create_router_with_access(
-            self.engine.clone(),
-            self.config.websocket_enabled,
-            self.access.clone(),
-        );
+        let mut router = routes::router_over(self.state.clone(), self.config.websocket_enabled);
         if let Some(core) = &self.core {
             router = router.layer(Extension(core.clone()));
         }
@@ -315,6 +308,14 @@ impl Server {
             let monitor_rx = monitor_rx.clone();
             tokio::task::spawn_blocking(move || handle.block_on(limits.run(engine, monitor_rx)))
         });
+        // The scheduled close, when configured, on a thread of its own as the monitor is:
+        // a close of each watched book is synchronous work that would hold a worker.
+        let close_schedule = self.config.books.close_time().map(|time| {
+            let state = self.state.clone();
+            let handle = tokio::runtime::Handle::current();
+            let stop = monitor_rx.clone();
+            tokio::task::spawn_blocking(move || handle.block_on(book_close::run(state, time, stop)))
+        });
         // The RFQ desk expires what the last run left open before it takes a request, then
         // each request at its deadline, on a thread of its own as the monitor does: its
         // restart scan and expiry commits would otherwise hold a worker.
@@ -346,6 +347,11 @@ impl Server {
         if let Some(task) = rfq_desk {
             if let Err(error) = task.await {
                 tracing::error!(%error, "RFQ desk task failed");
+            }
+        }
+        if let Some(task) = close_schedule {
+            if let Err(error) = task.await {
+                tracing::error!(%error, "Book close schedule task failed");
             }
         }
         self.engine.shutdown().await?;

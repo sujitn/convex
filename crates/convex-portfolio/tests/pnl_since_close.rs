@@ -316,3 +316,30 @@ fn invalid_holdings_are_refused() {
         Err(PortfolioError::InvalidPortfolio { .. })
     ));
 }
+
+#[test]
+fn only_a_position_held_through_and_valued_at_both_needs_its_cash() {
+    let through = held("A", dec!(100), dec!(100), dec!(50), dec!(101));
+    assert!(through.needs_entitled_cash());
+    // Whatever cash it was given.
+    assert!(HoldingSinceClose {
+        entitled_cash: None,
+        ..through
+    }
+    .needs_entitled_cash());
+    for holding in [
+        held("A", Decimal::ZERO, dec!(100), dec!(50), dec!(101)),
+        held("A", dec!(100), dec!(100), Decimal::ZERO, dec!(101)),
+        held("A", dec!(100), dec!(100), dec!(-50), dec!(101)),
+        HoldingSinceClose {
+            close_dirty_price: None,
+            ..through
+        },
+        HoldingSinceClose {
+            dirty_price: None,
+            ..through
+        },
+    ] {
+        assert!(!holding.needs_entitled_cash(), "{holding:?}");
+    }
+}

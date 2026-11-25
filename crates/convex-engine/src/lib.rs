@@ -50,6 +50,7 @@ mod reference_terms;
 #[path = "../tests/support/products.rs"]
 mod products;
 
+pub mod book_close;
 pub mod builder;
 pub mod calc_graph;
 pub mod calibration_replay;

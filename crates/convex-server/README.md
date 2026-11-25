@@ -220,6 +220,7 @@ These process settings require a restart. Versioned quantitative/integration/pol
 | desk_level_source | CONVEX_DESK_LEVEL_SOURCE | Optional, Live only: the plan's level source, written only through [`/api/v1/market/levels`](#desk-levels) |
 | limits.clear_hold_seconds | CONVEX_LIMITS_CLEAR_HOLD_SECONDS | Integer 0–300; default 5. How long the [limit monitor](#the-monitor) waits before recording a change to a less severe status; 0 records every change at once |
 | limits.record_retention_days | CONVEX_LIMITS_RECORD_RETENTION_DAYS | Integer 8–3,650; unset by default, which keeps every limit and RFQ record. How long the [limit monitor](#retention) keeps them before pruning them |
+| books.close_time_utc | CONVEX_BOOKS_CLOSE_TIME_UTC | Optional UTC time of day, `HH:MM` or `HH:MM:SS`: the server takes a [close](#desk-closes-and-pl-since-the-close) of each watched book then, Monday to Friday. Unset takes none; refused in replay |
 | access.mode | CONVEX_ACCESS_MODE | Required by default; explicit local_development only for isolated loopback |
 | access.policy_file | CONVEX_ACCESS_POLICY_FILE | Bounded versioned grants, atomically reloaded each second |
 | access.tls_boundary | CONVEX_TLS_BOUNDARY | local_only or proxy; executable upstream stays loopback |
@@ -888,7 +889,7 @@ commits and `convex-redb backup`. No other store exists.
 
 | Route | Result |
 | --- | --- |
-| `PUT /api/v1/books/{book_id}` | Full snapshot. 201 on version 1, 200 on a replace, 422 with per-row errors, 409 on a version or key conflict, 413 over the bound |
+| `PUT /api/v1/books/{book_id}` | Full snapshot. 201 on version 1, 200 on a replace, 422 with per-row errors, 409 on a version or key conflict, 413 over the bound, 409 `WATCHED_BOOKS_EXCEEDED` when it revives a retired book with a close and 64 books are watched |
 | `GET /api/v1/books?limit=&after=` | Summaries by book ID, at most 500 per page; `next_after` resumes |
 | `GET /api/v1/books/{book_id}` | Current version, pinned in `ETag` |
 | `GET /api/v1/books/{book_id}/versions/{v}` | One immutable version |
@@ -913,7 +914,8 @@ the instrument and mapping versions consumed. Delta and fill ingest are not supp
 Books are written only through these routes, which start each snapshot at its commit time:
 a reference transaction or import that names a book is refused (403
 `BOOKS_ROUTE_REQUIRED`). One that also names a limit set, proposal or acknowledgements gets
-`LIMITS_ROUTE_REQUIRED`, which is checked first.
+`LIMITS_ROUTE_REQUIRED`, and one that names a close `BOOK_CLOSE_ROUTE_REQUIRED`; each is
+checked before the book, in that order.
 
 Retiring needs `If-Match` with the current version. It writes a new version that keeps the
 positions and closes the snapshot's interval at the commit time (`effective_until`). A
@@ -926,7 +928,7 @@ book stays readable, listed and in its history. Until a new snapshot revives it 
   proposals, approvals and acknowledgements (409 `BOOK_RETIRED`). Analytics still value a
   version before the retirement named by `version`. The book's limits and records stay
   readable; a set that clears its limits is still taken, which frees its place among the
-  64 limited books, and a proposal or an acknowledgement can still be withdrawn;
+  64 watched books, and a proposal or an acknowledgement can still be withdrawn;
 - is not watched by the limit monitor;
 - is not found by a configuration compiled at a cutoff after the retirement: a selection
   whose `known_at` and `as_of` are both after it. One with an earlier cutoff still finds
@@ -997,7 +999,7 @@ so a change commits in one step, recorded as `local-development`.
 | 409 `LIMIT_PROPOSAL_CLOSED` | The proposal was already approved or withdrawn |
 | 409 `LIMIT_SET_CHANGED` | The set moved after the proposal was made |
 | 409 `LIMIT_EXCESS_EXPIRED` | An excess the proposal adds or changes has expired by its approval |
-| 409 `LIMITED_BOOKS_EXCEEDED` | 64 other books already hold a non-empty set (the monitor's bound, D87); an empty set takes no place |
+| 409 `WATCHED_BOOKS_EXCEEDED` | 64 other books are already watched: each with a non-empty set, or in force with a [close](#desk-closes-and-pl-since-the-close). An empty set takes no place |
 | 403 `LIMITS_ROUTE_REQUIRED` | A reference transaction or import names a limit set, proposal or acknowledgements, or a commit receipt read holds one: only these routes write and read them |
 | 404 `LIMIT_NOT_FOUND` | An acknowledgement names a limit the current set does not hold |
 | 404 `LIMIT_ACKNOWLEDGEMENT_NOT_FOUND` | A withdrawal names a limit with no acknowledgement in force |
@@ -1327,6 +1329,92 @@ gives the current status. Status and a check read the same accepted results, so 
 changes equals the status of the book once they are committed, while no quote arrives in
 between. The caller needs what status needs, plus `BookRead` on each instrument a row names,
 including one reached through an identifier (D91; see [access](ACCESS.md)).
+
+### Desk closes and P&L since the close
+
+A close records a book's positions and their values at one time: one versioned close
+record per book (`MasterKey::BookClose`), in the same reference repository as books, each
+version one close, at most one a UTC date. It is the desk's display basis (`desk_close`),
+not an official result.
+
+| Route | Result |
+| --- | --- |
+| `POST /api/v1/books/{book_id}/close` | Close the book now: 201 with the close |
+| `GET /api/v1/books/{book_id}/close` | The latest close, with its version in `ETag` |
+| `GET /api/v1/books/{book_id}/close/versions/{v}` | One close as written |
+| `GET /api/v1/books/{book_id}/pnl` | P&L since the latest close, against the Live results now |
+
+A close reads the book in force and the current Live results as limit status reads them.
+Each position records its quantity and unit, and either its value or why it has none:
+- **Valued:** the clean price mid and accrued interest per 100 face of the accepted result,
+  as quoted, and the instrument version that result priced.
+- **Unvalued**, with a reason:
+  - `unsupported_quantity_unit`: the position is in units;
+  - `missing_result`: there is no accepted Live result;
+  - `foreign_currency`: the result is in another currency than the book's;
+  - `quote_refused`: the quote was refused, as analytics by book refuse it, with the detail.
+
+The close also names:
+- the book version it read;
+- the currency every value is in;
+- the runtime's settlement date;
+- the snapshots whose results it read, which pin the levels in force;
+- who took it: the desk subject, or the schedule.
+
+A close of a 1,000-position book took 16.3 ms (median, optimized test build, macOS loopback), and
+its positions are 189 KiB as JSON.
+
+The desk takes a close with `POST`, which needs `Idempotency-Key` and the `trader` role
+(`BookClose`) on the book and each instrument it holds (see [access](ACCESS.md)). An exact
+retry returns the close it wrote. With `books.close_time_utc` set, the server takes a close
+of each watched book at that time, Monday to Friday. The schedule runs on wall-clock time
+and takes no close late: one the server was not running for, or that would commit more
+than five minutes after its time or on the next UTC date, is not taken, and the desk can
+post it. Each book is checked again as it is closed: one no longer watched is skipped.
+
+A book is watched while it holds a non-empty limit set, or is in force and holds a close;
+at most 64 are. A first close, like a first non-empty limit set, that would watch a 65th
+book is refused. Retiring a book frees its close's place; a later snapshot that revives it
+watches it again, and is refused (409 `WATCHED_BOOKS_EXCEEDED`) when 64 already are.
+
+P&L since the close lines the latest close up against the book now. Each instrument held at
+either time is listed with:
+- `close_face` and `close_dirty_price` (clean plus accrued, rounded once to a `Decimal`'s
+  precision), and `face` and `dirty_price` now;
+- for a position held through, `held_face`, the smaller of the two sizes on the side held
+  at both;
+- `pnl`: `held_face × (dirty_price − close_dirty_price + c) / 100`, where `c` is the cash per
+  100 face the holder became entitled to;
+- `entitled_cash`: the cash part of that, `held_face × c / 100`, an amount like `pnl`.
+
+The entitled cash is what a holder became owed between the close's settlement date and
+now's: each coupon, sink or redemption paid in between or gone ex-coupon. A position with no
+P&L says why in `no_pnl`:
+- `added_since_close` or `removed_since_close`: there is no trade price;
+- `side_changed`;
+- `unvalued_at_close` or `unvalued_now`;
+- `cash_not_projected`: a floating rate note with a coupon between the two dates, or a
+  bond the server does not project.
+
+`pnl` and `entitled_cash` total the positions that have one, and `excluded_count` counts the
+rest. The sums are exact; only each reported amount is rounded. Within one runtime, the
+close and now settle on the same date, so the cash is zero. After a roll to a later
+settlement date, each held bond's cash is projected from the schedule its accrued reads. A
+P&L request for a 1,000-position book took 7.2 ms on the close's settlement date, and
+13.6 ms across a roll, with every position's cash projected.
+
+| Code | When |
+|---|---|
+| 409 `BOOK_ALREADY_CLOSED` | The book's latest close is for this UTC date |
+| 409 `WATCHED_BOOKS_EXCEEDED` | A first close would watch a 65th book |
+| 409 `BOOK_RETIRED` | The book is retired |
+| 422 `BOOK_CURRENCY_REQUIRED` | The book names no reporting currency |
+| 422 `BOOK_CLOSE_UNVALUED` | The close would value no position |
+| 404 `BOOK_CLOSE_NOT_FOUND` | P&L of a book with no close |
+| 409 `BOOK_CURRENCY_CHANGED` | The book's currency is not the close's |
+| 409 `BOOK_CLOSE_SETTLES_LATER` | The close settles after the runtime's settlement date |
+| 422 `BOOK_PNL_REFUSED` | An amount is beyond a `Decimal` |
+| 403 `BOOK_CLOSE_ROUTE_REQUIRED` | A reference transaction or import names a close, or a commit receipt read holds one: only these routes write and read closes |
 
 ## Requests for quote
 

@@ -521,6 +521,21 @@ fn requirement(
             req.action = BookRead;
             req.data = vec![D::Books, D::Results, D::Reference, D::Market];
         }
+        // A close reads what status reads and records each position's value: taking one
+        // needs `BookClose` on the book, and the handler checks it on each instrument the
+        // book holds. Reading a close or P&L since it needs status's read rule, and each
+        // handler checks every instrument the book and the close hold. Every instrument a
+        // response names is one of those, so the response is not scanned again: P&L can list
+        // each of the close's and the book's, more than the scan admits.
+        "/api/v1/books/:book_id/close"
+        | "/api/v1/books/:book_id/close/versions/:version"
+        | "/api/v1/books/:book_id/pnl" => {
+            exact(R::Book, "book_id")?;
+            req.action = if read { BookRead } else { BookClose };
+            req.data = vec![D::Books, D::Results, D::Reference, D::Market];
+            req.body_required = false;
+            req.inspect_output_resources = false;
+        }
         "/api/v1/etf/inav"
         | "/api/v1/etf/inav/batch"
         | "/api/v1/etf/sec-yield"

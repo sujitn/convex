@@ -671,7 +671,7 @@ async fn at_most_64_books_hold_a_non_empty_limit_set() {
     )
     .await;
     assert_eq!(code, StatusCode::CONFLICT, "{body}");
-    assert_eq!(body["code"], "LIMITED_BOOKS_EXCEEDED", "{body}");
+    assert_eq!(body["code"], "WATCHED_BOOKS_EXCEEDED", "{body}");
     // An empty set limits nothing, so it takes no place; clearing a set frees one.
     let (code, _, body) = call(
         &router,

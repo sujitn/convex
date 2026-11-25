@@ -279,20 +279,30 @@ pub trait ReferenceRepository: Send + Sync {
         let Some(record) = self.get_at(id, lookup).await? else {
             return Ok(None);
         };
+        let mut resolved = self.resolve_pinned(record, lookup).await?;
+        resolved.pricing_rule = self.pricing_rule_for_valuation(id, lookup).await?;
+        validate_resolved_bond(&resolved, lookup)?;
+        Ok(Some(resolved))
+    }
+
+    /// Resolve one read instrument version with its pinned resources, without a pricing
+    /// rule: a valuation adds the one in force. A tombstone is not found.
+    async fn resolve_pinned(
+        &self,
+        record: ReferenceRecord,
+        lookup: ReferenceLookup,
+    ) -> Result<ResolvedBondReference, ReferenceError> {
         let bond = record.bond.as_ref().ok_or(ReferenceError::NotFound)?;
         let (issuer, calendar, convention) = self.resources_for_valuation(bond, lookup).await?;
         let floating = self.floating_resources_for_valuation(bond).await?;
-        let pricing_rule = self.pricing_rule_for_valuation(id, lookup).await?;
-        let resolved = ResolvedBondReference {
+        Ok(ResolvedBondReference {
             record,
             issuer,
             calendar,
             convention,
             floating,
-            pricing_rule,
-        };
-        validate_resolved_bond(&resolved, lookup)?;
-        Ok(Some(resolved))
+            pricing_rule: None,
+        })
     }
 
     /// Resolve supplied inline terms without claiming a stored instrument version.
