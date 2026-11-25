@@ -28,7 +28,11 @@ pub(crate) async fn may_watch(
     Ok(watched_books(repo).await?.len() < MAX_WATCHED_BOOKS)
 }
 
-async fn is_watched(repo: &dyn ReferenceRepository, book: &BookId) -> Result<bool, ReferenceError> {
+/// Whether `book` is watched: it holds a non-empty limit set, or is in force with a close.
+pub(crate) async fn is_watched(
+    repo: &dyn ReferenceRepository,
+    book: &BookId,
+) -> Result<bool, ReferenceError> {
     if let Some(record) = repo.get_master(&MasterKey::LimitSet(book.clone())).await? {
         if !set_of(&record)?.limits.is_empty() {
             return Ok(true);

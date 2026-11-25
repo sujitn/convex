@@ -58,7 +58,7 @@ use crate::limits::{
     STATUS_DATA,
 };
 use crate::reference::{key, now, reference_error, with_reference_version};
-use crate::watched_books::{may_watch, too_many_watched, watched_books};
+use crate::watched_books::{is_watched, may_watch, too_many_watched, watched_books};
 
 /// Source recorded on every close.
 const BOOK_CLOSE: &str = "book-close";
@@ -178,8 +178,8 @@ pub(crate) async fn take_close(
 enum Closer<'c> {
     /// The desk, as the caller of the close route.
     Desk(&'c Option<Extension<AccessContext>>),
-    /// The schedule, which is not authorized.
-    Schedule,
+    /// The schedule, which is not authorized, for the close due at `due`.
+    Schedule { due: DateTime<Utc> },
 }
 
 impl Closer<'_> {
@@ -188,7 +188,7 @@ impl Closer<'_> {
             Self::Desk(ctx) => CloseTaker::Desk {
                 subject: recorded_subject(ctx),
             },
-            Self::Schedule => CloseTaker::Schedule {},
+            Self::Schedule { .. } => CloseTaker::Schedule {},
         }
     }
 
@@ -208,8 +208,13 @@ impl Closer<'_> {
                 book,
                 instruments,
             ),
-            Self::Schedule => Ok(()),
+            Self::Schedule { .. } => Ok(()),
         }
+    }
+
+    /// Whether this is a scheduled close that, committed at `at`, is late ([`is_on_time`]).
+    fn is_missed(&self, at: DateTime<Utc>) -> bool {
+        matches!(self, Self::Schedule { due } if !is_on_time(*due, at))
     }
 }
 
@@ -217,6 +222,8 @@ impl Closer<'_> {
 enum CloseRefused {
     /// The book is already closed for the date, which the schedule expects after a restart.
     AlreadyClosed,
+    /// A scheduled close that would not commit on time ([`is_on_time`]).
+    Missed,
     /// Any other refusal, as its response.
     Refused(Response),
 }
@@ -234,6 +241,8 @@ impl IntoResponse for CloseRefused {
                 "BOOK_ALREADY_CLOSED",
                 "a book is closed at most once a UTC date",
             ),
+            // Only the schedule's closes are missed, and the schedule logs them.
+            Self::Missed => unavailable(),
             Self::Refused(response) => response,
         }
     }
@@ -273,6 +282,11 @@ async fn close_book(
     let at =
         commit_time(existing.iter().map(|record| record.recorded_at)).map_err(reference_error)?;
     let close_date = utc_date(at)?;
+    // A scheduled close is for the weekday it was due, and is not taken late: the time is
+    // read again here, under the lock, after any wait for it.
+    if closer.is_missed(at.datetime()) {
+        return Err(CloseRefused::Missed);
+    }
     match &existing {
         Some(record) => {
             if close_of(record).map_err(reference_error)?.close_date >= close_date {
@@ -683,9 +697,10 @@ pub(crate) fn next_due(after: DateTime<Utc>, time: NaiveTime) -> DateTime<Utc> {
     }
 }
 
-/// Whether a close due at `due` is still taken at `at`: at most [`CLOSE_GRACE`] late.
+/// Whether a close due at `due` is still taken at `at`: at most [`CLOSE_GRACE`] late, and
+/// on the UTC date it was due.
 pub(crate) fn is_on_time(due: DateTime<Utc>, at: DateTime<Utc>) -> bool {
-    at >= due && at - due <= CLOSE_GRACE
+    at >= due && at - due <= CLOSE_GRACE && at.date_naive() == due.date_naive()
 }
 
 /// Run the weekday schedule at `time` until `stop` or `shutdown`: at each due instant read
@@ -727,8 +742,9 @@ pub(crate) async fn run_schedule<C, T, F>(
     }
 }
 
-/// Take a close of each watched book, each under the limit write lock. A book already
-/// closed for the date is skipped; any other refusal is logged and the next book taken.
+/// Take a close of each watched book, each under the limit write lock. A book no longer
+/// watched, or already closed for the date, is skipped; once a close would be late, none
+/// is taken; any other refusal is logged and the next book taken.
 pub(crate) async fn close_watched_books(state: &AppState, due: DateTime<Utc>) {
     let repo: &dyn ReferenceRepository = state.engine.reference_repository().as_ref();
     let books = match watched_books(repo).await {
@@ -747,9 +763,22 @@ pub(crate) async fn close_watched_books(state: &AppState, due: DateTime<Utc>) {
             continue;
         };
         let _writes = state.limit_writes.lock().await;
-        match close_book(state, Closer::Schedule, id.clone(), idempotency_key).await {
+        // A limit write may have cleared the book's last limit since the list was read.
+        match is_watched(repo, &id).await {
+            Ok(true) => {}
+            Ok(false) => continue,
+            Err(error) => {
+                tracing::warn!(book = %id, %error, "book close schedule: the book is unreadable");
+                continue;
+            }
+        }
+        match close_book(state, Closer::Schedule { due }, id.clone(), idempotency_key).await {
             Ok(_) => taken += 1,
             Err(CloseRefused::AlreadyClosed) => {}
+            Err(CloseRefused::Missed) => {
+                tracing::warn!(%due, book = %id, "book close schedule: too late; this and later books are not closed");
+                break;
+            }
             Err(CloseRefused::Refused(response)) => {
                 let status = response.status();
                 tracing::warn!(book = %id, %status, "book close schedule: a close was refused");
@@ -805,12 +834,16 @@ mod tests {
     }
 
     #[test]
-    fn a_close_is_taken_at_most_five_minutes_late() {
+    fn a_close_is_taken_at_most_five_minutes_late_and_on_its_date() {
         let due = at("2026-11-27T21:30:00Z");
         assert!(is_on_time(due, due));
         assert!(is_on_time(due, at("2026-11-27T21:35:00Z")));
         assert!(!is_on_time(due, at("2026-11-27T21:35:01Z")));
         assert!(!is_on_time(due, at("2026-11-27T21:29:59Z")));
+        // Nor on the next UTC date, which is another close's.
+        let due_before_midnight = at("2026-11-27T23:58:00Z");
+        assert!(is_on_time(due_before_midnight, at("2026-11-27T23:59:59Z")));
+        assert!(!is_on_time(due_before_midnight, at("2026-11-28T00:00:00Z")));
     }
 
     /// A clock that starts at `start` and moves with tokio's paused time, jumping by

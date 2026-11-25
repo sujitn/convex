@@ -90,7 +90,7 @@ async fn put_book_over(server: &Running, book: &str, key: &str, version: Option<
 /// Retire `book`, at its `version`.
 async fn retire(server: &Running, book: &str, version: u64) {
     let path = format!("/api/v1/books/{book}/retire");
-    let key = format!("retire-{book}");
+    let key = format!("retire-{book}-{version}");
     let (status, reply) =
         send_over(server, Method::POST, &path, Some(&key), Some(version), None).await;
     assert!(status.is_success(), "{path}: {status} {reply}");
@@ -431,11 +431,12 @@ async fn a_close_and_pnl_refuse_what_they_cannot_value() {
 
 /// The schedule closes each watched book at its time, Monday to Friday: a book watched by
 /// its limits is closed by the schedule, one the desk closed today keeps the desk's close,
-/// and one not watched is not closed. Nothing is due on a weekend, so then the test only
-/// says so.
+/// and one not watched is not closed. The composed server reads the wall clock, so the
+/// close is set for 15 seconds after the test starts. On a weekend, or when setting the books
+/// up outlasts that, nothing can be checked and the test says so.
 #[tokio::test]
 async fn the_schedule_closes_each_watched_book_at_its_time() {
-    let due = chrono::Utc::now() + chrono::TimeDelta::seconds(10);
+    let due = chrono::Utc::now() + chrono::TimeDelta::seconds(15);
     if matches!(due.weekday(), Weekday::Sat | Weekday::Sun) {
         eprintln!("no close is due on a weekend");
         return;
@@ -460,6 +461,11 @@ async fn the_schedule_closes_each_watched_book_at_its_time() {
     assert!(status.is_success(), "{reply}");
     let (status, desk) = close(&server, "DESK", "desk-close").await;
     assert_eq!(status, StatusCode::CREATED, "{desk}");
+    if chrono::Utc::now() + chrono::TimeDelta::seconds(1) >= due {
+        eprintln!("setting the books up outlasted the schedule's time; nothing to check");
+        server.stop().await;
+        return;
+    }
 
     // The schedule takes the books in order, so DESK is done once LIMITED is closed.
     let scheduled = tokio::time::timeout(Duration::from_secs(30), async {
@@ -547,9 +553,28 @@ async fn at_most_64_books_are_watched_and_retiring_one_frees_its_place() {
     assert_eq!(status, StatusCode::CONFLICT, "{reply}");
     assert_eq!(reply["code"], "WATCHED_BOOKS_EXCEEDED");
     retire(&server, "B-03", 1).await;
-    put_book_over(&server, "B-02", "b-02-revived-2", Some(2), held).await;
+    put_book_over(&server, "B-02", "b-02-revived-2", Some(2), held.clone()).await;
     let (status, reply) = get(&server, "/api/v1/books/B-02/pnl").await;
     assert_eq!(status, StatusCode::OK, "{reply}");
+    // A retry of the revival gets its receipt, though the book has since been retired and
+    // its place taken.
+    retire(&server, "B-02", 3).await;
+    put_book(&server, "B-65", "b-65", held.clone()).await;
+    let (status, reply) = close(&server, "B-65", "c-65").await;
+    assert_eq!(status, StatusCode::CREATED, "{reply}");
+    put_book_over(&server, "B-02", "b-02-revived-2", Some(2), held.clone()).await;
+    // A revival names the version it replaces.
+    let (status, reply) = send_over(
+        &server,
+        Method::PUT,
+        "/api/v1/books/B-02",
+        Some("b-02-revived-3"),
+        Some(5),
+        Some(held),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{reply}");
+    assert_eq!(reply["code"], "VERSION_CONFLICT");
     server.stop().await;
 }
 

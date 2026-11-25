@@ -500,16 +500,20 @@ fn authorize_positions<'a>(
 /// A snapshot over a retired book with a close watches the book again, so it takes the
 /// limit write lock, held to its commit, and a place among the watched books. Any other
 /// snapshot leaves the watched books as they are and takes neither.
+///
+/// A retry is not admitted again: the repository returns its receipt or refuses its payload.
 async fn watch_on_revival<'s>(
     state: &'s AppState,
     id: &BookId,
     base: &Base,
 ) -> Result<Option<tokio::sync::MutexGuard<'s, ()>>, Response> {
-    let is_revival = match &base.record {
-        Some(record) => book_of(record).map_err(reference_error)?.is_retired(),
-        None => false,
+    if base.replay_at.is_some() {
+        return Ok(None);
+    }
+    let Some(record) = &base.record else {
+        return Ok(None);
     };
-    if !is_revival {
+    if !book_of(record).map_err(reference_error)?.is_retired() {
         return Ok(None);
     }
     let writes = state.limit_writes.lock().await;
@@ -609,6 +613,13 @@ async fn ingest(
         Err(error) => return Err(reference_error(error)),
     };
     authorize_resolved(state, ctx, Action::BookWrite, &resolved)?;
+    // Whether the snapshot revives the book is read from the version it replaces, so the
+    // version it names must be the one read, as the commit would require of the current one.
+    if base.replay_at.is_none() && expected != base.record.as_ref().map(|record| record.version) {
+        return Err(reference_error(ReferenceError::Conflict(
+            "master expected version differs from current",
+        )));
+    }
     let _writes = watch_on_revival(state, &id, &base).await?;
     let system = owning_system(request.owning_system, &base).map_err(reference_error)?;
     let definition = BookDefinition {

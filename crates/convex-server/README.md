@@ -1368,8 +1368,9 @@ The desk takes a close with `POST`, which needs `Idempotency-Key` and the `trade
 (`BookClose`) on the book and each instrument it holds (see [access](ACCESS.md)). An exact
 retry returns the close it wrote. With `books.close_time_utc` set, the server takes a close
 of each watched book at that time, Monday to Friday. The schedule runs on wall-clock time
-and takes no close late: one the server was not running for, or woke more than five
-minutes late for, is not taken, and the desk can post it.
+and takes no close late: one the server was not running for, or that would commit more
+than five minutes after its time or on the next UTC date, is not taken, and the desk can
+post it. Each book is checked again as it is closed: one no longer watched is skipped.
 
 A book is watched while it holds a non-empty limit set, or is in force and holds a close;
 at most 64 are. A first close, like a first non-empty limit set, that would watch a 65th
@@ -1382,8 +1383,9 @@ either time is listed with:
   precision), and `face` and `dirty_price` now;
 - for a position held through, `held_face`, the smaller of the two sizes on the side held
   at both;
-- `pnl`: `held_face × (dirty_price − close_dirty_price + entitled cash) / 100`;
-- `entitled_cash`: its part of that.
+- `pnl`: `held_face × (dirty_price − close_dirty_price + c) / 100`, where `c` is the cash per
+  100 face the holder became entitled to;
+- `entitled_cash`: the cash part of that, `held_face × c / 100`, an amount like `pnl`.
 
 The entitled cash is what a holder became owed between the close's settlement date and
 now's: each coupon, sink or redemption paid in between or gone ex-coupon. A position with no
