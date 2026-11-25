@@ -722,29 +722,6 @@ async fn records(live: &ServerConfig) -> Vec<(u64, Value)> {
         .collect()
 }
 
-/// Wait until `/metrics` shows `line`: the gauges follow each book's records.
-async fn metric(server: &Running, line: &str) {
-    tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            let text = server
-                .client
-                .get(format!("{}/metrics", server.base))
-                .send()
-                .await
-                .unwrap()
-                .text()
-                .await
-                .unwrap();
-            if text.lines().any(|l| l == line) {
-                return;
-            }
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-    })
-    .await
-    .unwrap_or_else(|_| panic!("/metrics never showed {line}"))
-}
-
 /// The acknowledgement of the last request, failing on an error frame.
 async fn acknowledged(socket: &mut Socket) -> Value {
     use futures_util::StreamExt;
@@ -933,7 +910,9 @@ async fn the_monitor_records_and_publishes_each_status_change_and_restates_them_
     assert_eq!(change["limit_set_version"], 2);
     assert!(number(&change["value"]) > net, "{change}");
     published.push(change.clone());
-    metric(&server, "convex_limit_breaches{book_id=\"WATCHED\"} 1").await;
+    server
+        .wait_for_metric("convex_limit_breaches{book_id=\"WATCHED\"} 1")
+        .await;
 
     // A book commit is evaluated too: a larger position breaches the face limit.
     put_over(
@@ -1007,7 +986,9 @@ async fn the_monitor_records_and_publishes_each_status_change_and_restates_them_
             break;
         }
     }
-    metric(&server, "convex_limit_breaches{book_id=\"WATCHED\"} 2").await;
+    server
+        .wait_for_metric("convex_limit_breaches{book_id=\"WATCHED\"} 2")
+        .await;
 
     // Cleared, the set is no longer watched: the book returning within both bounds
     // records nothing.
@@ -1019,7 +1000,9 @@ async fn the_monitor_records_and_publishes_each_status_change_and_restates_them_
         json!({"limits": []}),
     )
     .await;
-    metric(&server, "convex_limit_breaches{book_id=\"WATCHED\"} 0").await;
+    server
+        .wait_for_metric("convex_limit_breaches{book_id=\"WATCHED\"} 0")
+        .await;
     put_over(
         &server,
         "/api/v1/books/WATCHED",
@@ -1093,7 +1076,9 @@ async fn a_retired_book_is_not_watched_until_a_new_snapshot_revives_it() {
         face,
     )
     .await;
-    metric(&server, "convex_limit_breaches{book_id=\"RETIRING\"} 1").await;
+    server
+        .wait_for_metric("convex_limit_breaches{book_id=\"RETIRING\"} 1")
+        .await;
 
     let retired = server
         .client
@@ -1104,7 +1089,9 @@ async fn a_retired_book_is_not_watched_until_a_new_snapshot_revives_it() {
         .await
         .unwrap();
     assert_eq!(retired.status(), StatusCode::NO_CONTENT);
-    metric(&server, "convex_limit_breaches{book_id=\"RETIRING\"} 0").await;
+    server
+        .wait_for_metric("convex_limit_breaches{book_id=\"RETIRING\"} 0")
+        .await;
 
     put_over(
         &server,
@@ -1114,7 +1101,9 @@ async fn a_retired_book_is_not_watched_until_a_new_snapshot_revives_it() {
         over,
     )
     .await;
-    metric(&server, "convex_limit_breaches{book_id=\"RETIRING\"} 1").await;
+    server
+        .wait_for_metric("convex_limit_breaches{book_id=\"RETIRING\"} 1")
+        .await;
     server.stop().await;
 }
 
@@ -1170,15 +1159,7 @@ async fn hops(
 
 /// The monitor's counts so far: seconds evaluating, passes, and changes recorded.
 async fn monitor_counts(server: &Running) -> (f64, u64, u64) {
-    let text = server
-        .client
-        .get(format!("{}/metrics", server.base))
-        .send()
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap();
+    let text = server.metrics().await;
     let read = |name: &str| {
         text.lines()
             .find_map(|line| line.strip_prefix(name))
@@ -2231,15 +2212,7 @@ async fn records_by_limit_at_the_cap() {
 
 /// One value from `/metrics`, or 0 when absent.
 async fn metric_value(server: &Running, name: &str) -> f64 {
-    let text = server
-        .client
-        .get(format!("{}/metrics", server.base))
-        .send()
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap();
+    let text = server.metrics().await;
     text.lines()
         .find_map(|line| line.strip_prefix(name)?.strip_prefix(' '))
         .map(|value| value.trim().parse::<f64>().unwrap())

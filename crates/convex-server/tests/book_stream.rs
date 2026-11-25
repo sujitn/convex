@@ -8,6 +8,7 @@ mod live_server;
 #[path = "../../convex-engine/tests/support/runtime_setup.rs"]
 mod support;
 
+use chrono::{DateTime, Utc};
 use convex_engine::ports::quote_event::QuoteKey;
 use live_server::{images, next_frame, subscribe_books, Running, Socket};
 use reqwest::{Method, StatusCode};
@@ -15,6 +16,9 @@ use rust_decimal::Decimal;
 use serde_json::{json, Value};
 use std::str::FromStr;
 use std::time::{Duration, Instant};
+
+/// The server's shortest time between two summaries of a book, in milliseconds.
+const SUMMARY_INTERVAL_MS: i64 = 250;
 
 /// What the runtime computes: every measure a summary reads.
 const MEASURES: [&str; 11] = [
@@ -95,10 +99,28 @@ async fn quote(server: &Running, keys: &[QuoteKey], sequence: u64, price: &str) 
 
 /// `book`'s summary in `seed`, or else the next sent.
 async fn first_summary(socket: &mut Socket, seed: &[Value], book: &str) -> Value {
-    match seed.iter().find(|frame| frame["book_id"] == book) {
-        Some(frame) => frame.clone(),
-        None => summary_after(socket, book, 0).await,
+    let [summary] = first_summaries(socket, seed, [book]).await;
+    summary
+}
+
+/// Each of `books`' summaries in `seed`, or else the first sent, in the order named. Every
+/// frame is read once, so a summary of one book is kept while waiting for another's.
+async fn first_summaries<const N: usize>(
+    socket: &mut Socket,
+    seed: &[Value],
+    books: [&str; N],
+) -> [Value; N] {
+    let mut found = books.map(|book| seed.iter().find(|frame| frame["book_id"] == book).cloned());
+    while found.iter().any(Option::is_none) {
+        let frame = next_frame(socket).await;
+        if frame["type"] != "book_summary" {
+            continue;
+        }
+        if let Some(index) = books.iter().position(|book| frame["book_id"] == *book) {
+            found[index].get_or_insert(frame);
+        }
     }
+    found.map(Option::unwrap)
 }
 
 /// The next summary of `book` later than `after`, skipping any other frame.
@@ -266,23 +288,23 @@ async fn summaries_coalesce_and_follow_what_is_watched() {
         seed.iter().all(|frame| frame["book_id"] != "PLAIN"),
         "{seed:?}"
     );
-    let limited = first_summary(&mut socket, &seed, "LIMITED").await;
+    let [limited, closed] = first_summaries(&mut socket, &seed, ["LIMITED", "CLOSED"]).await;
     assert_eq!(
         limited["pnl"],
         json!({"status": "unknown", "reason": "no_close"})
     );
-    let closed = first_summary(&mut socket, &seed, "CLOSED").await;
     assert!(closed.get("limit_set_version").is_none(), "{closed}");
     assert_eq!(closed["limits"], json!([]));
 
-    // Twenty ticks 25 ms apart.
-    let started_at = Instant::now();
-    // Each at its own price, so only the last tick's summary has the last P&L.
+    // Twenty ticks 25 ms apart, each at its own price, so only the last tick's summary has
+    // the last P&L.
+    let burst_started = Utc::now();
     for i in 0..20 {
         let price = format!("99.{}", 300 + 5 * i);
         quote(&server, &keys, 3 + i, &price).await;
         tokio::time::sleep(Duration::from_millis(25)).await;
     }
+    let burst_ended = Utc::now();
     let mut summaries = Vec::new();
     let quiet = Instant::now() + Duration::from_secs(2);
     while let Ok(frame) = tokio::time::timeout_at(quiet.into(), next_frame(&mut socket)).await {
@@ -291,12 +313,21 @@ async fn summaries_coalesce_and_follow_what_is_watched() {
             summaries.push(frame);
         }
     }
-    let elapsed = started_at.elapsed().as_millis();
-    let most = elapsed / 250 + 2;
+    // Summaries go out at most once an interval, so those evaluated in the burst went out
+    // over its length and one interval more: at most one an interval, plus one.
+    let in_burst = summaries
+        .iter()
+        .filter(|summary| {
+            let evaluated_at: DateTime<Utc> =
+                summary["evaluated_at"].as_str().unwrap().parse().unwrap();
+            (burst_started..=burst_ended).contains(&evaluated_at)
+        })
+        .count();
+    let burst_ms = (burst_ended - burst_started).num_milliseconds();
+    let most = usize::try_from(burst_ms / SUMMARY_INTERVAL_MS + 2).unwrap();
     assert!(
-        summaries.len() as u128 <= most && summaries.len() >= 2,
-        "{} summaries in {elapsed} ms",
-        summaries.len()
+        (1..=most).contains(&in_burst),
+        "{in_burst} summaries evaluated in a {burst_ms} ms burst"
     );
     let sequences: Vec<u64> = summaries
         .iter()
@@ -375,4 +406,45 @@ async fn send_unsubscribe(socket: &mut Socket, book: &str) {
     )
     .await;
     assert_eq!(next_frame(socket).await["type"], "unsubscribed");
+}
+
+/// A book still watched for its close once its last limit is cleared records no status, and
+/// the breach it recorded is no longer counted.
+#[tokio::test]
+async fn clearing_a_closed_books_last_limit_forgets_its_recorded_breach() {
+    let (_dir, _keys, server) = started().await;
+    server.put("/api/v1/books/BREACH", &positions()).await;
+    server
+        .put(
+            "/api/v1/books/BREACH/limits",
+            &json!({"limits": [{"limit_id": "tiny", "measure": {"kind": "market_value"}, "upper": "1"}]}),
+        )
+        .await;
+    close(&server, "BREACH").await;
+    server
+        .wait_for_metric("convex_limit_breaches{book_id=\"BREACH\"} 1")
+        .await;
+    let (status, reply) = server
+        .send_with(
+            Method::PUT,
+            "/api/v1/books/BREACH/limits",
+            "clear-limits",
+            Some(1),
+            Some(&json!({"limits": []})),
+        )
+        .await;
+    assert!(status.is_success(), "{status} {reply}");
+    server
+        .wait_for_metric("convex_limit_breaches{book_id=\"BREACH\"} 0")
+        .await;
+    let mut socket = server.session(None).await;
+    let seed = subscribe_books(&mut socket, &["BREACH"]).await;
+    let mut summary = first_summary(&mut socket, &seed, "BREACH").await;
+    while summary.get("limit_set_version").is_some() {
+        let sequence = summary["sequence"].as_u64().unwrap();
+        summary = summary_after(&mut socket, "BREACH", sequence).await;
+    }
+    assert_eq!(summary["limits"], json!([]), "{summary}");
+    assert_eq!(summary["pnl"]["status"], "measured", "{summary}");
+    server.stop().await;
 }

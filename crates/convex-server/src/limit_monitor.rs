@@ -1092,6 +1092,17 @@ impl Task {
                 .remove(&id)
                 .map(|watched| (watched.recorded, watched.expired_through, watched.held))
                 .unwrap_or_else(|| (HashMap::new(), retired_latch.flatten(), Holds::default()));
+            // A book its close alone watches has no statuses: those its cleared set recorded
+            // are forgotten, as when it is no longer watched.
+            let (recorded, held) = match set_version {
+                Some(_) => (recorded, held),
+                None => {
+                    if !recorded.is_empty() {
+                        self.forget_statuses(&id);
+                    }
+                    (HashMap::new(), Holds::default())
+                }
+            };
             self.books.insert(
                 id.clone(),
                 Watched {
@@ -1122,11 +1133,16 @@ impl Task {
 
     fn unwatch(&mut self, id: &BookId) {
         if self.books.remove(id).is_some() {
-            self.retry.remove(id);
-            self.full.remove(id);
             self.summaries.forget(id);
-            gauges(id, &HashMap::new());
+            self.forget_statuses(id);
         }
+    }
+
+    /// Forget that `id` has statuses to record again, and count none of them.
+    fn forget_statuses(&mut self, id: &BookId) {
+        self.retry.remove(id);
+        self.full.remove(id);
+        gauges(id, &HashMap::new());
     }
 
     fn index(&mut self) {

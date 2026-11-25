@@ -161,6 +161,29 @@ impl Running {
         (status, response.json().await.unwrap_or(Value::Null))
     }
 
+    /// `/metrics` as text.
+    pub async fn metrics(&self) -> String {
+        self.client
+            .get(format!("{}/metrics", self.base))
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap()
+    }
+
+    /// Wait until `/metrics` shows `line`.
+    pub async fn wait_for_metric(&self, line: &str) {
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while !self.metrics().await.lines().any(|shown| shown == line) {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("/metrics never showed {line}"));
+    }
+
     /// `PUT` `body` on `path` with an idempotency key of its path, which must succeed.
     pub async fn put(&self, path: &str, body: &Value) {
         let response = self
