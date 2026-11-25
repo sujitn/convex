@@ -12,7 +12,7 @@ use convex_core::ids::InstrumentId;
 use convex_core::Currency;
 use convex_engine::ports::reference_data::{BondReferenceData, BondType, IssuerType};
 use convex_engine::ports::reference_master::{
-    ExternalIdentifier, MasterChange, MasterKind, ReferenceLookup,
+    ExternalIdentifier, MasterChange, MasterKind, MasterRecord, ReferenceLookup,
 };
 use convex_engine::ports::reference_repository::*;
 use convex_engine::ports::storage::{BondFilter, Pagination};
@@ -25,13 +25,67 @@ pub(crate) fn reference_error(error: ReferenceError) -> Response {
     crate::error::ApiError::from(error).into_response()
 }
 
-/// The refusal of a generic reference write naming a resource that only its own routes
-/// write: books, and a book's limits.
-fn own_route_required(changes: &[MasterChange]) -> Option<Response> {
-    if crate::limits::writes_limits(changes) {
-        return Some(crate::limits::limits_route_required());
+/// The routes that alone write a master kind, in the order a transaction naming several is
+/// refused by.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum OwnRoute {
+    /// A book's limit sets, proposals and acknowledgements: the two-subject rule and the
+    /// instrument checks hold only there.
+    Limits,
+    /// A book's closes, whose reads check each instrument the close holds.
+    Closes,
+    /// Books, whose routes start each snapshot at its commit time.
+    Books,
+}
+
+impl OwnRoute {
+    /// The routes that alone write `kind`, if any. Each kind is named, so a new kind is
+    /// placed here before it compiles.
+    fn of(kind: MasterKind) -> Option<Self> {
+        match kind {
+            MasterKind::LimitSet
+            | MasterKind::LimitProposal
+            | MasterKind::LimitAcknowledgements => Some(Self::Limits),
+            MasterKind::BookClose => Some(Self::Closes),
+            MasterKind::Book => Some(Self::Books),
+            MasterKind::IssuerScope
+            | MasterKind::Calculation
+            | MasterKind::Entity
+            | MasterKind::Calendar
+            | MasterKind::Convention
+            | MasterKind::Identifier
+            | MasterKind::Futures
+            | MasterKind::Basket
+            | MasterKind::CashUniverse
+            | MasterKind::RateIndex
+            | MasterKind::PricingRule
+            | MasterKind::BenchmarkSet => None,
+        }
     }
-    crate::books::writes_books(changes).then(crate::books::books_route_required)
+
+    /// Whether a commit receipt holding the kind is read only through these routes, which
+    /// check each instrument it names. A book's receipt stays readable here.
+    fn reads_receipts(self) -> bool {
+        self != Self::Books
+    }
+
+    fn refusal(self) -> Response {
+        match self {
+            Self::Limits => crate::limits::limits_route_required(),
+            Self::Closes => crate::book_close::close_route_required(),
+            Self::Books => crate::books::books_route_required(),
+        }
+    }
+}
+
+/// The refusal of a generic reference write naming a resource that only its own routes
+/// write.
+fn own_route_required(changes: &[MasterChange]) -> Option<Response> {
+    changes
+        .iter()
+        .filter_map(|change| OwnRoute::of(change.definition.kind()))
+        .min()
+        .map(OwnRoute::refusal)
 }
 
 pub(crate) async fn commit_reference_transaction(
@@ -120,20 +174,10 @@ pub(crate) async fn list_masters(
         return reference_error(ReferenceError::InvalidInput("invalid master page query"));
     };
     let kind = match serde_json::from_value::<MasterKind>(serde_json::Value::String(kind)) {
-        Ok(kind)
-            if !matches!(
-                kind,
-                MasterKind::Book
-                    | MasterKind::LimitSet
-                    | MasterKind::LimitProposal
-                    | MasterKind::LimitAcknowledgements
-            ) =>
-        {
-            kind
-        }
+        Ok(kind) if OwnRoute::of(kind).is_none() => kind,
         _ => {
             return reference_error(ReferenceError::InvalidInput(
-                "unknown master kind; books and their limits are read under /api/v1/books",
+                "unknown master kind; books, limits and closes are read under /api/v1/books",
             ))
         }
     };
@@ -151,14 +195,17 @@ pub(crate) async fn list_masters(
             let next = (items.len() == limit)
                 .then(|| items.last())
                 .flatten()
-                .and_then(|record| {
-                    let key = record.definition.key().storage_key();
-                    key.split_once('/').map(|(_, id)| id.to_owned())
-                });
+                .and_then(page_cursor);
             Json(serde_json::json!({"kind": kind, "items": items, "next": next})).into_response()
         }
         Err(error) => reference_error(error),
     }
+}
+
+/// The cursor of the page after `record`: its identifier within its kind.
+pub(crate) fn page_cursor(record: &MasterRecord) -> Option<String> {
+    let key = record.definition.key().storage_key();
+    key.split_once('/').map(|(_, id)| id.to_owned())
 }
 
 #[derive(Deserialize)]
@@ -484,16 +531,16 @@ pub(crate) async fn get_reference_commit(
         Err(_) => return reference_error(ReferenceError::InvalidInput("invalid idempotency key")),
     };
     match state.engine.reference_repository().get_commit(&key).await {
-        // A limit commit is read through its book's limit routes, which check instruments.
-        Ok(Some(receipt))
-            if receipt
-                .master_records
-                .iter()
-                .any(|record| crate::limits::is_limits(&record.definition)) =>
+        Ok(Some(receipt)) => match receipt
+            .master_records
+            .iter()
+            .filter_map(|record| OwnRoute::of(record.definition.kind()))
+            .filter(|route| route.reads_receipts())
+            .min()
         {
-            crate::limits::limits_route_required()
-        }
-        Ok(Some(receipt)) => Json(receipt).into_response(),
+            Some(route) => route.refusal(),
+            None => Json(receipt).into_response(),
+        },
         Ok(None) => reference_error(ReferenceError::NotFound),
         Err(error) => reference_error(error),
     }

@@ -7,6 +7,7 @@ use axum::Router;
 
 use convex_engine::PricingEngine;
 
+use crate::book_close;
 use crate::books;
 use crate::handlers::{self, AppState};
 use crate::limit_acknowledgements;
@@ -34,16 +35,28 @@ pub fn create_router_with_access(
     websocket_enabled: bool,
     access: Arc<crate::access::AccessControl>,
 ) -> Router {
-    let state = Arc::new(AppState {
+    router_over(app_state(engine, access), websocket_enabled)
+}
+
+/// The routes' state over `engine` and `access`.
+pub(crate) fn app_state(
+    engine: Arc<PricingEngine>,
+    access: Arc<crate::access::AccessControl>,
+) -> Arc<AppState> {
+    Arc::new(AppState {
         analytics_slots: Arc::new(tokio::sync::Semaphore::new(
             engine.config().max_concurrent_calcs.min(64),
         )),
-        access: access.clone(),
+        access,
         engine,
         ws_state: WebSocketState::new(),
-        limit_writes: Arc::new(tokio::sync::Mutex::new(())),
-    });
+        limit_writes: tokio::sync::Mutex::new(()),
+    })
+}
 
+/// The API router over `state`.
+pub(crate) fn router_over(state: Arc<AppState>, websocket_enabled: bool) -> Router {
+    let access = state.access.clone();
     let router = Router::new()
         // Health
         .route("/live", get(handlers::health))
@@ -400,7 +413,17 @@ pub fn create_router_with_access(
         .route(
             "/api/v1/books/:book_id/limits/check",
             post(limits::check_limits),
-        );
+        )
+        // Desk closes, and P&L since the latest
+        .route(
+            "/api/v1/books/:book_id/close",
+            get(book_close::get_close).post(book_close::take_close),
+        )
+        .route(
+            "/api/v1/books/:book_id/close/versions/:version",
+            get(book_close::get_close_version),
+        )
+        .route("/api/v1/books/:book_id/pnl", get(book_close::get_pnl));
     let router = if websocket_enabled {
         router
             .route("/ws", get(websocket::ws_handler))

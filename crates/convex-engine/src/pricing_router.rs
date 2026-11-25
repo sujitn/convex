@@ -242,6 +242,52 @@ impl PricingRouter {
             .map_err(|e| EngineError::PricingError(format!("Failed to build bond: {}", e)))
     }
 
+    /// Convert a zero coupon bond's reference data, refusing coupon or adjusted-payment
+    /// terms. Its yield compounds at the bond's frequency.
+    pub(crate) fn to_zero_coupon_bond(
+        &self,
+        ref_data: &BondReferenceData,
+    ) -> Result<convex_bonds::instruments::ZeroCouponBond, EngineError> {
+        let compounding = match self.get_frequency(ref_data)? {
+            Frequency::Annual => convex_bonds::instruments::Compounding::Annual,
+            Frequency::SemiAnnual => convex_bonds::instruments::Compounding::SemiAnnual,
+            Frequency::Quarterly => convex_bonds::instruments::Compounding::Quarterly,
+            Frequency::Monthly => convex_bonds::instruments::Compounding::Monthly,
+            _ => {
+                return Err(EngineError::PricingError(
+                    "unsupported zero yield frequency".into(),
+                ))
+            }
+        };
+        let terms = ref_data
+            .contractual_terms
+            .as_ref()
+            .ok_or_else(|| EngineError::PricingError("missing zero terms".into()))?;
+        if ref_data.coupon_rate.is_some_and(|c| c != Decimal::ZERO)
+            || ref_data.first_coupon_date.is_some()
+            || terms.penultimate_coupon_date.is_some()
+            || terms.stub != crate::ports::reference_master::BondStub::None
+            || terms.settings.ex_coupon_days != 0
+            || terms.settings.business_day_convention
+                != convex_core::calendars::BusinessDayConvention::Unadjusted
+        {
+            return Err(EngineError::PricingError(
+                "unsupported coupon/adjusted-payment terms on zero".into(),
+            ));
+        }
+        convex_bonds::instruments::ZeroCouponBond::builder()
+            .cusip_unchecked(ref_data.instrument_id.as_str())
+            .issue_date(ref_data.issue_date)
+            .maturity(ref_data.maturity_date)
+            .currency(ref_data.currency)
+            .day_count(self.parse_day_count(&ref_data.day_count)?)
+            .compounding(compounding)
+            .face_value(ref_data.face_value)
+            .redemption_value(terms.redemption_value.decimal())
+            .build()
+            .map_err(pricing_error)
+    }
+
     /// Reject unknown labels; no contractual convention is inferred.
     fn parse_day_count(&self, dcc_str: &str) -> Result<DayCountConvention, EngineError> {
         DayCountConvention::from_str(dcc_str)
@@ -333,47 +379,7 @@ impl PricingRouter {
             None
         };
         let zero = if bond.is_none() {
-            let compounding = match frequency {
-                Frequency::Annual => convex_bonds::instruments::Compounding::Annual,
-                Frequency::SemiAnnual => convex_bonds::instruments::Compounding::SemiAnnual,
-                Frequency::Quarterly => convex_bonds::instruments::Compounding::Quarterly,
-                Frequency::Monthly => convex_bonds::instruments::Compounding::Monthly,
-                _ => {
-                    return Err(EngineError::PricingError(
-                        "unsupported zero yield frequency".into(),
-                    ))
-                }
-            };
-            let terms = input
-                .bond
-                .contractual_terms
-                .as_ref()
-                .ok_or_else(|| EngineError::PricingError("missing zero terms".into()))?;
-            if input.bond.coupon_rate.is_some_and(|c| c != Decimal::ZERO)
-                || input.bond.first_coupon_date.is_some()
-                || terms.penultimate_coupon_date.is_some()
-                || terms.stub != crate::ports::reference_master::BondStub::None
-                || terms.settings.ex_coupon_days != 0
-                || terms.settings.business_day_convention
-                    != convex_core::calendars::BusinessDayConvention::Unadjusted
-            {
-                return Err(EngineError::PricingError(
-                    "unsupported coupon/adjusted-payment terms on zero".into(),
-                ));
-            }
-            Some(
-                convex_bonds::instruments::ZeroCouponBond::builder()
-                    .cusip_unchecked(input.bond.instrument_id.as_str())
-                    .issue_date(input.bond.issue_date)
-                    .maturity(input.bond.maturity_date)
-                    .currency(input.bond.currency)
-                    .day_count(self.parse_day_count(&input.bond.day_count)?)
-                    .compounding(compounding)
-                    .face_value(input.bond.face_value)
-                    .redemption_value(terms.redemption_value.decimal())
-                    .build()
-                    .map_err(pricing_error)?,
-            )
+            Some(self.to_zero_coupon_bond(&input.bond)?)
         } else {
             None
         };

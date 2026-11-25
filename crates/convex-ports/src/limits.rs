@@ -337,7 +337,7 @@ pub fn validate_limits(limits: &[LimitDefinition]) -> Result<(), ReferenceError>
     Ok(())
 }
 
-fn subject(text: &str) -> Result<(), ReferenceError> {
+pub(crate) fn subject(text: &str) -> Result<(), ReferenceError> {
     if text.is_empty()
         || text.len() > MAX_SUBJECT_BYTES
         || !text.bytes().all(|b| b.is_ascii_graphic())

@@ -119,14 +119,6 @@ pub(crate) fn in_force(record: Option<MasterRecord>) -> Result<MasterRecord, Res
     Ok(record)
 }
 
-/// Whether a reference transaction writes a book, which only the book routes may: they
-/// start each snapshot at its commit time.
-pub(crate) fn writes_books(changes: &[MasterChange]) -> bool {
-    changes
-        .iter()
-        .any(|change| matches!(change.definition, MasterDefinition::Book(_)))
-}
-
 /// The refusal of a generic reference write that names a book.
 pub(crate) fn books_route_required() -> Response {
     typed_error(
@@ -505,6 +497,38 @@ fn authorize_positions<'a>(
     )
 }
 
+/// A snapshot over a retired book with a close watches the book again, so it takes the
+/// limit write lock, held to its commit, and a place among the watched books. Any other
+/// snapshot leaves the watched books as they are and takes neither.
+async fn watch_on_revival<'s>(
+    state: &'s AppState,
+    id: &BookId,
+    base: &Base,
+) -> Result<Option<tokio::sync::MutexGuard<'s, ()>>, Response> {
+    let is_revival = match &base.record {
+        Some(record) => book_of(record).map_err(reference_error)?.is_retired(),
+        None => false,
+    };
+    if !is_revival {
+        return Ok(None);
+    }
+    let writes = state.limit_writes.lock().await;
+    let repo: &dyn ReferenceRepository = state.engine.reference_repository().as_ref();
+    let is_closed = repo
+        .get_master(&MasterKey::BookClose(id.clone()))
+        .await
+        .map_err(reference_error)?
+        .is_some();
+    if is_closed
+        && !crate::watched_books::may_watch(repo, id)
+            .await
+            .map_err(reference_error)?
+    {
+        return Err(crate::watched_books::too_many_watched());
+    }
+    Ok(Some(writes))
+}
+
 fn owning_system(requested: Option<SourceId>, base: &Base) -> Result<SourceId, ReferenceError> {
     let previous = match &base.record {
         Some(record) => Some(book_of(record)?.owning_system.clone()),
@@ -524,7 +548,9 @@ fn owning_system(requested: Option<SourceId>, base: &Base) -> Result<SourceId, R
 /// `PUT /api/v1/books/{book_id}`: replace the full position snapshot atomically.
 ///
 /// Absent `If-Match` creates the book and conflicts if the key was ever used; present
-/// `If-Match` replaces exactly that version. `Idempotency-Key` is required.
+/// `If-Match` replaces exactly that version. `Idempotency-Key` is required. A snapshot that
+/// revives a retired book with a close watches it again, so it is refused when as many
+/// books are watched as may be (409 `WATCHED_BOOKS_EXCEEDED`).
 pub(crate) async fn put_book(
     State(state): State<Arc<AppState>>,
     ctx: Option<Extension<AccessContext>>,
@@ -583,6 +609,7 @@ async fn ingest(
         Err(error) => return Err(reference_error(error)),
     };
     authorize_resolved(state, ctx, Action::BookWrite, &resolved)?;
+    let _writes = watch_on_revival(state, &id, &base).await?;
     let system = owning_system(request.owning_system, &base).map_err(reference_error)?;
     let definition = BookDefinition {
         book_id: id,
@@ -912,17 +939,13 @@ pub(crate) async fn book_analytics(
         ));
     }
     let published = gate_runtime_results(state, &record)?;
-    let currency = definition
-        .currency
-        .as_deref()
-        .and_then(convex_core::Currency::from_code)
-        .ok_or_else(|| {
-            refusal(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "BOOK_CURRENCY_REQUIRED",
-                detail("analytics by book need the book's reporting currency"),
-            )
-        })?;
+    let currency = definition.reporting_currency().ok_or_else(|| {
+        refusal(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "BOOK_CURRENCY_REQUIRED",
+            detail("analytics by book need the book's reporting currency"),
+        )
+    })?;
     if definition
         .positions
         .iter()

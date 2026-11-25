@@ -60,6 +60,31 @@ impl Default for LimitSettings {
     }
 }
 
+/// Book settings.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct BookSettings {
+    /// The UTC time, `HH:MM` or `HH:MM:SS`, at which the server takes a close of each
+    /// watched book, Monday to Friday. A close the server is not running for is not taken
+    /// late. Unset takes none; refused in replay.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub close_time_utc: Option<String>,
+}
+
+impl BookSettings {
+    /// The configured close time, once valid.
+    pub fn close_time(&self) -> Option<chrono::NaiveTime> {
+        self.close_time_utc.as_deref().and_then(parse_close_time)
+    }
+}
+
+fn parse_close_time(text: &str) -> Option<chrono::NaiveTime> {
+    ["%H:%M", "%H:%M:%S"]
+        .into_iter()
+        .find_map(|format| chrono::NaiveTime::parse_from_str(text, format).ok())
+        .filter(|_| matches!(text.len(), 5 | 8))
+}
+
 /// Configuration failures never include input values, file contents or paths.
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -144,6 +169,8 @@ pub struct ServerConfig {
     pub desk_level_source: Option<String>,
     /// The limit monitor's settings.
     pub limits: LimitSettings,
+    /// Book settings.
+    pub books: BookSettings,
 }
 
 impl Default for ServerConfig {
@@ -165,6 +192,7 @@ impl Default for ServerConfig {
             desk_ui_dir: None,
             desk_level_source: None,
             limits: LimitSettings::default(),
+            books: BookSettings::default(),
         }
     }
 }
@@ -204,6 +232,8 @@ pub struct EffectiveConfig<'a> {
     pub desk_level_source: Option<&'a str>,
     /// The limit monitor's settings.
     pub limits: LimitSettings,
+    /// The scheduled close time, once valid.
+    pub books: BookSettings,
 }
 
 impl fmt::Debug for ServerConfig {
@@ -376,6 +406,7 @@ impl ServerConfig {
                             expected: "an integer in 8..=3650",
                         })?)
                 }
+                "CONVEX_BOOKS_CLOSE_TIME_UTC" => candidate.books.close_time_utc = Some(value),
                 _ => return Err(ConfigError::UnknownEnvironment { name }),
             }
         }
@@ -435,6 +466,20 @@ impl ServerConfig {
                 field: "limits.record_retention_days",
                 expected: "an integer in 8..=3650",
             });
+        }
+        if self.books.close_time_utc.is_some() {
+            if self.books.close_time().is_none() {
+                return Err(ConfigError::InvalidValue {
+                    field: "books.close_time_utc",
+                    expected: "a UTC time of day, HH:MM or HH:MM:SS",
+                });
+            }
+            if self.profile == ServerProfile::Replay {
+                return Err(ConfigError::Unsupported {
+                    field: "books.close_time_utc",
+                    reason: "a replay runs on recorded time, so it takes no scheduled close",
+                });
+            }
         }
         for (field, configured) in [
             (
@@ -626,6 +671,13 @@ impl ServerConfig {
                 .as_deref()
                 .filter(|id| convex_core::contracts::SourceId::new(*id).is_ok()),
             limits: self.limits,
+            books: BookSettings {
+                close_time_utc: self
+                    .books
+                    .close_time_utc
+                    .clone()
+                    .filter(|text| parse_close_time(text).is_some()),
+            },
         }
     }
 
@@ -651,6 +703,7 @@ impl ServerConfig {
             "CONVEX_DESK_LEVEL_SOURCE",
             "CONVEX_LIMITS_CLEAR_HOLD_SECONDS",
             "CONVEX_LIMITS_RECORD_RETENTION_DAYS",
+            "CONVEX_BOOKS_CLOSE_TIME_UTC",
         ]
     }
 }

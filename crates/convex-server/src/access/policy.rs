@@ -30,8 +30,8 @@ pub enum Role {
     /// Propose, approve and withdraw changes to scoped books' limits. Reading
     /// limits and their status needs `Reader` or `Analyst`, as other book reads do.
     RiskManager,
-    /// Quote or pass clients' requests for quote on scoped books, and mark the desk's
-    /// levels.
+    /// Quote or pass clients' requests for quote on scoped books, mark the desk's
+    /// levels, and take a desk close of a scoped book.
     Trader,
     /// Send clients' requests for quote and their outcomes: a venue's adapter or its
     /// simulator, never a person quoting.
@@ -77,6 +77,8 @@ pub enum Action {
     LimitWrite,
     /// Mark the desk's levels.
     LevelWrite,
+    /// Take a desk close of a book.
+    BookClose,
     /// Quote or pass a client's request for quote.
     RfqRespond,
     /// Send a client's request for quote, or its outcome.
@@ -107,7 +109,7 @@ impl Action {
             Self::BookWrite => roles.contains(&Role::BookWriter),
             Self::Operate | Self::ConfigurationWrite => roles.contains(&Role::Operator),
             Self::LimitWrite => roles.contains(&Role::RiskManager),
-            Self::LevelWrite | Self::RfqRespond => roles.contains(&Role::Trader),
+            Self::LevelWrite | Self::BookClose | Self::RfqRespond => roles.contains(&Role::Trader),
             Self::RfqIngest => roles.contains(&Role::RfqSource),
         }
     }

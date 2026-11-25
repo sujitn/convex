@@ -321,7 +321,8 @@ fn listed<'a>(
     )
 }
 
-fn detail(error: &EngineError) -> String {
+/// An engine refusal as a reason's detail, at most `MAX_REASON_DETAIL_BYTES` bytes.
+pub(crate) fn detail(error: &EngineError) -> String {
     let mut text = error.to_string();
     if text.len() > MAX_REASON_DETAIL_BYTES {
         let mut cut = MAX_REASON_DETAIL_BYTES;

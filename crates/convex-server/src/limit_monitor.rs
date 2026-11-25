@@ -92,8 +92,8 @@ use crate::audit_writer::AuditWriter;
 use crate::books::{accepted_results, book_of};
 use crate::limits::{
     evaluate_book, named_instruments, read_priced_terms, set_of, Accepted, PricedTerms,
-    MAX_LIMITED_BOOKS,
 };
+use crate::watched_books::{every_master, MAX_WATCHED_BOOKS};
 
 /// The audit event type of a recorded status change.
 pub const LIMIT_STATUS_EVENT: &str = "limit_status";
@@ -120,7 +120,7 @@ const _: () = assert!(convex_engine::ports::limits::MAX_BOOK_LIMITS <= MAX_AUDIT
 
 /// Frames a slow subscriber may fall behind by: one evaluation of every watched book
 /// changes at most 64 × 64 limits.
-const FEED_CAPACITY: usize = MAX_LIMITED_BOOKS * convex_engine::ports::limits::MAX_BOOK_LIMITS;
+const FEED_CAPACITY: usize = MAX_WATCHED_BOOKS * convex_engine::ports::limits::MAX_BOOK_LIMITS;
 /// How soon a failed read or append is tried again.
 const RETRY: Duration = Duration::from_secs(1);
 /// The longest wait for an expiry. The wait runs on the monotonic clock and an expiry is on
@@ -139,7 +139,7 @@ const DAY_MS: u64 = 86_400_000;
 // A prune keeps each watched limit's latest record and the record its acknowledgement in
 // force names, at most one of each a limit.
 const _: () = assert!(
-    2 * MAX_LIMITED_BOOKS * convex_engine::ports::limits::MAX_BOOK_LIMITS <= MAX_PRUNE_KEEP
+    2 * MAX_WATCHED_BOOKS * convex_engine::ports::limits::MAX_BOOK_LIMITS <= MAX_PRUNE_KEEP
 );
 
 // =============================================================================
@@ -939,22 +939,12 @@ impl Task {
         let ids: Vec<BookId> = match which {
             Pending::All => {
                 let mut ids: BTreeSet<BookId> = self.books.keys().cloned().collect();
-                let mut after: Option<String> = None;
-                loop {
-                    let page = repo
-                        .list_masters(MasterKind::LimitSet, after.as_deref(), MAX_REFERENCE_PAGE)
-                        .await?;
-                    for record in &page {
-                        ids.insert(set_of(record)?.book_id.clone());
-                    }
-                    if page.len() < MAX_REFERENCE_PAGE {
-                        break;
-                    }
-                    after = page
-                        .last()
-                        .map(|r| set_of(r).map(|s| s.book_id.as_str().to_owned()))
-                        .transpose()?;
-                }
+                ids.extend(
+                    every_master(repo.as_ref(), MasterKind::LimitSet, |record| {
+                        Ok(Some(set_of(record)?.book_id.clone()))
+                    })
+                    .await?,
+                );
                 ids.into_iter().collect()
             }
             Pending::Some(ids) => ids.into_iter().collect(),
@@ -993,8 +983,8 @@ impl Task {
                 }
                 None => None,
             };
-            if !self.books.contains_key(&id) && self.books.len() >= MAX_LIMITED_BOOKS {
-                tracing::error!(book = %id, "limit monitor: more than {MAX_LIMITED_BOOKS} books hold a limit set; this one is not watched");
+            if !self.books.contains_key(&id) && self.books.len() >= MAX_WATCHED_BOOKS {
+                tracing::error!(book = %id, "limit monitor: more than {MAX_WATCHED_BOOKS} books hold a limit set; this one is not watched");
                 if let Some(latch) = retired_latch {
                     self.retired.insert(id.clone(), latch);
                 }
@@ -1039,7 +1029,7 @@ impl Task {
             );
             Pending::add(&mut self.dirty, id);
         }
-        if self.books.len() < MAX_LIMITED_BOOKS {
+        if self.books.len() < MAX_WATCHED_BOOKS {
             for id in skipped {
                 Pending::add(&mut self.reload, id);
             }
@@ -2174,7 +2164,7 @@ mod tests {
         let mut task = pruning_task(storage, audit, true);
         const T0: &str = "2026-01-01T00:00:00Z";
         // 62 books, then R and Z: the 64 places all taken.
-        let mut names: Vec<String> = (0..MAX_LIMITED_BOOKS - 2)
+        let mut names: Vec<String> = (0..MAX_WATCHED_BOOKS - 2)
             .map(|n| format!("A-{n:02}"))
             .collect();
         names.extend(["R".to_owned(), "Z".to_owned()]);
@@ -2186,7 +2176,7 @@ mod tests {
             commit(&task, &format!("{name}-1"), T0, changes).await;
         }
         task.reread(Pending::All).await.unwrap();
-        assert_eq!(task.books.len(), MAX_LIMITED_BOOKS);
+        assert_eq!(task.books.len(), MAX_WATCHED_BOOKS);
         let r = BookId::new("R").unwrap();
         let passed = stamp("2026-01-01T06:00:00Z");
         task.books.get_mut(&r).unwrap().expired_through = Some(passed);
@@ -2224,7 +2214,7 @@ mod tests {
         assert!(task.reload.is_some(), "R is reread");
         let again = task.reload.take().unwrap();
         task.reread(again).await.unwrap();
-        assert_eq!(task.books.len(), MAX_LIMITED_BOOKS);
+        assert_eq!(task.books.len(), MAX_WATCHED_BOOKS);
         assert_eq!(task.books[&r].expired_through, Some(passed));
         assert!(task.retired.is_empty());
     }

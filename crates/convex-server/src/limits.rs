@@ -37,7 +37,8 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use convex_core::contracts::{
-    ExactDecimal, InstrumentId, RequestId, SourceId, UtcTimestamp, ValuationSubject, Version,
+    ExactDecimal, InstrumentId, RequestId, SnapshotId, SourceId, UtcTimestamp, ValuationSubject,
+    Version,
 };
 use convex_engine::limits::{evaluate_limits, LimitBook, LimitPosition, LimitTerms};
 use convex_engine::ports::limits::{
@@ -62,8 +63,6 @@ use crate::handlers::AppState;
 use crate::limit_monitor::{AcknowledgementInForce, LIMIT_STATUS_ENTITY, LIMIT_STATUS_EVENT};
 use crate::reference::{expected_version, key, now, reference_error, with_reference_version};
 
-/// Books with a non-empty limit set: the monitor watches each of them.
-pub(crate) const MAX_LIMITED_BOOKS: usize = convex_engine::configuration::MAX_PLAN_BOOKS;
 /// Largest page of limit set or proposal history.
 pub(crate) const MAX_HISTORY_PAGE: usize = 500;
 /// Source recorded on every limit set and proposal.
@@ -98,23 +97,6 @@ fn proposal_of(record: &MasterRecord) -> Result<&LimitProposalDefinition, Refere
         MasterDefinition::LimitProposal(proposal) => Ok(proposal),
         _ => Err(ReferenceError::Unsupported("not a limit proposal")),
     }
-}
-
-/// Whether a master definition is a limit set, proposal or acknowledgements record, which
-/// only these routes write or read.
-pub(crate) fn is_limits(definition: &MasterDefinition) -> bool {
-    matches!(
-        definition,
-        MasterDefinition::LimitSet(_)
-            | MasterDefinition::LimitProposal(_)
-            | MasterDefinition::LimitAcknowledgements(_)
-    )
-}
-
-/// Whether a master change writes a limit set, proposal or acknowledgements, which only
-/// these routes may.
-pub(crate) fn writes_limits(changes: &[MasterChange]) -> bool {
-    changes.iter().any(|change| is_limits(&change.definition))
 }
 
 /// The refusal of a generic reference write, or commit read, that names a limit set,
@@ -167,6 +149,19 @@ pub(crate) async fn authorize_read(
     book: &BookId,
     limits: &[LimitDefinition],
 ) -> Result<Option<MasterRecord>, Response> {
+    let named = named_instruments(limits).map(|id| id.as_str().to_owned());
+    authorize_book_read(state, ctx, data, book, named).await
+}
+
+/// `BookRead` on the book, each instrument it holds now and each of `named`. Returns the
+/// book's current record.
+pub(crate) async fn authorize_book_read(
+    state: &AppState,
+    ctx: &Option<Extension<AccessContext>>,
+    data: &[DataScope],
+    book: &BookId,
+    named: impl IntoIterator<Item = String>,
+) -> Result<Option<MasterRecord>, Response> {
     let record = state
         .engine
         .reference_repository()
@@ -183,7 +178,7 @@ pub(crate) async fn authorize_read(
     let instruments = positions
         .iter()
         .map(|p| p.instrument_id.as_str().to_owned())
-        .chain(named_instruments(limits).map(|id| id.as_str().to_owned()));
+        .chain(named);
     authorize(state, ctx, Action::BookRead, data, book, instruments)?;
     Ok(record)
 }
@@ -290,7 +285,7 @@ pub(crate) async fn current(
 }
 
 /// The book a limit write is for: it must exist, and a retired book takes only a set
-/// that clears its limits, which frees its place under `MAX_LIMITED_BOOKS`.
+/// that clears its limits, which frees its place under `MAX_WATCHED_BOOKS`.
 async fn book_for_limits(
     repo: &dyn ReferenceRepository,
     book: &BookId,
@@ -338,8 +333,9 @@ pub(crate) async fn limited_book_record(
     Ok((set_record, book_record))
 }
 
-/// At most `MAX_LIMITED_BOOKS` books hold a non-empty set. Counted under the limit
-/// write lock, so two first sets cannot both take the last place.
+/// A first non-empty set must leave at most 64 books watched: those with a non-empty set,
+/// or in force with a close. Counted under the limit write lock, so two first writes cannot
+/// both take the last place.
 async fn within_book_bound(
     repo: &dyn ReferenceRepository,
     book: &BookId,
@@ -353,36 +349,7 @@ async fn within_book_bound(
     if limits.is_empty() || already {
         return Ok(true);
     }
-    let mut others = 0usize;
-    let mut after: Option<String> = None;
-    loop {
-        let page = repo
-            .list_masters(MasterKind::LimitSet, after.as_deref(), MAX_REFERENCE_PAGE)
-            .await?;
-        for record in &page {
-            let set = set_of(record)?;
-            if set.book_id != *book && !set.limits.is_empty() {
-                others += 1;
-            }
-        }
-        if others >= MAX_LIMITED_BOOKS {
-            return Ok(false);
-        }
-        if page.len() < MAX_REFERENCE_PAGE {
-            return Ok(true);
-        }
-        after = page
-            .last()
-            .map(|r| set_of(r).map(|s| s.book_id.as_str().to_owned()))
-            .transpose()?;
-    }
-}
-
-fn too_many_books() -> Response {
-    conflict(
-        "LIMITED_BOOKS_EXCEEDED",
-        "at most 64 books hold a non-empty limit set",
-    )
+    crate::watched_books::may_watch(repo, book).await
 }
 
 pub(crate) async fn commit(
@@ -627,7 +594,7 @@ async fn propose(
             .await
             .map_err(reference_error)?
         {
-            return Err(too_many_books());
+            return Err(crate::watched_books::too_many_watched());
         }
         let at = commit_time(set.iter().map(|r| r.recorded_at)).map_err(reference_error)?;
         check_new_excesses(&limits, set.as_ref(), at)?;
@@ -796,7 +763,7 @@ async fn approve(
         .await
         .map_err(reference_error)?
     {
-        return Err(too_many_books());
+        return Err(crate::watched_books::too_many_watched());
     }
     let floor = [
         after(proposal.effective.from).map_err(reference_error)?,
@@ -1948,6 +1915,61 @@ pub(crate) async fn read_priced_terms(
     }
 }
 
+/// One position's accepted result read as an analyzer quote, with the priced terms and
+/// version it read.
+pub(crate) struct PositionRead<'t> {
+    pub(crate) quote: BondQuoteOutput,
+    pub(crate) bond: &'t BondReferenceData,
+    pub(crate) instrument_version: Version,
+}
+
+/// Each position's read, in book order, and the snapshots whose results were read.
+pub(crate) struct PositionReads<'t> {
+    pub(crate) reads: Vec<Option<PositionRead<'t>>>,
+    pub(crate) snapshot_ids: BTreeSet<SnapshotId>,
+}
+
+/// Read each position of `book` from `accepted` results and their priced `terms` at the
+/// runtime's `settlement` date. A position without an accepted result (by analytics by
+/// book's rule), whose priced terms are not in `terms`, or whose result cannot be read as
+/// an analyzer quote (with a warning logged) has no read.
+pub(crate) fn read_positions<'t>(
+    book: &BookDefinition,
+    accepted: &Accepted,
+    terms: &'t PricedTerms,
+    settlement: Option<convex_core::contracts::BusinessDate>,
+) -> PositionReads<'t> {
+    let mut snapshot_ids = BTreeSet::new();
+    let reads = book
+        .positions
+        .iter()
+        .map(|position| {
+            let valuation = position_result(accepted, position)?;
+            let settlement = settlement?;
+            let priced = priced_version(valuation)?;
+            let bond = terms.get(&priced)?;
+            match convex_engine::runtime_bond_quote(valuation, settlement.date(), bond.currency) {
+                Ok(quote) => {
+                    snapshot_ids.insert(valuation.result.provenance().snapshot_id.clone());
+                    Some(PositionRead {
+                        quote,
+                        bond: bond.as_ref(),
+                        instrument_version: priced.1,
+                    })
+                }
+                Err(error) => {
+                    tracing::warn!(instrument = %position.instrument_id, %error, "book read: runtime result is not a readable quote");
+                    None
+                }
+            }
+        })
+        .collect();
+    PositionReads {
+        reads,
+        snapshot_ids,
+    }
+}
+
 /// One evaluation of a book's limits, in set order, and the snapshots whose results it
 /// read.
 pub(crate) struct BookEvaluation {
@@ -1957,9 +1979,8 @@ pub(crate) struct BookEvaluation {
 
 /// Evaluate `limits` on `book` at `at` against `accepted` results and their priced `terms`.
 ///
-/// A position without an accepted result (by analytics by book's rule) makes each limit
-/// that reads market data `unknown`, and so does one whose priced terms are not in `terms`
-/// or whose result cannot be read as an analyzer quote (with a warning logged).
+/// A position without a read ([`read_positions`]) makes each limit that reads market data
+/// `unknown`.
 pub(crate) fn evaluate_book(
     book: &BookDefinition,
     limits: &[LimitDefinition],
@@ -1968,49 +1989,30 @@ pub(crate) fn evaluate_book(
     settlement: Option<convex_core::contracts::BusinessDate>,
     at: UtcTimestamp,
 ) -> Result<BookEvaluation, convex_engine::EngineError> {
-    let mut snapshots = BTreeSet::new();
-    let reads: Vec<Option<(BondQuoteOutput, &BondReferenceData)>> = book
-        .positions
-        .iter()
-        .map(|position| {
-            let valuation = position_result(accepted, position)?;
-            let settlement = settlement?;
-            let bond = terms.get(&priced_version(valuation)?)?;
-            match convex_engine::runtime_bond_quote(valuation, settlement.date(), bond.currency) {
-                Ok(quote) => {
-                    let snapshot = &valuation.result.provenance().snapshot_id;
-                    snapshots.insert(snapshot.as_str().to_owned());
-                    Some((quote, bond.as_ref()))
-                }
-                Err(error) => {
-                    tracing::warn!(instrument = %position.instrument_id, %error, "limit status: runtime result is not a readable quote");
-                    None
-                }
-            }
-        })
-        .collect();
+    let read = read_positions(book, accepted, terms, settlement);
     let positions: Vec<LimitPosition<'_>> = book
         .positions
         .iter()
-        .zip(&reads)
+        .zip(&read.reads)
         .map(|(position, read)| LimitPosition {
             instrument_id: &position.instrument_id,
             quantity: position.quantity.decimal(),
             unit: position.unit,
             rating: position.rating.as_deref(),
-            quote: read.as_ref().map(|(quote, _)| quote),
-            terms: read.as_ref().map(|(_, bond)| LimitTerms::of(bond)),
+            quote: read.as_ref().map(|read| &read.quote),
+            terms: read.as_ref().map(|read| LimitTerms::of(read.bond)),
         })
         .collect();
     let limit_book = LimitBook {
-        currency: book
-            .currency
-            .as_deref()
-            .and_then(convex_core::Currency::from_code),
+        currency: book.reporting_currency(),
         positions: &positions,
     };
     Ok(BookEvaluation {
         evaluations: evaluate_limits(&limit_book, limits, at)?,
-        snapshot_ids: snapshots.into_iter().collect(),
+        snapshot_ids: read
+            .snapshot_ids
+            .into_iter()
+            .map(|id| id.as_str().to_owned())
+            .collect(),
     })
 }

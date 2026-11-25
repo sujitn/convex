@@ -25,8 +25,8 @@ use convex::library::{
 };
 use convex_analytics::workflow::{BondInverseSettings, BondPriceTarget};
 use convex_bonds::contracts::{
-    BondCalendars, BondCoupon, BondProfiles, BondProjectionContext, BondTerms, OvernightRateTerms,
-    TermRateTerms,
+    BondCalendars, BondContract, BondContractError, BondCoupon, BondProfiles,
+    BondProjectionContext, BondTerms, OvernightRateTerms, TermRateTerms,
 };
 use convex_core::{
     calendars::checked::add_business_days,
@@ -261,17 +261,27 @@ impl FloatingNote {
             .map_err(|_| error("publication outside the timestamp range"))
     }
 
+    /// The note's contract, built with its own calendars.
+    fn contract(&self) -> Result<BondContract, BondContractError> {
+        self.terms.clone().build_with_calendars(&BondCalendars {
+            payment: &self.payment,
+            reset: &self.index,
+            observation: &self.index,
+            exercise: &self.payment,
+        })
+    }
+
+    /// The cash per 100 face a holder settling at `from` is owed and one settling at `to`
+    /// is not, from the note's own contract and calendars; `Unsupported` when a coupon
+    /// falls between the two dates, since a floating coupon needs its fixings.
+    pub(crate) fn entitled_cash(&self, from: Date, to: Date) -> Result<Decimal, BondContractError> {
+        self.contract()?.entitled_cash(from, to)
+    }
+
     /// Every unpaid fixing at `settlement`, each with its expected publication.
     pub(crate) fn requirements(&self, settlement: Date) -> Result<Vec<FixingRequirement>, Failure> {
         let invalid = |e: String| failure(ErrorCode::InvalidInput, e);
-        self.terms
-            .clone()
-            .build_with_calendars(&BondCalendars {
-                payment: &self.payment,
-                reset: &self.index,
-                observation: &self.index,
-                exercise: &self.payment,
-            })
+        self.contract()
             .map_err(|e| invalid(e.to_string()))?
             .fixing_requirements(
                 settlement,
@@ -716,6 +726,27 @@ mod tests {
         bps: Decimal,
     ) -> FloatingValuation {
         value(note, fixings, FloatingQuote::DiscountMarginBps(bps)).unwrap()
+    }
+
+    /// A coupon is owed until its delayed payment date, so the cash between two
+    /// settlements needs a fixing only when that date falls between them.
+    #[test]
+    fn a_notes_cash_needs_a_fixing_only_when_a_payment_falls_between() {
+        let note = FloatingNote::new(&reference(frn(), index(sofr()))).unwrap();
+        let date = |text: &str| Date::parse(text).unwrap();
+        let cash = |from: &str, to: &str| note.entitled_cash(date(from), date(to));
+        assert_eq!(cash("2026-10-01", "2026-10-14").unwrap(), Decimal::ZERO);
+        // The period ends on 15 October and pays two business days later, on the 19th.
+        assert_eq!(cash("2026-10-14", "2026-10-16").unwrap(), Decimal::ZERO);
+        for (from, to) in [("2026-10-16", "2026-10-19"), ("2026-10-14", "2026-10-20")] {
+            assert!(
+                matches!(
+                    cash(from, to),
+                    Err(convex_bonds::contracts::BondContractError::Unsupported { .. })
+                ),
+                "{from} to {to}"
+            );
+        }
     }
 
     /// The price at a note's margin is the price the margin was solved from, with the same

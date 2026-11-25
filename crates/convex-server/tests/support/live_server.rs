@@ -183,6 +183,17 @@ pub fn image(sequence: u64, price: &str) -> QuoteEvent {
     fixture::event(sequence, chrono::Utc::now().timestamp_millis(), 0, price)
 }
 
+/// One image for each of `keys`, at `price`.
+pub fn images(keys: &[QuoteKey], sequence: u64, price: &str) -> Vec<QuoteEvent> {
+    keys.iter()
+        .map(|key| {
+            let mut event = image(sequence, price);
+            event.key = key.clone();
+            event
+        })
+        .collect()
+}
+
 /// A Live server configuration over the runtime fixture: one bond priced from posted
 /// images. The directory holds the database and must outlive the server.
 pub async fn live_setup() -> (tempfile::TempDir, std::path::PathBuf, ServerConfig) {

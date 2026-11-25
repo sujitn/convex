@@ -213,7 +213,10 @@ the changes that matter when you upgrade.
     close or now, or whose cash could not be projected. Each says why
     (`NoPnlReason`), and the total leaves it out (`excluded_count`).
   - Sums are exact through `BoundedDecimal`; only each reported amount is
-    rounded.
+    rounded. An amount too large for a `Decimal`, or not zero but too small to
+    show as one, is refused rather than erased.
+  - `HoldingSinceClose::needs_entitled_cash`: whether a position's P&L reads its
+    cash, so a caller projects only that.
 
 ### convex-ffi
 
@@ -221,6 +224,27 @@ the changes that matter when you upgrade.
   resolution changed after a registry generation, from a 4,096-entry log.
 
 ### convex-server
+
+- **Desk closes and P&L since the close.**
+  - `POST /api/v1/books/:book_id/close` records each position of the book and
+    its value from the current Live results, read as limit status reads them:
+    the clean price mid and accrued as quoted, and the instrument version priced,
+    or why it has none. The close also records the runtime's settlement date
+    and the snapshots read. It needs the `trader` role's new `BookClose`
+    action, and a book is closed at most once a UTC date.
+  - `GET /api/v1/books/:book_id/close` and `.../close/versions/:version` read a
+    close.
+  - `GET /api/v1/books/:book_id/pnl` gives P&L since the latest close. Each
+    position is listed with its P&L on the face held through, cash included,
+    or why it has none, and the total leaves those out and counts them.
+  - `[books] close_time_utc` takes a close of each watched book at that UTC
+    time, Monday to Friday, and none late.
+  - **Breaking:** at most 64 books are watched, those with a non-empty limit
+    set or in force with a close. The limit set route's
+    `LIMITED_BOOKS_EXCEEDED` is now `WATCHED_BOOKS_EXCEEDED`, shared with a
+    first close and with a book snapshot that revives a retired, closed book.
+  - Measured: a close of 1,000 positions takes 16.3 ms. P&L takes 7.2 ms, and
+    13.6 ms across a settlement roll.
 
 - **Requests for quote.** `POST /api/v1/rfqs` takes a source's batch of up to 64 requests
   (128 KiB) and answers each: accepted and priced, a retry of one received before, or
@@ -533,6 +557,21 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **Desk closes** (`book_close`):
+  - `position_value` values one position as the limit evaluator admits its
+    quote.
+  - `dirty_price` is the one rounding of clean plus accrued that both the
+    close and now go through.
+  - `holdings_since_close` lines a close up against the book now.
+  - `PricingEngine::entitled_cash` projects one priced version's cash between
+    two settlement dates. A fixed bullet or callable reads its bullet schedule,
+    a zero its redemption, and a floating rate note its contract with its own
+    calendars. A floater is not projected when a coupon falls between the
+    dates.
+  - `admit_quote` and the close share one admission of a quote's prices.
+  - A snapshot and a floater's cash resolve a pinned instrument version through
+    `ReferenceRepository::resolve_pinned`.
+
 - **Pricing a trade's size.** `PricingEngine::price_for_trade` is the stage for a
   `TradeSize`: the rule's width for its face's bucket, scaled by its
   client tier's `WidthFactor`; a face past the schedule or a scaled width past its unit's
@@ -649,6 +688,19 @@ the changes that matter when you upgrade.
 - `g_spread_mid` is a runtime measure (`snapshot::G_SPREAD_MEASURE`).
 
 ### convex-ports
+
+- **`MasterKey::BookClose`**: a book's closes, one versioned
+  `BookCloseDefinition` per book, each version one close for a UTC date.
+  - Each `ClosedPosition` holds a `PositionValue`: valued, or unvalued with an
+    `UnvaluedReason`.
+  - A close is labelled `desk_close`, values at least one position, and names
+    its snapshots once.
+  - A valued position records `clean_price_mid` and `accrued_interest`.
+- **`ReferenceRepository::resolve_pinned`** resolves one read instrument version
+  with its pinned resources, without a pricing rule; `for_valuation` adds the
+  rule in force and validates the whole.
+- **`BookDefinition::reporting_currency`**: the book's currency, when it names
+  a known one.
 
 - **Client tiers in the configuration.** `ConfigurationDocument::client_tiers` lists each
   `ClientTier`'s `WidthFactor`, at most 64, each tier once; a change is a hot activation.

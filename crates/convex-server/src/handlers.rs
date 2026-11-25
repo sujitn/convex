@@ -87,9 +87,10 @@ pub struct AppState {
     pub engine: Arc<PricingEngine>,
     /// WebSocket state for real-time streaming
     pub ws_state: WebSocketState,
-    /// Serializes limit set writes, so the bound on books holding a limit set is counted
-    /// and committed as one step.
-    pub(crate) limit_writes: Arc<tokio::sync::Mutex<()>>,
+    /// Serializes the writes of limit sets, proposals, acknowledgements and closes, and
+    /// book retirements and revivals, so the watched-books bound is counted and committed
+    /// as one step.
+    pub(crate) limit_writes: tokio::sync::Mutex<()>,
 }
 
 type PortfolioHandlerError = (StatusCode, Json<serde_json::Value>);

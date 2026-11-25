@@ -40,7 +40,7 @@ use crate::rfqs::{book_instruments, readable, RfqReader};
 use crate::ServerProfile;
 
 /// Books one session may follow: every book the monitor watches.
-const MAX_LIMIT_SUBSCRIPTIONS: usize = crate::limits::MAX_LIMITED_BOOKS;
+const MAX_LIMIT_SUBSCRIPTIONS: usize = crate::watched_books::MAX_WATCHED_BOOKS;
 /// Books one session may follow for requests for quote, and one message may list.
 const MAX_RFQ_SUBSCRIPTIONS: usize = convex_engine::configuration::MAX_PLAN_BOOKS;
 /// Why a session may follow no more books' limit status; the Excel add-in reads this text.
