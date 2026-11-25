@@ -14,6 +14,7 @@ use convex_analytics::spreads::GovernmentCurve;
 #[cfg(test)]
 use convex_bonds::prelude::Bond;
 use convex_bonds::prelude::{FixedRateBond, FixedRateBondBuilder};
+use convex_core::contracts::FactorTenor;
 use convex_core::daycounts::DayCountConvention;
 #[cfg(test)]
 use convex_core::types::Compounding;
@@ -37,6 +38,16 @@ fn format_tenor_label(tenor: f64) -> String {
         let years = tenor.round() as u32;
         format!("{}Y", years)
     }
+}
+
+/// The tenors at which the runtime computes key-rate durations, shortest first, labelled
+/// as its results label them.
+#[must_use]
+pub fn runtime_key_rate_tenors() -> Vec<FactorTenor> {
+    STANDARD_KEY_RATE_TENORS
+        .iter()
+        .filter_map(|tenor| FactorTenor::new(format_tenor_label(*tenor)).ok())
+        .collect()
 }
 
 /// Pricing input for a single bond.
@@ -652,6 +663,18 @@ mod tests {
     use crate::ports::reference_data::IssuerType;
     use convex_core::ids::InstrumentId;
     use rust_decimal_macros::dec;
+
+    #[test]
+    fn every_runtime_key_rate_tenor_is_a_factor_tenor() {
+        let labels: Vec<String> = runtime_key_rate_tenors()
+            .iter()
+            .map(|tenor| tenor.as_str().to_owned())
+            .collect();
+        assert_eq!(
+            labels,
+            ["3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "20Y", "30Y"]
+        );
+    }
 
     fn create_test_bond() -> BondReferenceData {
         reference_terms::complete(BondReferenceData {

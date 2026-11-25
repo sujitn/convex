@@ -44,7 +44,11 @@ use convex_engine::ports::book_close::{
 };
 use convex_engine::ports::reference_master::*;
 use convex_engine::ports::reference_repository::*;
-use convex_portfolio::pnl_since_close::{pnl_since_close, HoldingSinceClose, NoPnlReason};
+use convex_engine::PricingEngine;
+use convex_portfolio::pnl_since_close::{
+    pnl_since_close, pnl_total_since_close, HoldingSinceClose, NoPnlReason, PnlTotalSinceClose,
+};
+use rust_decimal::Decimal;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use tokio::sync::watch;
@@ -380,7 +384,7 @@ async fn read_book<'t>(
 
 /// Each position's value from its read, in book order: what a close records and the P&L
 /// reads now.
-fn position_values(
+pub(crate) fn position_values(
     book: &BookDefinition,
     reads: &PositionReads<'_>,
     currency: convex_core::Currency,
@@ -399,13 +403,8 @@ fn position_values(
 }
 
 fn book_currency(book: &BookDefinition) -> Result<convex_core::Currency, Response> {
-    book.reporting_currency().ok_or_else(|| {
-        typed_error(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "BOOK_CURRENCY_REQUIRED",
-            "a close and P&L need the book's reporting currency",
-        )
-    })
+    book.reporting_currency()
+        .ok_or_else(|| NoBookPnlReason::BookCurrencyRequired.into_response())
 }
 
 /// The UTC date of `at`.
@@ -554,55 +553,32 @@ async fn pnl(
         .await
         .map_err(reference_error)?;
     let book_record = in_force(readable(state, ctx, &id, close_record.as_ref()).await?)?;
-    let close_record = close_record.ok_or_else(|| {
-        typed_error(
-            StatusCode::NOT_FOUND,
-            "BOOK_CLOSE_NOT_FOUND",
-            "the book has no close",
-        )
-    })?;
+    let close_record = close_record.ok_or_else(|| NoBookPnlReason::NoClose.into_response())?;
     let close = close_of(&close_record).map_err(reference_error)?;
     let book = book_of(&book_record).map_err(reference_error)?;
-    let currency = book_currency(book)?;
-    if currency.to_string() != close.currency {
-        return Err(conflict(
-            "BOOK_CURRENCY_CHANGED",
-            "the book's reporting currency is not the close's",
-        ));
-    }
-    let settlement = state
-        .engine
-        .runtime_settlement_date()
-        .ok_or_else(unavailable)?;
-    if close.settlement_date > settlement {
-        return Err(conflict(
-            "BOOK_CLOSE_SETTLES_LATER",
-            "the close settles after the runtime's settlement date",
-        ));
-    }
+    let PnlBasis {
+        currency,
+        settlement,
+    } = PnlBasis::of(close, book, state.engine.runtime_settlement_date())
+        .map_err(NoBookPnlReason::into_response)?;
     let evaluated_at = now().map_err(reference_error)?;
     let mut terms = PricedTerms::new();
     let reads = read_book(state, book, settlement, &mut terms).await;
     let values = position_values(book, &reads, currency);
-    let current_positions: Vec<CurrentPosition<'_>> = book
-        .positions
-        .iter()
-        .zip(&values)
-        .map(|(position, value)| CurrentPosition {
-            instrument_id: &position.instrument_id,
-            quantity: position.quantity.decimal(),
-            value,
-        })
-        .collect();
-    let refused = |error: &dyn std::fmt::Display| {
+    let holdings = holdings_now(
+        &state.engine,
+        close,
+        book,
+        &values,
+        &reads,
+        settlement,
+        &mut EntitledCash::default(),
+    )
+    .await
+    .map_err(|error| {
         tracing::error!(%error, book = %close.book_id, "book P&L: refused");
         unavailable()
-    };
-    let mut holdings = holdings_since_close(close, &current_positions).map_err(|e| refused(&e))?;
-    let (from, to) = (close.settlement_date.date(), settlement.date());
-    fill_entitled_cash(state, book, &reads, &mut holdings, from, to)
-        .await
-        .map_err(|e| refused(&e))?;
+    })?;
     let pnl = pnl_since_close(&holdings).map_err(|error| {
         typed_error(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -650,17 +626,141 @@ async fn pnl(
     Ok(Json(view).into_response())
 }
 
-/// Fill in the entitled cash per 100 face between `from` and `to` of each holding that
-/// needs it, from the priced version it is valued at now: `None` when it cannot be
-/// projected.
-async fn fill_entitled_cash(
-    state: &AppState,
-    book: &BookDefinition,
+/// What a P&L since a close reads now: the book's reporting currency, which is the
+/// close's, and the runtime's settlement date, not before the close's.
+pub(crate) struct PnlBasis {
+    pub(crate) currency: convex_core::Currency,
+    pub(crate) settlement: BusinessDate,
+}
+
+impl PnlBasis {
+    /// The basis of a P&L since `close` of `book` at the runtime's `settlement` date, or why
+    /// there is none.
+    pub(crate) fn of(
+        close: &BookCloseDefinition,
+        book: &BookDefinition,
+        settlement: Option<BusinessDate>,
+    ) -> Result<Self, NoBookPnlReason> {
+        let currency = book
+            .reporting_currency()
+            .ok_or(NoBookPnlReason::BookCurrencyRequired)?;
+        if currency.to_string() != close.currency {
+            return Err(NoBookPnlReason::BookCurrencyChanged);
+        }
+        let settlement = settlement.ok_or(NoBookPnlReason::SettlementDateUnavailable)?;
+        if close.settlement_date > settlement {
+            return Err(NoBookPnlReason::CloseSettlesLater);
+        }
+        Ok(Self {
+            currency,
+            settlement,
+        })
+    }
+}
+
+/// Why a book has no P&L since its close.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum NoBookPnlReason {
+    /// The book has no close.
+    NoClose,
+    /// The book names no reporting currency.
+    BookCurrencyRequired,
+    /// The book's reporting currency is not the close's.
+    BookCurrencyChanged,
+    /// The runtime has no settlement date yet.
+    SettlementDateUnavailable,
+    /// The close settles after the runtime's settlement date.
+    CloseSettlesLater,
+    /// It could not be computed; the server logs why.
+    Refused,
+}
+
+impl IntoResponse for NoBookPnlReason {
+    fn into_response(self) -> Response {
+        match self {
+            Self::NoClose => typed_error(
+                StatusCode::NOT_FOUND,
+                "BOOK_CLOSE_NOT_FOUND",
+                "the book has no close",
+            ),
+            Self::BookCurrencyRequired => typed_error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "BOOK_CURRENCY_REQUIRED",
+                "a close and P&L need the book's reporting currency",
+            ),
+            Self::BookCurrencyChanged => conflict(
+                "BOOK_CURRENCY_CHANGED",
+                "the book's reporting currency is not the close's",
+            ),
+            Self::CloseSettlesLater => conflict(
+                "BOOK_CLOSE_SETTLES_LATER",
+                "the close settles after the runtime's settlement date",
+            ),
+            Self::SettlementDateUnavailable | Self::Refused => unavailable(),
+        }
+    }
+}
+
+/// Entitled cash per 100 face by instrument, priced version and the two settlement dates,
+/// kept between reads: a version never changes. `None` when it cannot be projected.
+#[derive(Default)]
+pub(crate) struct EntitledCash {
+    by_instrument: HashMap<String, HashMap<CashKey, Option<Decimal>>>,
+    kept: usize,
+}
+
+/// A priced version and the two settlement dates its cash is between.
+type CashKey = (Version, convex_core::Date, convex_core::Date);
+
+impl EntitledCash {
+    /// How many are kept.
+    pub(crate) fn len(&self) -> usize {
+        self.kept
+    }
+
+    /// Forget every one kept.
+    pub(crate) fn clear(&mut self) {
+        self.by_instrument.clear();
+        self.kept = 0;
+    }
+
+    fn kept(&self, instrument: &str, key: &CashKey) -> Option<Option<Decimal>> {
+        self.by_instrument.get(instrument)?.get(key).copied()
+    }
+
+    fn keep(&mut self, instrument: &str, key: CashKey, cash: Option<Decimal>) {
+        let kept = self.by_instrument.entry(instrument.to_owned()).or_default();
+        if kept.insert(key, cash).is_none() {
+            self.kept += 1;
+        }
+    }
+}
+
+/// Each instrument held at `close` or now in `book`, valued now at `values` from `reads`,
+/// with the entitled cash between the close's settlement date and `settlement` of each that
+/// needs it, projected through `cash`.
+pub(crate) async fn holdings_now<'h>(
+    engine: &PricingEngine,
+    close: &'h BookCloseDefinition,
+    book: &'h BookDefinition,
+    values: &'h [PositionValue],
     reads: &PositionReads<'_>,
-    holdings: &mut [HoldingSinceClose<'_>],
-    from: convex_core::Date,
-    to: convex_core::Date,
-) -> Result<(), convex_engine::EngineError> {
+    settlement: BusinessDate,
+    cash: &mut EntitledCash,
+) -> Result<Vec<HoldingSinceClose<'h>>, convex_engine::EngineError> {
+    let current: Vec<CurrentPosition<'h>> = book
+        .positions
+        .iter()
+        .zip(values)
+        .map(|(position, value)| CurrentPosition {
+            instrument_id: &position.instrument_id,
+            quantity: position.quantity.decimal(),
+            value,
+        })
+        .collect();
+    let mut holdings = holdings_since_close(close, &current)?;
+    let (from, to) = (close.settlement_date.date(), settlement.date());
     let by_instrument: HashMap<&str, _> = book
         .positions
         .iter()
@@ -668,17 +768,44 @@ async fn fill_entitled_cash(
         .filter_map(|(position, read)| Some((position.instrument_id.as_str(), read.as_ref()?)))
         .collect();
     for holding in holdings.iter_mut().filter(|h| h.needs_entitled_cash()) {
-        holding.entitled_cash = match by_instrument.get(holding.instrument_id) {
-            Some(read) => {
-                state
-                    .engine
+        let Some(read) = by_instrument.get(holding.instrument_id) else {
+            continue;
+        };
+        let key = (read.instrument_version, from, to);
+        holding.entitled_cash = match cash.kept(holding.instrument_id, &key) {
+            Some(kept) => kept,
+            None => {
+                let projected = engine
                     .entitled_cash(read.instrument_version, read.bond, from, to)
-                    .await?
+                    .await?;
+                cash.keep(holding.instrument_id, key, projected);
+                projected
             }
-            None => None,
         };
     }
-    Ok(())
+    Ok(holdings)
+}
+
+/// The total P&L since `close` of `book` as `reads` value it now, without each position's
+/// amounts, or why there is none.
+pub(crate) async fn pnl_total(
+    engine: &PricingEngine,
+    close: &BookCloseDefinition,
+    book: &BookDefinition,
+    reads: &PositionReads<'_>,
+    settlement: Option<BusinessDate>,
+    cash: &mut EntitledCash,
+) -> Result<PnlTotalSinceClose, NoBookPnlReason> {
+    let basis = PnlBasis::of(close, book, settlement)?;
+    let values = position_values(book, reads, basis.currency);
+    let refused = |error: &dyn std::fmt::Display| {
+        tracing::warn!(%error, book = %close.book_id, "book P&L: refused");
+        NoBookPnlReason::Refused
+    };
+    let holdings = holdings_now(engine, close, book, &values, reads, basis.settlement, cash)
+        .await
+        .map_err(|error| refused(&error))?;
+    pnl_total_since_close(&holdings).map_err(|error| refused(&error))
 }
 
 // =============================================================================

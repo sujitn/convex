@@ -25,6 +25,7 @@ pub mod access;
 mod analytics;
 mod audit_writer;
 mod book_close;
+mod book_summary;
 mod books;
 mod calculator;
 mod composition;
@@ -223,6 +224,7 @@ impl Server {
         if let Some(limits) = &self.limits {
             router = router
                 .layer(Extension(limits.feed()))
+                .layer(Extension(limits.book_feed()))
                 .layer(Extension(limits.records()));
         }
         if let Some(rfqs) = &self.rfqs {

@@ -745,6 +745,63 @@ pub struct ExcessApplied {
     pub reason: String,
 }
 
+/// One measure of a book's risk, as a limit on it reports its value.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+pub enum RiskMeasure {
+    /// The measure, rounded half to even at Decimal precision, without trailing zeros.
+    Known {
+        /// The value.
+        value: ExactDecimal,
+    },
+    /// Why it is not known.
+    Unknown {
+        /// The reason, as a limit on the measure would give it.
+        reason: UnknownReason,
+    },
+}
+
+/// Key-rate DV01 at one tenor.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeyRateDv01 {
+    /// The tenor.
+    pub tenor: FactorTenor,
+    /// `Σ value × key-rate duration / 10,000` at the tenor.
+    #[serde(flatten)]
+    pub dv01: RiskMeasure,
+}
+
+/// A book's risk measures, each as a limit on it reports it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RiskMeasures {
+    /// Net dirty market value, in the book's currency.
+    pub market_value: RiskMeasure,
+    /// Gross dirty market value.
+    pub gross_market_value: RiskMeasure,
+    /// `Σ dv01 × face / 100`.
+    pub dv01: RiskMeasure,
+    /// `Σ cs01 × face / 100`.
+    pub cs01: RiskMeasure,
+    /// Modified duration weighted by net market value.
+    pub modified_duration: RiskMeasure,
+    /// Key-rate DV01 at each tenor a position's result carries, shortest first.
+    pub key_rate_dv01: Vec<KeyRateDv01>,
+}
+
+/// A book's risk from one evaluation of its positions.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum BookRisk {
+    /// The book's market values were admitted: each measure, or why it is not known.
+    Measured(Box<RiskMeasures>),
+    /// The book's market values were not admitted, so no measure is known.
+    Unknown {
+        /// Why, as a limit on any market measure would give it.
+        reason: UnknownReason,
+    },
+}
+
 /// One limit's evaluation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

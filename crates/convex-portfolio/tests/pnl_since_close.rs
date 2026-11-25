@@ -1,7 +1,10 @@
 //! P&L since a desk close. Every expected amount is worked by hand from the prices given,
 //! not by the function under test.
 
-use convex_portfolio::pnl_since_close::{pnl_since_close, HeldPnl, HoldingSinceClose, NoPnlReason};
+use convex_portfolio::pnl_since_close::{
+    pnl_since_close, pnl_total_since_close, HeldPnl, HoldingSinceClose, NoPnlReason,
+    PnlTotalSinceClose,
+};
 use convex_portfolio::PortfolioError;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -269,6 +272,55 @@ fn the_total_is_exact() {
     let book = pnl_since_close(&holdings).unwrap();
     assert_eq!(book.pnl.to_string(), "0.01000001");
     assert_eq!(book.positions.len(), 1000);
+}
+
+#[test]
+fn the_total_alone_is_the_listings_total() {
+    // 1,000 positions, each with cash and a different move, some excluded.
+    let ids: Vec<String> = (0..1000).map(|i| format!("BOND-{i:04}")).collect();
+    let holdings: Vec<_> = ids
+        .iter()
+        .enumerate()
+        .map(|(i, id)| {
+            let step = Decimal::from(i as u64) / dec!(7000);
+            let holding = HoldingSinceClose {
+                entitled_cash: Some(dec!(2.6875)),
+                ..held(
+                    id,
+                    dec!(1000001),
+                    dec!(99.123456789),
+                    dec!(1000001) - Decimal::from(i as u64),
+                    dec!(99.123456789) + step,
+                )
+            };
+            match i % 50 {
+                0 => HoldingSinceClose {
+                    dirty_price: None,
+                    ..holding
+                },
+                1 => HoldingSinceClose {
+                    entitled_cash: None,
+                    ..holding
+                },
+                _ => holding,
+            }
+        })
+        .collect();
+    let book = pnl_since_close(&holdings).unwrap();
+    assert_eq!(
+        pnl_total_since_close(&holdings).unwrap(),
+        PnlTotalSinceClose {
+            pnl: book.pnl,
+            entitled_cash: book.entitled_cash,
+            excluded_count: book.excluded_count(),
+        }
+    );
+    assert_eq!(book.excluded_count(), 40);
+    let a = held("A", dec!(100), dec!(100), dec!(100), dec!(100));
+    assert!(matches!(
+        pnl_total_since_close(&[a, a]),
+        Err(PortfolioError::InvalidHolding { .. })
+    ));
 }
 
 #[test]

@@ -1,15 +1,17 @@
 //! The limit monitor.
 //!
-//! One task, off the tick path, watches every book with a non-empty limit set (at most
-//! 64). It listens to the runtime's results stream as a WebSocket
+//! One task, off the tick path, watches every book with a non-empty limit set or in force
+//! with a close (at most 64). It listens to the runtime's results stream as a WebSocket
 //! session does, and after each published tick evaluates the watched books that hold a
-//! revalued instrument. It also evaluates a book when its positions or its limit set
-//! commit, which [`PricingEngine::subscribe_reference_commits`] reports.
+//! revalued instrument. It also evaluates a book when its positions, its limit set or its
+//! close commit, which [`PricingEngine::subscribe_reference_commits`] reports. Each
+//! evaluation also gives the book's summary (the `book_summary` module): its risk, P&L
+//! since its close and limit statuses, from the same results.
 //!
-//! An evaluation reads nothing from the repository: each watched set and book is reread
-//! only when it commits, and priced bond terms are kept by instrument version, which never
-//! changes. A monitor that falls behind either stream evaluates every watched book once
-//! on the latest results; it never queues. The server runs it on a thread of its own, so
+//! An evaluation reads nothing from the repository: each watched set, book and close is
+//! reread only when it commits, and priced bond terms and the cash a close's P&L counts
+//! are kept by instrument version, which never changes. A monitor that falls behind either
+//! stream evaluates every watched book once on the latest results; it never queues. The server runs it on a thread of its own, so
 //! its evaluations and audit commits never hold a worker serving requests and ticks.
 //!
 //! The monitor appends through the audit store's one writer, which it shares with the RFQ
@@ -73,7 +75,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use convex_core::contracts::{ExactDecimal, UtcTimestamp, ValuationSubject, Version};
+use convex_core::contracts::{ExactDecimal, FactorTenor, UtcTimestamp, ValuationSubject, Version};
+use convex_engine::ports::book_close::BookCloseDefinition;
 use convex_engine::ports::limits::{
     LimitAcknowledgement, LimitDefinition, LimitEvaluation, LimitId, LimitMeasure, LimitStatus,
 };
@@ -89,9 +92,14 @@ use serde::Serialize;
 use tokio::sync::{broadcast, watch};
 
 use crate::audit_writer::AuditWriter;
+use crate::book_close::{close_of, pnl_total, EntitledCash, NoBookPnlReason};
+use crate::book_summary::{
+    BookFeed, BookFrame, BookPnl, BookSummary, LimitStatusNow, SummaryPublisher,
+};
 use crate::books::{accepted_results, book_of};
 use crate::limits::{
-    evaluate_book, named_instruments, read_priced_terms, set_of, Accepted, PricedTerms,
+    evaluate_book_risk, named_instruments, read_positions, read_priced_terms, set_of, snapshot_ids,
+    Accepted, PositionReads, PricedTerms, StatusEvaluation,
 };
 use crate::watched_books::{every_master, MAX_WATCHED_BOOKS};
 
@@ -281,6 +289,7 @@ impl Stop {
 pub(crate) struct LimitMonitor {
     writer: Arc<AuditWriter>,
     feed: broadcast::Sender<Arc<LimitFrame>>,
+    book_feed: BookFeed,
     /// The clear hold.
     hold: Duration,
     /// The retention period in milliseconds, if records are pruned.
@@ -308,6 +317,7 @@ impl LimitMonitor {
         Arc::new(Self {
             writer,
             feed: broadcast::channel(FEED_CAPACITY).0,
+            book_feed: BookFeed::new(),
             hold,
             retention_ms,
             prune_interval: PRUNE_INTERVAL,
@@ -316,6 +326,11 @@ impl LimitMonitor {
 
     pub(crate) fn feed(&self) -> LimitFeed {
         LimitFeed(self.feed.clone())
+    }
+
+    /// The book summaries, which the `book` topic streams.
+    pub(crate) fn book_feed(&self) -> BookFeed {
+        self.book_feed.clone()
     }
 
     /// The store the monitor records in, which the records route reads.
@@ -358,6 +373,9 @@ impl LimitMonitor {
             holders: HashMap::new(),
             retired: BTreeMap::new(),
             terms: PricedTerms::new(),
+            cash: EntitledCash::default(),
+            tenors: convex_engine::pricing_router::runtime_key_rate_tenors(),
+            summaries: SummaryPublisher::new(self.book_feed.clone()),
             reload: Some(Pending::All),
             dirty: Some(Pending::All),
             retry: BTreeSet::new(),
@@ -380,6 +398,7 @@ impl LimitMonitor {
             }
             task.expire();
             task.release();
+            task.send_due();
             task.schedule();
             task.work().await;
             task.prune().await;
@@ -387,6 +406,7 @@ impl LimitMonitor {
                 .next_expiry()
                 .into_iter()
                 .chain(task.next_release())
+                .chain(task.next_summary())
                 .chain(task.next_prune())
                 .min();
             tokio::select! {
@@ -459,16 +479,22 @@ impl Pending {
     }
 }
 
-/// What a watched book is evaluated on: its non-empty limit set, the book and its
-/// acknowledgements, replaced whole when any of them commits.
+/// What a watched book is evaluated on: its limit set, the book, its acknowledgements and
+/// its close, replaced whole when any of them commits.
 struct Subject {
-    set_version: Version,
+    /// The limit set's version, while it is non-empty; its limits are recorded only then.
+    set_version: Option<Version>,
     limits: Vec<LimitDefinition>,
     /// Entries in force or not; each change reads those in force when evaluated.
     acknowledgements: Vec<LimitAcknowledgement>,
     /// Absent while the book itself does not exist; nothing is evaluated then.
     book: Option<(Version, BookDefinition)>,
+    /// The latest close, and its version.
+    close: Option<(Version, BookCloseDefinition)>,
+    /// What a status change is read under: each instrument the book holds or a limit names.
     instruments: Arc<[String]>,
+    /// What a summary is read under: those, and each instrument the close holds.
+    summary_instruments: Arc<[String]>,
 }
 
 /// A limit's last recorded status, and the record that holds it.
@@ -656,11 +682,17 @@ struct Task {
     books: BTreeMap<BookId, Watched>,
     /// Each instrument a watched book holds, and the books holding it.
     holders: HashMap<String, BTreeSet<BookId>>,
-    /// Retired books that hold limits, with the latest excess expiry the monitor passed
-    /// for each: not watched, but reread when a snapshot may revive one, which keeps the
-    /// latch. At most one per limit set.
+    /// Retired books that hold limits or a close, with the latest excess expiry the monitor
+    /// passed for each: not watched, but reread when a snapshot may revive one, which keeps
+    /// the latch.
     retired: BTreeMap<BookId, Option<UtcTimestamp>>,
     terms: PricedTerms,
+    /// The cash each close's P&L counts, by priced version.
+    cash: EntitledCash,
+    /// The tenors a summary gives key-rate DV01 at.
+    tenors: Vec<FactorTenor>,
+    /// Each book's summaries, as they go out.
+    summaries: SummaryPublisher,
     reload: Option<Pending>,
     dirty: Option<Pending>,
     /// Books with a change that could not be recorded.
@@ -736,6 +768,20 @@ impl Task {
             .filter_map(|watched| watched.held.next_end(self.ledger.hold))
             .min()?;
         Some(next.saturating_duration_since(Instant::now()))
+    }
+
+    /// Send each summary that waited out its book's interval.
+    fn send_due(&mut self) {
+        self.summaries.send_due(Instant::now());
+    }
+
+    /// How long until a waiting summary is due, if one is waiting.
+    fn next_summary(&self) -> Option<Duration> {
+        Some(
+            self.summaries
+                .next_due()?
+                .saturating_duration_since(Instant::now()),
+        )
     }
 
     /// Start a pass when the next is due, once the start's has run.
@@ -869,8 +915,10 @@ impl Task {
     fn committed(&mut self, keys: &[MasterKey]) {
         for key in keys {
             match key {
-                MasterKey::LimitSet(id) => Pending::add(&mut self.reload, id.clone()),
-                // A snapshot over a retired book that holds limits revives it.
+                MasterKey::LimitSet(id) | MasterKey::BookClose(id) => {
+                    Pending::add(&mut self.reload, id.clone())
+                }
+                // A snapshot over a retired book that holds limits or a close revives it.
                 MasterKey::Book(id) if self.retired.contains_key(id) => {
                     Pending::add(&mut self.reload, id.clone())
                 }
@@ -945,6 +993,12 @@ impl Task {
                     })
                     .await?,
                 );
+                ids.extend(
+                    every_master(repo.as_ref(), MasterKind::BookClose, |record| {
+                        Ok(Some(close_of(record)?.book_id.clone()))
+                    })
+                    .await?,
+                );
                 ids.into_iter().collect()
             }
             Pending::Some(ids) => ids.into_iter().collect(),
@@ -960,11 +1014,16 @@ impl Task {
                 Some(record) => Some((record.version, set_of(record)?)),
                 None => None,
             };
+            let set = set.filter(|(_, set)| !set.limits.is_empty());
+            let close = match repo.get_master(&MasterKey::BookClose(id.clone())).await? {
+                Some(record) => Some((record.version, close_of(&record)?.clone())),
+                None => None,
+            };
             let retired_latch = self.retired.remove(&id);
-            let Some((set_version, set)) = set.filter(|(_, set)| !set.limits.is_empty()) else {
+            if set.is_none() && close.is_none() {
                 self.unwatch(&id);
                 continue;
-            };
+            }
             let book = match repo.get_master(&MasterKey::Book(id.clone())).await? {
                 Some(record) => {
                     let book = book_of(&record)?;
@@ -983,19 +1042,33 @@ impl Task {
                 }
                 None => None,
             };
+            // A close watches its book only while the book is in force.
+            if set.is_none() && book.is_none() {
+                self.unwatch(&id);
+                continue;
+            }
             if !self.books.contains_key(&id) && self.books.len() >= MAX_WATCHED_BOOKS {
-                tracing::error!(book = %id, "limit monitor: more than {MAX_WATCHED_BOOKS} books hold a limit set; this one is not watched");
+                tracing::error!(book = %id, "limit monitor: more than {MAX_WATCHED_BOOKS} books are watched; this one is not");
                 if let Some(latch) = retired_latch {
                     self.retired.insert(id.clone(), latch);
                 }
                 skipped.push(id);
                 continue;
             }
-            let acknowledgements = match repo
-                .get_master(&MasterKey::LimitAcknowledgements(id.clone()))
-                .await?
-            {
-                Some(record) => crate::limit_acknowledgements::acknowledgements_of_record(&record)?
+            let (set_version, limits) = match set {
+                Some((version, set)) => (Some(version), set.limits.clone()),
+                None => (None, Vec::new()),
+            };
+            // Acknowledgements are read only while there are limits to acknowledge.
+            let acknowledgement = match set_version {
+                Some(_) => {
+                    repo.get_master(&MasterKey::LimitAcknowledgements(id.clone()))
+                        .await?
+                }
+                None => None,
+            };
+            let acknowledgements = match &acknowledgement {
+                Some(record) => crate::limit_acknowledgements::acknowledgements_of_record(record)?
                     .acknowledgements
                     .clone(),
                 None => Vec::new(),
@@ -1004,8 +1077,15 @@ impl Task {
                 .iter()
                 .flat_map(|(_, book)| book.positions.iter())
                 .map(|p| p.instrument_id.as_str().to_owned())
-                .chain(named_instruments(&set.limits).map(|i| i.as_str().to_owned()))
+                .chain(named_instruments(&limits).map(|i| i.as_str().to_owned()))
                 .collect();
+            let mut summary_instruments = instruments.clone();
+            summary_instruments.extend(
+                close
+                    .iter()
+                    .flat_map(|(_, close)| close.positions.iter())
+                    .map(|p| p.instrument_id.as_str().to_owned()),
+            );
             // A revived book keeps the expiries passed before it was retired.
             let (recorded, expired_through, held) = self
                 .books
@@ -1017,10 +1097,12 @@ impl Task {
                 Watched {
                     subject: Arc::new(Subject {
                         set_version,
-                        limits: set.limits.clone(),
+                        limits,
                         acknowledgements,
                         book,
+                        close,
                         instruments: instruments.into_iter().collect(),
+                        summary_instruments: summary_instruments.into_iter().collect(),
                     }),
                     recorded,
                     expired_through,
@@ -1042,6 +1124,7 @@ impl Task {
         if self.books.remove(id).is_some() {
             self.retry.remove(id);
             self.full.remove(id);
+            self.summaries.forget(id);
             gauges(id, &HashMap::new());
         }
     }
@@ -1110,16 +1193,25 @@ impl Task {
                 continue;
             };
             read_priced_terms(repo.as_ref(), book, &accepted, &mut self.terms).await;
+            let reads = read_positions(book, &accepted, &self.terms, settlement);
+            let pnl = book_pnl(
+                &self.engine,
+                subject.close.as_ref(),
+                book,
+                &reads,
+                settlement,
+                &mut self.cash,
+            )
+            .await;
             let Some(watched) = self.books.get_mut(id) else {
                 continue;
             };
             let excess_at = latch(&subject.limits, &mut watched.expired_through, evaluated_at);
-            let evaluation = match evaluate_book(
+            let evaluation = match evaluate_book_risk(
                 book,
                 &subject.limits,
-                &accepted,
-                &self.terms,
-                settlement,
+                &reads,
+                &self.tenors,
                 excess_at,
             ) {
                 Ok(evaluation) => evaluation,
@@ -1128,13 +1220,38 @@ impl Task {
                     continue;
                 }
             };
+            let frame = Arc::new(BookFrame {
+                summary: Arc::new(BookSummary {
+                    book_id: id.clone(),
+                    book_version: *book_version,
+                    limit_set_version: subject.set_version,
+                    sequence: self.summaries.next_sequence(),
+                    monitor_started_at: self.ledger.started_at,
+                    evaluated_at,
+                    currency: book.reporting_currency(),
+                    settlement_date: settlement,
+                    risk: evaluation.risk,
+                    pnl,
+                    limits: evaluation.limits.iter().map(LimitStatusNow::of).collect(),
+                }),
+                instruments: subject.summary_instruments.clone(),
+            });
+            self.summaries.publish(frame, Instant::now());
+            // Only a non-empty set has statuses to record.
+            let Some(set_version) = subject.set_version else {
+                continue;
+            };
             let context = Context {
                 book_id: id,
                 book_version: *book_version,
-                set_version: subject.set_version,
+                set_version,
                 evaluated_at,
                 instruments: &subject.instruments,
                 now: started,
+            };
+            let evaluation = StatusEvaluation {
+                evaluations: evaluation.limits,
+                snapshot_ids: snapshot_ids(reads.snapshot_ids),
             };
             match self
                 .ledger
@@ -1167,6 +1284,11 @@ impl Task {
             }
             gauges(id, &watched.recorded);
         }
+        // A close's cash is kept for its settlement dates, which a later close or a restart
+        // changes: once the cash kept outgrows the terms' bound, it is projected afresh.
+        if self.cash.len() > MAX_TERMS {
+            self.cash.clear();
+        }
         if self.terms.len() > MAX_TERMS {
             // Kept for every watched instrument's priced version, not only this pass's
             // books', so no other book reads its terms again.
@@ -1182,6 +1304,32 @@ impl Task {
             });
         }
         metrics::histogram!(MONITOR_SECONDS).record(started.elapsed().as_secs_f64());
+    }
+}
+
+/// A book's P&L since its latest `close` against `reads`, as a summary carries it.
+async fn book_pnl(
+    engine: &PricingEngine,
+    close: Option<&(Version, BookCloseDefinition)>,
+    book: &BookDefinition,
+    reads: &PositionReads<'_>,
+    settlement: Option<convex_core::contracts::BusinessDate>,
+    cash: &mut EntitledCash,
+) -> BookPnl {
+    let Some((close_version, close)) = close else {
+        return BookPnl::Unknown {
+            reason: NoBookPnlReason::NoClose,
+        };
+    };
+    match pnl_total(engine, close, book, reads, settlement, cash).await {
+        Ok(total) => BookPnl::Measured {
+            close_version: *close_version,
+            close_date: close.close_date,
+            pnl: ExactDecimal::new(total.pnl),
+            entitled_cash: ExactDecimal::new(total.entitled_cash),
+            excluded_count: total.excluded_count,
+        },
+        Err(reason) => BookPnl::Unknown { reason },
     }
 }
 
@@ -1279,7 +1427,7 @@ impl Ledger {
         context: Context<'_>,
         limits: &[LimitDefinition],
         acknowledgements: &[LimitAcknowledgement],
-        evaluation: crate::limits::BookEvaluation,
+        evaluation: StatusEvaluation,
         recorded: &mut HashMap<LimitId, Latest>,
         held: &mut Holds,
     ) -> Recorded {
@@ -1542,6 +1690,9 @@ mod tests {
             holders: HashMap::new(),
             retired: BTreeMap::new(),
             terms: PricedTerms::new(),
+            cash: EntitledCash::default(),
+            tenors: Vec::new(),
+            summaries: SummaryPublisher::new(BookFeed::new()),
             reload: None,
             dirty: None,
             retry: BTreeSet::new(),
@@ -1569,11 +1720,13 @@ mod tests {
             BookId::new("BOOK-A").unwrap(),
             Watched {
                 subject: Arc::new(Subject {
-                    set_version: Version::new(1).unwrap(),
+                    set_version: Some(Version::new(1).unwrap()),
                     limits,
                     acknowledgements,
                     book: None,
+                    close: None,
                     instruments: Arc::from(Vec::<String>::new()),
+                    summary_instruments: Arc::from(Vec::<String>::new()),
                 }),
                 recorded: recorded
                     .iter()
@@ -1751,6 +1904,7 @@ mod tests {
         let monitor = Arc::new(LimitMonitor {
             writer: AuditWriter::new(audit.clone()),
             feed: broadcast::channel(16).0,
+            book_feed: BookFeed::new(),
             hold: Duration::ZERO,
             retention_ms: Some(DAYS_8),
             prune_interval: Duration::from_secs(2),
@@ -1844,6 +1998,7 @@ mod tests {
                 cap: 10,
             })),
             feed: broadcast::channel(16).0,
+            book_feed: BookFeed::new(),
             hold: Duration::ZERO,
             retention_ms: Some(1000),
             prune_interval: INTERVAL,

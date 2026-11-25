@@ -27,7 +27,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::cmp;
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 
 use convex_math::decimal::BoundedDecimal;
 use rust_decimal::Decimal;
@@ -135,10 +135,70 @@ impl PnlSinceClose {
 /// the close nor now, a negative dirty price, negative entitled cash, or an amount a
 /// `Decimal` cannot hold; [`PortfolioError::InvalidPortfolio`] for a total it cannot hold.
 pub fn pnl_since_close(holdings: &[HoldingSinceClose<'_>]) -> PortfolioResult<PnlSinceClose> {
-    let mut seen = BTreeSet::new();
+    let mut positions = Vec::with_capacity(holdings.len());
+    let total = sum_held(holdings, |id, held| {
+        let held = match held {
+            Ok(held) => Ok(HeldPnl {
+                held_face: held.held_face,
+                pnl: finish(&held.pnl).map_err(|_| amount_overflow(id))?,
+                entitled_cash: finish(&held.entitled_cash).map_err(|_| amount_overflow(id))?,
+            }),
+            Err(reason) => Err(reason),
+        };
+        positions.push(PositionPnl {
+            instrument_id: id.to_owned(),
+            held,
+        });
+        Ok(())
+    })?;
+    Ok(PnlSinceClose {
+        positions,
+        pnl: total.pnl,
+        entitled_cash: total.entitled_cash,
+    })
+}
+
+/// A book's P&L since its close, as its total alone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PnlTotalSinceClose {
+    /// The P&L of every position that has one, entitled cash included.
+    pub pnl: Decimal,
+    /// Of which entitled cash.
+    pub entitled_cash: Decimal,
+    /// The positions with no P&L, which the total leaves out.
+    pub excluded_count: usize,
+}
+
+/// The total of [`pnl_since_close`] without each position's amounts: the same exact sums,
+/// rounded once, which skips rounding each position's.
+///
+/// # Errors
+///
+/// As [`pnl_since_close`], except that a position's own amount is not rounded, so one a
+/// `Decimal` cannot hold refuses only the listing.
+pub fn pnl_total_since_close(
+    holdings: &[HoldingSinceClose<'_>],
+) -> PortfolioResult<PnlTotalSinceClose> {
+    sum_held(holdings, |_, _| Ok(()))
+}
+
+/// A position's exact P&L on the face held through, and the cash's part.
+struct ExactHeldPnl {
+    held_face: Decimal,
+    pnl: BoundedDecimal,
+    entitled_cash: BoundedDecimal,
+}
+
+/// Check each holding, in order, and total the P&L of those held through; `each` is given
+/// every holding's exact P&L, or why it has none.
+fn sum_held(
+    holdings: &[HoldingSinceClose<'_>],
+    mut each: impl FnMut(&str, Result<ExactHeldPnl, NoPnlReason>) -> PortfolioResult<()>,
+) -> PortfolioResult<PnlTotalSinceClose> {
+    let mut seen = HashSet::with_capacity(holdings.len());
     let mut total = BoundedDecimal::zero();
     let mut total_cash = BoundedDecimal::zero();
-    let mut positions = Vec::with_capacity(holdings.len());
+    let mut excluded_count = 0;
     for holding in holdings {
         let id = holding.instrument_id;
         if !seen.insert(id) {
@@ -150,24 +210,22 @@ pub fn pnl_since_close(holdings: &[HoldingSinceClose<'_>]) -> PortfolioResult<Pn
                 let (pnl, cash) = held_pnl(id, &held)?;
                 total.add(&pnl).map_err(|_| amount_overflow(id))?;
                 total_cash.add(&cash).map_err(|_| amount_overflow(id))?;
-                Ok(HeldPnl {
+                Ok(ExactHeldPnl {
                     held_face: held.held_face,
-                    pnl: finish(&pnl).map_err(|_| amount_overflow(id))?,
-                    entitled_cash: finish(&cash).map_err(|_| amount_overflow(id))?,
+                    pnl,
+                    entitled_cash: cash,
                 })
             }
             Err(reason) => Err(reason),
         };
-        positions.push(PositionPnl {
-            instrument_id: id.to_owned(),
-            held,
-        });
+        excluded_count += usize::from(held.is_err());
+        each(id, held)?;
     }
     let total_overflow = |_| PortfolioError::invalid_portfolio(OVERFLOW);
-    Ok(PnlSinceClose {
-        positions,
+    Ok(PnlTotalSinceClose {
         pnl: finish(&total).map_err(total_overflow)?,
         entitled_cash: finish(&total_cash).map_err(total_overflow)?,
+        excluded_count,
     })
 }
 

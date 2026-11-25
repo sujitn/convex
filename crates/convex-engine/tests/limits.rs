@@ -2,12 +2,13 @@
 //! Each limit measure against a hand-computed book, each status at its
 //! bounds, and each reason a limit is unknown.
 
-use convex_core::contracts::{ExactDecimal, InstrumentId, UtcTimestamp};
+use convex_core::contracts::{ExactDecimal, FactorTenor, InstrumentId, UtcTimestamp};
 use convex_core::Currency;
-use convex_engine::limits::{evaluate_limits, LimitBook, LimitPosition, LimitTerms};
+use convex_engine::limits::{evaluate_book, evaluate_limits, LimitBook, LimitPosition, LimitTerms};
 use convex_engine::portfolio_analytics::{Portfolio, PortfolioAnalyzer, Position};
 use convex_engine::ports::limits::{
-    InstrumentList, LimitDefinition, LimitEvaluation, LimitGroup, LimitStatus, UnknownReason,
+    BookRisk, InstrumentList, LimitDefinition, LimitEvaluation, LimitGroup, LimitStatus,
+    RiskMeasure, UnknownReason,
 };
 use convex_engine::ports::output::BondQuoteOutput;
 use convex_engine::ports::reference_master::QuantityUnit;
@@ -177,6 +178,96 @@ fn each_measure_matches_a_hand_computed_long_short_book() {
         assert_eq!(value(evaluation), d(expected), "{kind}");
         assert!(evaluation.member.is_none() && evaluation.reason.is_none());
     }
+}
+
+/// A book's risk is the value a limit on each measure reports, from the same evaluation,
+/// whatever limits the set holds. A tenor no result carries is not listed; one only some
+/// carry is not computed.
+#[test]
+fn the_books_risk_is_what_a_limit_on_each_measure_reports() {
+    let mut book = LongShort::new();
+    book.qa
+        .key_rate_durations
+        .as_mut()
+        .unwrap()
+        .push(("10Y".into(), d("6")));
+    let positions = book.positions();
+    let tenors: Vec<FactorTenor> = ["2Y", "3Y", "5Y", "10Y"]
+        .into_iter()
+        .map(|tenor| FactorTenor::new(tenor).unwrap())
+        .collect();
+    let wide = |id: &str, kind: Value| json!({"limit_id":id,"measure":kind,"lower":"-100000000","upper":"100000000"});
+    let set = limits(json!([
+        wide("mv", json!({"kind":"market_value"})),
+        wide("gross", json!({"kind":"gross_market_value"})),
+        wide("dv01", json!({"kind":"dv01"})),
+        wide("cs01", json!({"kind":"cs01"})),
+        wide("duration", json!({"kind":"modified_duration"})),
+        wide("krd-2y", json!({"kind":"key_rate_dv01","tenor":"2Y"})),
+        wide("krd-5y", json!({"kind":"key_rate_dv01","tenor":"5Y"})),
+    ]));
+    let evaluated = evaluate_book(&usd(&positions), &set, &tenors, at()).unwrap();
+    assert_eq!(
+        evaluated.limits,
+        evaluate_limits(&usd(&positions), &set, at()).unwrap()
+    );
+    let BookRisk::Measured(risk) = &evaluated.risk else {
+        panic!("{:?}", evaluated.risk);
+    };
+    let known = |measure: &RiskMeasure| match measure {
+        RiskMeasure::Known { value } => Some(*value),
+        RiskMeasure::Unknown { .. } => None,
+    };
+    let by_limit = |id: &str| {
+        evaluated
+            .limits
+            .iter()
+            .find(|limit| limit.limit_id.as_str() == id)
+            .unwrap()
+            .value
+    };
+    assert_eq!(known(&risk.market_value), by_limit("mv"));
+    assert_eq!(known(&risk.gross_market_value), by_limit("gross"));
+    assert_eq!(known(&risk.dv01), by_limit("dv01"));
+    assert_eq!(known(&risk.cs01), by_limit("cs01"));
+    assert_eq!(known(&risk.modified_duration), by_limit("duration"));
+    let listed: Vec<&str> = risk
+        .key_rate_dv01
+        .iter()
+        .map(|krd| krd.tenor.as_str())
+        .collect();
+    assert_eq!(listed, ["2Y", "5Y", "10Y"]);
+    assert_eq!(known(&risk.key_rate_dv01[0].dv01), by_limit("krd-2y"));
+    assert_eq!(known(&risk.key_rate_dv01[1].dv01), by_limit("krd-5y"));
+    assert_eq!(
+        risk.key_rate_dv01[2].dv01,
+        RiskMeasure::Unknown {
+            reason: UnknownReason::MeasureNotComputed {
+                measure: "krd_10y_mid".into(),
+                instruments: list(&[&book.b]),
+            }
+        }
+    );
+    // The same risk with no limit to compute it first.
+    assert_eq!(
+        evaluate_book(&usd(&positions), &[], &tenors, at())
+            .unwrap()
+            .risk,
+        evaluated.risk
+    );
+    // A book whose market values are not admitted has no measure, with a market
+    // limit's reason.
+    let missing = [
+        position(&book.a, "1000000", Some(&book.qa), terms("ISS-A")),
+        position(&book.b, "-500000", None, terms("ISS-B")),
+    ];
+    let evaluated = evaluate_book(&usd(&missing), &set, &tenors, at()).unwrap();
+    assert_eq!(
+        evaluated.risk,
+        BookRisk::Unknown {
+            reason: reason(&evaluated.limits[0]).clone()
+        }
+    );
 }
 
 /// The limits read the numbers analytics by book return for the same positions.

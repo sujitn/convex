@@ -31,8 +31,9 @@ use rust_decimal::{Decimal, RoundingStrategy};
 use crate::error::EngineError;
 use crate::portfolio_analytics::admit_quote;
 use crate::ports::limits::{
-    validate_limits, ExcessApplied, InstrumentList, LimitDefinition, LimitEvaluation, LimitGroup,
-    LimitMeasure, LimitMember, LimitStatus, UnknownReason, MAX_REASON_DETAIL_BYTES,
+    validate_limits, BookRisk, ExcessApplied, InstrumentList, KeyRateDv01, LimitDefinition,
+    LimitEvaluation, LimitGroup, LimitMeasure, LimitMember, LimitStatus, RiskMeasure, RiskMeasures,
+    UnknownReason, MAX_REASON_DETAIL_BYTES,
 };
 use crate::ports::output::BondQuoteOutput;
 use crate::ports::reference_data::BondReferenceData;
@@ -524,6 +525,30 @@ struct Aggregates<'a> {
     groups: BTreeMap<LimitGroup, Judged<BTreeMap<&'a str, BoundedDecimal>>>,
 }
 
+impl Aggregates<'_> {
+    fn dv01(&mut self, market: &Market<'_>) -> Judged<Exact> {
+        cached(&mut self.dv01, || per_face(market, "dv01_mid", |q| q.dv01))
+    }
+
+    fn cs01(&mut self, market: &Market<'_>) -> Judged<Exact> {
+        cached(&mut self.cs01, || per_face(market, "cs01_mid", |q| q.cs01))
+    }
+
+    fn modified_duration(&mut self, market: &Market<'_>) -> Judged<Exact> {
+        cached(&mut self.duration, || modified_duration(market))
+    }
+
+    /// Key-rate DV01 at `tenor`, computed once an evaluation.
+    fn key_rate_dv01(&mut self, market: &Market<'_>, tenor: &FactorTenor) -> Judged<Exact> {
+        if let Some((_, value)) = self.key_rates.iter().find(|(t, _)| t == tenor) {
+            return value.clone();
+        }
+        let value = key_rate_dv01(market, tenor);
+        self.key_rates.push((tenor.clone(), value.clone()));
+        value
+    }
+}
+
 fn cached<T: Clone>(slot: &mut Option<T>, compute: impl FnOnce() -> T) -> T {
     slot.get_or_insert_with(compute).clone()
 }
@@ -655,19 +680,71 @@ struct Evaluation<'a, 'b> {
     aggregates: Aggregates<'a>,
 }
 
-impl<'a> Evaluation<'a, '_> {
+/// The book's market values, admitted on first use, or why they are not.
+fn admitted<'s, 'a>(
+    slot: &'s mut Option<Judged<Market<'a>>>,
+    book: &LimitBook<'a>,
+) -> Judged<&'s Market<'a>> {
+    match slot.get_or_insert_with(|| admit_market(book.positions, book.currency)) {
+        Ok(market) => Ok(market),
+        Err(reason) => Err(reason.clone()),
+    }
+}
+
+impl<'a, 'b> Evaluation<'a, 'b> {
+    /// An evaluation of `book`, refusing a set or a book that breaks the contract.
+    fn of(book: &'b LimitBook<'a>, limits: &[LimitDefinition]) -> Result<Self, EngineError> {
+        validate_limits(limits)
+            .map_err(|error| EngineError::ConfigError(format!("limit set: {error}")))?;
+        if book.positions.len() > MAX_BOOK_POSITIONS {
+            return Err(EngineError::PricingError(format!(
+                "limits: a book holds at most {MAX_BOOK_POSITIONS} positions"
+            )));
+        }
+        let mut by_instrument = HashMap::with_capacity(book.positions.len());
+        for position in book.positions {
+            if by_instrument
+                .insert(position.instrument_id.as_str(), position)
+                .is_some()
+            {
+                return Err(EngineError::PricingError(format!(
+                    "limits: instrument {} is held twice",
+                    position.instrument_id
+                )));
+            }
+        }
+        Ok(Self {
+            book,
+            by_instrument,
+            market: None,
+            aggregates: Aggregates::default(),
+        })
+    }
+
+    /// Each limit at `at`, in set order.
+    fn limits(&mut self, limits: &[LimitDefinition], at: UtcTimestamp) -> Vec<LimitEvaluation> {
+        limits
+            .iter()
+            .map(|limit| {
+                let mut evaluated = self
+                    .limit(&Judging::at(limit, at))
+                    .unwrap_or_else(|reason| unknown(limit, reason));
+                evaluated.excess = limit.excess_at(at).map(|excess| ExcessApplied {
+                    base_lower: limit.lower,
+                    base_upper: limit.upper,
+                    expires_at: excess.expires_at,
+                    reason: excess.reason.clone(),
+                });
+                evaluated
+            })
+            .collect()
+    }
+
     fn limit(&mut self, limit: &Judging<'_>) -> Judged<LimitEvaluation> {
         if let LimitMeasure::Face { instrument } = &limit.definition.measure {
             return face(limit, self.book, &self.by_instrument, instrument);
         }
-        let (positions, currency) = (self.book.positions, self.book.currency);
-        let market = match self
-            .market
-            .get_or_insert_with(|| admit_market(positions, currency))
-        {
-            Ok(market) => &*market,
-            Err(reason) => return Err(reason.clone()),
-        };
+        let market = admitted(&mut self.market, self.book)?;
         let aggregates = &mut self.aggregates;
         match &limit.definition.measure {
             LimitMeasure::Face { instrument } => {
@@ -677,33 +754,14 @@ impl<'a> Evaluation<'a, '_> {
             LimitMeasure::GrossMarketValue {} => {
                 whole_book(limit, Ok(Exact::whole(market.gross.clone())))
             }
-            LimitMeasure::Dv01 {} => whole_book(
-                limit,
-                cached(&mut aggregates.dv01, || {
-                    per_face(market, "dv01_mid", |q| q.dv01)
-                }),
-            ),
-            LimitMeasure::Cs01 {} => whole_book(
-                limit,
-                cached(&mut aggregates.cs01, || {
-                    per_face(market, "cs01_mid", |q| q.cs01)
-                }),
-            ),
+            LimitMeasure::Dv01 {} => whole_book(limit, aggregates.dv01(market)),
+            LimitMeasure::Cs01 {} => whole_book(limit, aggregates.cs01(market)),
             LimitMeasure::KeyRateDv01 { tenor } => {
-                let value = match aggregates.key_rates.iter().find(|(t, _)| t == tenor) {
-                    Some((_, value)) => value.clone(),
-                    None => {
-                        let value = key_rate_dv01(market, tenor);
-                        aggregates.key_rates.push((tenor.clone(), value.clone()));
-                        value
-                    }
-                };
-                whole_book(limit, value)
+                whole_book(limit, aggregates.key_rate_dv01(market, tenor))
             }
-            LimitMeasure::ModifiedDuration {} => whole_book(
-                limit,
-                cached(&mut aggregates.duration, || modified_duration(market)),
-            ),
+            LimitMeasure::ModifiedDuration {} => {
+                whole_book(limit, aggregates.modified_duration(market))
+            }
             LimitMeasure::GroupMarketValue { by, group: member } => {
                 match aggregates
                     .groups
@@ -726,6 +784,54 @@ impl<'a> Evaluation<'a, '_> {
             }
         }
     }
+
+    /// The book's risk, from the market values and aggregates its limits read, so each
+    /// measure is the value a limit on it reports.
+    fn risk(&mut self, tenors: &[FactorTenor]) -> BookRisk {
+        let market = match admitted(&mut self.market, self.book) {
+            Ok(market) => market,
+            Err(reason) => return BookRisk::Unknown { reason },
+        };
+        let aggregates = &mut self.aggregates;
+        BookRisk::Measured(Box::new(RiskMeasures {
+            market_value: measured(Ok(Exact::whole(market.net.clone()))),
+            gross_market_value: measured(Ok(Exact::whole(market.gross.clone()))),
+            dv01: measured(aggregates.dv01(market)),
+            cs01: measured(aggregates.cs01(market)),
+            modified_duration: measured(aggregates.modified_duration(market)),
+            key_rate_dv01: tenors
+                .iter()
+                .filter(|tenor| {
+                    market
+                        .rows
+                        .iter()
+                        .any(|row| key_rate_duration(row.quote, tenor).is_some())
+                })
+                .map(|tenor| KeyRateDv01 {
+                    tenor: tenor.clone(),
+                    dv01: measured(aggregates.key_rate_dv01(market, tenor)),
+                })
+                .collect(),
+        }))
+    }
+}
+
+/// A measure as a limit on it reports its value.
+fn measured(value: Judged<Exact>) -> RiskMeasure {
+    match value.and_then(|value| value.report()) {
+        Ok(value) => RiskMeasure::Known { value },
+        Err(reason) => RiskMeasure::Unknown { reason },
+    }
+}
+
+/// Each limit of a set evaluated against a book, in set order, and the book's risk, from
+/// one evaluation.
+#[derive(Debug, Clone)]
+pub struct BookEvaluation {
+    /// Each limit's evaluation, in set order.
+    pub limits: Vec<LimitEvaluation>,
+    /// The book's risk.
+    pub risk: BookRisk,
 }
 
 /// Evaluate each limit of a book's set against the book at `at`, in set order.
@@ -742,44 +848,28 @@ pub fn evaluate_limits<'a>(
     limits: &[LimitDefinition],
     at: UtcTimestamp,
 ) -> Result<Vec<LimitEvaluation>, EngineError> {
-    validate_limits(limits)
-        .map_err(|error| EngineError::ConfigError(format!("limit set: {error}")))?;
-    if book.positions.len() > MAX_BOOK_POSITIONS {
-        return Err(EngineError::PricingError(format!(
-            "limits: a book holds at most {MAX_BOOK_POSITIONS} positions"
-        )));
-    }
-    let mut by_instrument = HashMap::with_capacity(book.positions.len());
-    for position in book.positions {
-        if by_instrument
-            .insert(position.instrument_id.as_str(), position)
-            .is_some()
-        {
-            return Err(EngineError::PricingError(format!(
-                "limits: instrument {} is held twice",
-                position.instrument_id
-            )));
-        }
-    }
-    let mut evaluation = Evaluation {
-        book,
-        by_instrument,
-        market: None,
-        aggregates: Aggregates::default(),
-    };
-    Ok(limits
-        .iter()
-        .map(|limit| {
-            let mut evaluated = evaluation
-                .limit(&Judging::at(limit, at))
-                .unwrap_or_else(|reason| unknown(limit, reason));
-            evaluated.excess = limit.excess_at(at).map(|excess| ExcessApplied {
-                base_lower: limit.lower,
-                base_upper: limit.upper,
-                expires_at: excess.expires_at,
-                reason: excess.reason.clone(),
-            });
-            evaluated
-        })
-        .collect())
+    let mut evaluation = Evaluation::of(book, limits)?;
+    Ok(evaluation.limits(limits, at))
+}
+
+/// [`evaluate_limits`], and the book's risk from the same market values and aggregates, so
+/// each measure is the value a limit on it reports. Key-rate DV01 is given at each of
+/// `tenors`, in order, that a position's result carries. A book whose market values are not
+/// admitted has no risk measure, with the reason a market limit gives.
+///
+/// # Errors
+///
+/// As [`evaluate_limits`].
+pub fn evaluate_book<'a>(
+    book: &LimitBook<'a>,
+    limits: &[LimitDefinition],
+    tenors: &[FactorTenor],
+    at: UtcTimestamp,
+) -> Result<BookEvaluation, EngineError> {
+    let mut evaluation = Evaluation::of(book, limits)?;
+    let limits = evaluation.limits(limits, at);
+    Ok(BookEvaluation {
+        limits,
+        risk: evaluation.risk(tenors),
+    })
 }

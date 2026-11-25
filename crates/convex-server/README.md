@@ -237,8 +237,8 @@ Router construction uses the engine’s configured reference repository. Provide
 
 ## WebSocket streaming
 
-`/ws` and `/api/v1/ws` stream canonical runtime results, recorded limit status changes
-and requests for quote, and nothing else.
+`/ws` and `/api/v1/ws` stream canonical runtime results, recorded limit status changes,
+book summaries and requests for quote, and nothing else.
 
 **Authentication.** A client sends its bearer token in `Authorization`, as on every
 route. A browser cannot set that header on a WebSocket, so a page offers two
@@ -298,6 +298,19 @@ but not every instrument it holds or a limit names receives each change as a `FO
 error naming the book, without the change; a session whose access to the book is revoked
 is closed, as for valuations.
 
+Send `{"type":"subscribe_books","book_ids":[...]}` to follow the [summaries](#book-summaries)
+of those books: each listed book's latest `book_summary` message, then the `subscribed`
+acknowledgement, then each later one, at most four a second a book. A book the monitor
+does not watch has no summary until it is watched. A summary sent at subscription can be
+newer than one already on its way: of two, keep the higher `sequence`, which a later start
+of the monitor (`monitor_started_at`) begins again. After `RESYNC_REQUIRED`, or a
+reconnection, subscribe again: listing a followed book resends its latest summary and
+costs nothing. A session follows at most 64 books. A summary is read as P&L is (see
+[access](ACCESS.md)): a session that holds the book but not every instrument the book
+holds, a limit names or the close holds receives a `FORBIDDEN` error naming the book in
+its place. `unsubscribe_books` takes the same shape, and a server without a limit monitor
+refuses the subscription.
+
 Send `{"type":"subscribe_rfqs","book_ids":[...]}` to follow the requests for quote on
 those books (see [requests for quote](#requests-for-quote)). The server first sends each
 open request on them, by deadline, as an `rfq` message with the list's row (below), then
@@ -325,7 +338,7 @@ is a reply to the session's own message, or `RESYNC_REQUIRED`.
 `unsubscribe_rfqs` takes the same shape. A server that takes no requests refuses the
 subscription.
 
-A session's topics, instruments and each topic's books together, are at most 4,224.
+A session's topics, instruments and each topic's books together, are at most 4,288.
 REST calculators return their results in the response and send nothing on the WebSocket. The bond, ETF and portfolio
 subscriptions are retired and refused with `INVALID_MESSAGE`; see the
 [route migration](../../docs/internal/ROUTE-MIGRATION.md#rest-triggered-websocket-messages-removed).
@@ -1025,10 +1038,11 @@ values at most 4,096 instruments, and a Captured or Replay one 256.
 
 #### The monitor
 
-While the server serves, a monitor watches every book with a non-empty limit set (at most
-64). It evaluates them as status does, on its own thread, off the tick path:
+While the server serves, a monitor watches every book with a non-empty limit set or in
+force with a close (at most 64). It evaluates them as status does, on its own thread, off
+the tick path, and each evaluation also gives the book's [summary](#book-summaries):
 - after each published tick, every watched book that holds a revalued instrument;
-- when a watched book, or any book's limit set, commits;
+- when a watched book, or any book's limit set or close, commits;
 - when a [temporary excess](#temporary-excess) on a watched limit expires;
 - every watched book once, on the latest results, when it falls behind either stream. It
   never queues.
@@ -1329,6 +1343,34 @@ gives the current status. Status and a check read the same accepted results, so 
 changes equals the status of the book once they are committed, while no quote arrives in
 between. The caller needs what status needs, plus `BookRead` on each instrument a row names,
 including one reached through an identifier (D91; see [access](ACCESS.md)).
+
+#### Book summaries
+
+Each evaluation of a watched book also gives its summary, the `book_summary` message on
+the [`book` topic](#websocket-streaming), from the same results:
+- `risk`: `market_value`, `gross_market_value`, `dv01`, `cs01`, `modified_duration` and
+  `key_rate_dv01` at each tenor a position's result carries, each as a limit on it reports
+  its value (`{"status":"known","value":…}`), or why it is not known, with the reason a
+  limit on it would give (`{"status":"unknown","reason":…}`). A book whose market values
+  are not admitted has `{"status":"unknown","reason":…}` for the whole of `risk`.
+- `pnl`: P&L since the latest [close](#desk-closes-and-pl-since-the-close) as
+  `GET .../pnl` totals it, with `entitled_cash`, `excluded_count`, `close_version` and
+  `close_date`; or `{"status":"unknown","reason":…}`, the reason one of `no_close`,
+  `book_currency_required`, `book_currency_changed`, `settlement_date_unavailable`,
+  `close_settles_later` or `refused`.
+- `limits`: each limit's `limit_id`, `status`, `value` and `utilisation` of the moment, as
+  status reads them, not the recorded ones after the clear hold. Reasons and excesses stay
+  on status and the `limit_status` messages, so a summary of 64 limits stays within one
+  message (45 KiB with every identity at its longest).
+- the book and set versions, `currency`, `settlement_date`, `evaluated_at`, `sequence` and
+  `monitor_started_at`.
+
+A book's summaries go out at most once every 250 ms: one evaluated sooner after the last
+sent waits for the interval's end, a later one replaces it, and the last of a burst is
+always sent. The cash a close's P&L counts is kept by priced instrument version, so it is
+projected once a version. With 64 books of 256 positions and 64 limits, a monitor pass took
+84.8–86.5 ms with each summary, against 83.6–88.1 ms before summaries, and 92.0–93.7 ms
+with every book closed (`ci` profile, macOS).
 
 ### Desk closes and P&L since the close
 

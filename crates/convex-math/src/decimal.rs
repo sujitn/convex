@@ -137,6 +137,22 @@ impl BoundedDecimal {
             .map_err(|_| failure())
     }
 
+    /// `a + b` as [`Self::finish`] rounds it: nearest/even to what a `Decimal` holds, at
+    /// the finest scale that holds it. A sum 128-bit integers hold is rounded in them,
+    /// digit for digit as `finish` would, and any other through `finish` itself.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::finish`]: a sum beyond the `Decimal` range.
+    pub fn rounded_sum(a: Decimal, b: Decimal) -> MathResult<Decimal> {
+        if let Some(sum) = rounded_sum_in_i128(a, b) {
+            return Ok(sum);
+        }
+        let mut sum = Self::decimal(a);
+        sum.add(&Self::decimal(b))?;
+        sum.finish()
+    }
+
     /// Round the exact ratio at the final output; denominator must be positive.
     pub fn ratio(&self, denominator: &Self) -> MathResult<Decimal> {
         Self::finish_ratio(&self.0, &denominator.0)
@@ -244,9 +260,127 @@ impl BoundedDecimal {
     }
 }
 
+/// [`BoundedDecimal::rounded_sum`] in 128-bit integers: the rounding of
+/// [`BoundedDecimal::finish_ratio`] for a sum of two `Decimal`s, so it never builds a big
+/// integer. `None` when the sum outgrows 128 bits at the finer scale of the two, or rounds
+/// out of range, which `finish` then reports.
+fn rounded_sum_in_i128(a: Decimal, b: Decimal) -> Option<Decimal> {
+    const MAX_COEFFICIENT: u128 = (1 << 96) - 1;
+    const MAX_DECIMAL_SCALE: u32 = 28;
+    let scale = a.scale().max(b.scale());
+    let lift = |value: Decimal| {
+        value
+            .mantissa()
+            .checked_mul(10i128.checked_pow(scale - value.scale())?)
+    };
+    let sum = lift(a)?.checked_add(lift(b)?)?;
+    if sum == 0 {
+        return Some(Decimal::ZERO);
+    }
+    let magnitude = sum.unsigned_abs();
+    // `finish_ratio` refuses a sum beyond the range before it rounds.
+    if MAX_COEFFICIENT
+        .checked_mul(10u128.pow(scale))
+        .is_some_and(|most| magnitude > most)
+    {
+        return None;
+    }
+    // The finest scale whose rounded coefficient fits 96 bits, as `finish_ratio` finds it.
+    for finest in (0..=MAX_DECIMAL_SCALE).rev() {
+        let coefficient = if finest >= scale {
+            match magnitude.checked_mul(10u128.pow(finest - scale)) {
+                Some(coefficient) => coefficient,
+                None => continue,
+            }
+        } else {
+            let divisor = 10u128.pow(scale - finest);
+            let (quotient, remainder) = (magnitude / divisor, magnitude % divisor);
+            let twice = remainder * 2;
+            if twice > divisor || (twice == divisor && quotient % 2 == 1) {
+                quotient + 1
+            } else {
+                quotient
+            }
+        };
+        if coefficient > MAX_COEFFICIENT {
+            continue;
+        }
+        if coefficient == 0 {
+            return None;
+        }
+        let coefficient = i128::try_from(coefficient).ok()?;
+        let signed = if sum < 0 { -coefficient } else { coefficient };
+        return Decimal::try_from_i128_with_scale(signed, finest).ok();
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{power, BigInt, Cow, SCALE};
+    use super::{power, rounded_sum_in_i128, BigInt, BoundedDecimal, Cow, SCALE};
+    use rust_decimal::Decimal;
+    use rust_decimal_macros::dec;
+
+    /// The sum in 128-bit integers is what `finish` gives, digit for digit and scale for
+    /// scale, whenever it gives one.
+    #[test]
+    fn a_sum_rounded_in_128_bits_is_the_finished_sums_value_and_scale() {
+        let finished = |a: Decimal, b: Decimal| {
+            let mut sum = BoundedDecimal::decimal(a);
+            sum.add(&BoundedDecimal::decimal(b)).unwrap();
+            sum.finish()
+        };
+        let values = [
+            dec!(0),
+            dec!(0.25),
+            dec!(0.5),
+            dec!(1.25),
+            dec!(99.25),
+            dec!(100),
+            dec!(101.123456789),
+            dec!(0.0000000000000000000000000001),
+            dec!(0.0000000000000000000000000005),
+            dec!(0.5138888888888888888888888889),
+            dec!(2.6875000000000000000000000001),
+            dec!(7922816251426433759354395033.5),
+            dec!(79228162514264337593543950335),
+            dec!(-2.375),
+            dec!(-0.0000000000000000000000000005),
+        ];
+        let mut rounded = 0;
+        for a in values {
+            for b in values {
+                let expected = finished(a, b).ok().map(|sum| sum.to_string());
+                // `None` leaves the sum to `finish`.
+                if let Some(sum) = rounded_sum_in_i128(a, b) {
+                    rounded += 1;
+                    assert_eq!(Some(sum.to_string()), expected, "{a} + {b}");
+                }
+                assert_eq!(
+                    BoundedDecimal::rounded_sum(a, b)
+                        .ok()
+                        .map(|sum| sum.to_string()),
+                    expected,
+                    "{a} + {b}"
+                );
+            }
+        }
+        assert!(rounded > 150, "{rounded}");
+        // Past the range before rounding, as `finish` refuses it.
+        assert_eq!(rounded_sum_in_i128(Decimal::MAX, dec!(0.25)), None);
+        assert!(BoundedDecimal::rounded_sum(Decimal::MAX, dec!(0.25)).is_err());
+        // A price and an accrued of 28 places, as a runtime's results hold them.
+        for (clean, accrued) in [
+            (dec!(99.25), dec!(0.5138888888888888888888888889)),
+            (dec!(101.123456789), dec!(2.6875000000000000000000000001)),
+            (dec!(100), dec!(0.0000000000000000000000000005)),
+        ] {
+            assert!(
+                rounded_sum_in_i128(clean, accrued).is_some(),
+                "{clean} + {accrued}"
+            );
+        }
+    }
 
     #[test]
     fn every_power_of_ten_equals_its_computed_value() {

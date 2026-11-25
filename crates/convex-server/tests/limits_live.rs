@@ -1405,7 +1405,9 @@ async fn monitor_and_refresh_at_4096_instruments() {
 ///   records those first changes, and while it evaluates every book after each quote.
 /// - The monitor's time per tick with 1, 64 and 256 instruments revalued. Every book
 ///   holds every instrument, so even a tick of one evaluates all 64 books. Prices move
-///   within every bound, so nothing is recorded: this is evaluation time alone.
+///   within every bound, so nothing is recorded: this is evaluation time alone, each pass
+///   with every book's summary. Then again with every book closed, so each pass also
+///   totals each book's P&L since its close.
 // Multi-threaded, as the server runs.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
@@ -1487,29 +1489,47 @@ async fn monitor_time_per_tick_at_the_bounds() {
     println!("valuation hop, same, while the monitor records those 4,096 changes: {recording}");
     println!("valuation hop, same, monitor evaluating 64 books after each quote: {busy}");
 
-    for revalued in [1usize, 64, 256] {
-        let (before_sum, before_count, _) = monitor_counts(&server).await;
-        for round in 0..ROUNDS {
-            sequence += 1;
-            let price = if round % 2 == 0 { "99.30" } else { "99.25" };
-            let events: Vec<QuoteEvent> = images[..revalued]
-                .iter()
-                .map(|image_event| {
-                    let mut event = steady_image(sequence, price);
-                    event.key = image_event.key.clone();
-                    event
-                })
-                .collect();
-            let posted = server.post_quotes(events).await;
-            assert!(posted.status().is_success(), "{}", posted.status());
+    // Each book unclosed, then closed: a closed book's pass also totals its P&L.
+    for closed in [false, true] {
+        if closed {
+            for i in 0..64 {
+                let path = format!("/api/v1/books/MON-{i:02}/close");
+                let key = format!("close-MON-{i:02}");
+                let (status, reply) =
+                    send(&server, reqwest::Method::POST, &path, Some(&key), None).await;
+                assert_eq!(status, StatusCode::CREATED, "{path}: {reply}");
+            }
             passes = monitor_settled(&server, passes).await.1;
         }
-        let (sum, count, _) = monitor_counts(&server).await;
-        let per_pass = (sum - before_sum) / (count - before_count) as f64 * 1e3;
-        println!(
-            "monitor, {revalued:>3} revalued, 64 books x 256 positions x 64 limits: {per_pass:.2} ms a pass, {} passes for {ROUNDS} ticks",
-            count - before_count
-        );
+        for revalued in [1usize, 64, 256] {
+            let (before_sum, before_count, _) = monitor_counts(&server).await;
+            for round in 0..ROUNDS {
+                sequence += 1;
+                let price = if round % 2 == 0 { "99.30" } else { "99.25" };
+                let events: Vec<QuoteEvent> = images[..revalued]
+                    .iter()
+                    .map(|image_event| {
+                        let mut event = steady_image(sequence, price);
+                        event.key = image_event.key.clone();
+                        event
+                    })
+                    .collect();
+                let posted = server.post_quotes(events).await;
+                assert!(posted.status().is_success(), "{}", posted.status());
+                passes = monitor_settled(&server, passes).await.1;
+            }
+            let (sum, count, _) = monitor_counts(&server).await;
+            let per_pass = (sum - before_sum) / (count - before_count) as f64 * 1e3;
+            let books = if closed {
+                "64 closed books"
+            } else {
+                "64 books"
+            };
+            println!(
+                "monitor, {revalued:>3} revalued, {books} x 256 positions x 64 limits: {per_pass:.2} ms a pass, {} passes for {ROUNDS} ticks",
+                count - before_count
+            );
+        }
     }
     server.stop().await;
     let mut sizes: Vec<usize> = records(&live)
