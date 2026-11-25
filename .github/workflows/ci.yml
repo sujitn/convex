@@ -37,7 +37,7 @@ jobs:
           components: clippy
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.13'
 
@@ -2876,7 +2876,7 @@ jobs:
           toolchain: '1.97.1'
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.13'
 
