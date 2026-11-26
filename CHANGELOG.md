@@ -260,6 +260,20 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **Sinking-fund bonds.** A bond stored with mandatory sinks is valued in Live,
+  at request time, in the calculator and in RFQs.
+  - A price is quoted per 100 current face. `market_price`, the calculator's
+    `price` and a Live quote by price are converted to per 100 original face at
+    the factor on the settlement date.
+  - Every price in a reply is per 100 original face, which is what the book
+    values. Quote and calculator replies carry `factor`; per 100 current face
+    is the price divided by it.
+  - An RFQ's clean price is per 100 current face, as the client trades it, and
+    its record carries `factor`. Its face and the limit check stay in
+    original face.
+  - A sinker is quoted mid only, so a two-way width on its rule is refused.
+  - Its calculator workout is its yield to maturity on the sinking cash.
+
 - **Desk closes and P&L since the close.**
   - `POST /api/v1/books/:book_id/close` records each position of the book and
     its value from the current Live results, read as limit status reads them:
@@ -608,6 +622,31 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **Sinking-fund bonds** are valued by the router on their mandatory sinking cash,
+  under the new model `convex-sinking-fund-router-v1`.
+  - It publishes the router's 26 measures and `factor`: the fraction of original
+    face outstanding after any sink on settlement.
+  - `level_pricing::per_original_face` turns a price per 100 current face into one
+    per 100 original face at the factor. `RulePricing::factor` carries the factor
+    the stage applied, and `RulePricing::per_current_face` converts back.
+  - The level stage prices a sinker from a yield, a Z-spread or a benchmark
+    spread, as it prices a bullet.
+  - `PricingEngine::entitled_cash` counts a sinker's sinks at their prices, and
+    its coupons on the face outstanding.
+  - Bullets keep their model, measures and snapshot ids.
+- **The G-spread reads the rule's tenor basis.**
+  - `PricingInput::g_spread_set` (was `government_curve`) is a `GSpreadSet`: the
+    set's curve and the `BenchmarkTenor` it is read at. The level stage resolves
+    that tenor once, at maturity or at the bond's average life, and the router
+    reads it.
+  - A G-spread is published only when its read point falls within the set's
+    maturities, so `level_pricing::is_g_spread_published` now takes the
+    settlement date.
+  - `RulePricing::g_spread_set` replaces `government_curve`.
+  - `PricingEngine::price_by_method` and `level_pricing::price_by_method` take
+    the rule in force rather than its set.
+  - `BidAsk::apply` gives the configuration's width only to a bond quoted
+    two-way.
 - The level stage and the pricing router name the maturity tenor for every
   G-spread and benchmark spread, the reading before this change. Only a bond
   maturing outside its supplied government securities reads differently, at the
@@ -750,6 +789,34 @@ the changes that matter when you upgrade.
 
 ### convex-ports
 
+- **Sinking-fund bonds.** `BondContractTerms::sinking_schedule` holds a bond's
+  mandatory sinks: each `ScheduledSink` has a date, the face retired per 100 of
+  original face, and a price (par by default). There are at most 1,024
+  (`MAX_SINKS`), and the field is omitted when empty, so stored bytes for other
+  bonds are unchanged.
+  - **Breaking:** `is_sinkable` must agree with the schedule both ways. A bond
+    flagged sinkable with no schedule is now refused at ingest.
+  - The schedule is admitted only on an `Amortizing` fixed-coupon bond with no
+    calls, puts, floating or inflation terms.
+  - The sinks must fall after issue and accrual start and by maturity, in date
+    order, and retire at most the original face. All of it may be retired only
+    by a sink on maturity.
+  - Each amount and price must have at most 15 significant digits, so the
+    library's binary schedule holds it exactly.
+  - Each refusal is `InvalidInput`, a 400 at the reference routes.
+  - `is_mandatory_sinker` names such a bond, and service valuation admits it.
+    `BondReferenceData::has_terms_beyond_sinks` lists the terms a sinker may not
+    have.
+- **`PricingRuleDefinition::tenor_basis`** (and `ResolvedPricingRule`) is
+  `maturity` (omitted) or `average_life`: where the G-spread reads the rule's
+  benchmark set. A basis other than maturity needs a set.
+  - `level_pricing::is_level_priced` names the bonds the level stage prices: a
+    plain bullet or a mandatory sinker. `is_router_valued` names those the router
+    values: a bond quoted two-way, or a sinker. `SINKER_MID_ONLY` says why a sinker
+    has no two-way.
+  - A rule quotes a sinker as it quotes a bullet.
+- **`BondQuoteOutput::factor`**: a sinking-fund bond's factor at settlement,
+  omitted for every other bond.
 - **`BookRisk`**, `RiskMeasures`, `RiskMeasure` and `KeyRateDv01`: a book's risk
   from one evaluation, each measure known or unknown with a limit's reason.
 - **`MasterKey::BookClose`**: a book's closes, one versioned

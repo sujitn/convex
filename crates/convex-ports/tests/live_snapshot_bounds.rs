@@ -314,6 +314,7 @@ fn largest_rule() -> convex_ports::level_pricing::ResolvedPricingRule {
             tenor: "600M".into(),
         },
         benchmark_set_id: Some(ReferenceDataId::new(id('b', 0)).unwrap()),
+        tenor_basis: Default::default(),
     }
 }
 

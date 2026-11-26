@@ -34,6 +34,7 @@ use axum::{Extension, Json};
 use convex_core::contracts::{DataQuality, ExactDecimal, InstrumentId, UtcTimestamp};
 use convex_core::types::WidthFactor;
 use convex_engine::level_pricing::{live_price, live_quote_input, BidAsk, QuotedInput, TradeSize};
+use convex_engine::ports::level_pricing::{is_quoted_two_way, SINKER_MID_ONLY};
 use convex_engine::ports::quote_event::{QuoteField, QuoteValue};
 use convex_engine::ports::reference_master::{
     BookId, BookPosition, MasterKey, QuantityUnit, ReferenceLookup, ResolvedBondReference,
@@ -517,6 +518,7 @@ impl Intake<'_> {
                 clean_price: mid,
                 level: None,
                 clean_price_mid: mid,
+                factor: None,
                 mid_only: Some(NO_TWO_WAY),
                 quote_input: live_quote_input(record, instrument_id, version, at, accepts_demo)
                     .ok()
@@ -583,12 +585,26 @@ impl Intake<'_> {
             )
             .map_err(|error| error.to_string())?;
         let is_level = method.is_some_and(|method| method.is_level());
+        // A sinking-fund bond is priced per 100 original face and quoted to the client per
+        // 100 current face, mid only: over its factor at the trade's settlement.
+        let per_current_face = |price| {
+            pricing
+                .per_current_face(price)
+                .map(ExactDecimal::new)
+                .map_err(|error| error.to_string())
+        };
+        let clean_price_mid = per_current_face(pricing.clean_price_mid)?;
         let mut side = PricedSide {
             desk_side,
-            clean_price: ExactDecimal::new(pricing.clean_price_mid),
+            clean_price: clean_price_mid,
             level: is_level.then(|| in_quote_unit(level)),
-            clean_price_mid: ExactDecimal::new(pricing.clean_price_mid),
-            mid_only: Some(NO_RULE_WIDTH),
+            clean_price_mid,
+            factor: pricing.factor.map(ExactDecimal::new),
+            mid_only: Some(if is_quoted_two_way(bond) {
+                NO_RULE_WIDTH
+            } else {
+                SINKER_MID_ONLY
+            }),
             quote_input: Some(quote_input),
             pricing_rule: in_force
                 .as_ref()
@@ -600,7 +616,7 @@ impl Intake<'_> {
                 DeskSide::Bid => (two_way.clean_price_bid, two_way.bid_level),
                 DeskSide::Ask => (two_way.clean_price_ask, two_way.ask_level),
             };
-            side.clean_price = ExactDecimal::new(price);
+            side.clean_price = per_current_face(price)?;
             side.level = is_level.then(|| in_quote_unit(side_level));
             side.mid_only = None;
         }

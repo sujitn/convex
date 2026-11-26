@@ -5,6 +5,8 @@
 //! is the measurement (`--ignored --nocapture`).
 #[path = "support/live_server.rs"]
 mod live_server;
+#[path = "../../convex-engine/tests/support/products.rs"]
+mod products;
 #[path = "../../convex-engine/tests/support/runtime_setup.rs"]
 mod support;
 
@@ -113,7 +115,7 @@ async fn desk() -> Desk {
         )
         .await;
     assert_eq!(status, StatusCode::ACCEPTED, "{receipt}");
-    priced_in_live(&server).await;
+    priced_in_live(&server, BOND).await;
     let desk = Desk {
         _dir: dir,
         config,
@@ -139,8 +141,8 @@ async fn desk() -> Desk {
     desk
 }
 
-/// Wait until the bond's Live record carries a clean price.
-async fn priced_in_live(server: &Running) {
+/// Wait until `instrument_id`'s Live record carries a clean price.
+async fn priced_in_live(server: &Running, instrument_id: &str) {
     tokio::time::timeout(Duration::from_secs(10), async {
         loop {
             let (_, page) = server
@@ -148,7 +150,7 @@ async fn priced_in_live(server: &Running) {
                 .await;
             let priced = page["results"].as_array().is_some_and(|records| {
                 records.iter().any(|record| {
-                    record["result"]["provenance"]["subject"]["instrument_id"] == BOND
+                    record["result"]["provenance"]["subject"]["instrument_id"] == instrument_id
                         && record["result"]["results"]["clean_price_mid"].is_object()
                 })
             });
@@ -538,6 +540,153 @@ async fn a_bond_outside_the_live_universe_is_priced_for_the_trader_with_unknown_
         (StatusCode::OK, Some("quoted"))
     );
     desk.server.stop().await;
+}
+
+/// A sinking-fund bond quoted by its price per 100 current face is valued in Live per 100
+/// original face at its factor. Its request is priced from that Live quote and sent to
+/// the client per 100 current face, mid only, with its factor at the request's
+/// settlement: the Live quote's price back.
+#[tokio::test]
+async fn a_sinkers_request_is_quoted_per_current_face_at_its_factor() {
+    use convex_engine::{ports::configuration::InstrumentPin, RuntimePlan};
+    const SINKER: &str = "SINKER-001";
+    let (_dir, database, config, keys) = level_live_setup_from(2, Some(DESK)).await;
+    let mut sinker = support::fixture::bond();
+    sinker.instrument_id = convex_core::ids::InstrumentId::new(SINKER);
+    sinker.isin = Some("fixture-isin-sinker".into());
+    sinker.cusip = Some("fixture-cusip-sinker".into());
+    let sinker = products::sinker(sinker);
+    let storage = convex_ext_redb::open_redb_storage(&database)
+        .unwrap()
+        .storage;
+    storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("rfq-sinker").unwrap(),
+                changes: vec![ReferenceChange::Create {
+                    bond: Box::new(sinker.clone()),
+                }],
+                master_changes: vec![products::convention(&sinker)],
+            },
+            support::fixture::time("2025-06-02T00:00:00Z"),
+        )
+        .await
+        .unwrap();
+    drop(storage);
+    // Live values it from its price, on the Treasuries' feed.
+    let path = database.with_file_name("runtime.json");
+    let mut plan: RuntimePlan = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    plan.assembly.instruments.push(InstrumentPin {
+        instrument_id: convex_core::contracts::InstrumentId::new(SINKER).unwrap(),
+        version: support::fixture::version(1),
+    });
+    let mut quote = plan
+        .assembly
+        .quotes
+        .iter()
+        .find(|quote| quote.key == keys.treasuries[0])
+        .unwrap()
+        .clone();
+    quote.key.instrument_id = sinker.instrument_id.clone();
+    let sinker_key = quote.key.clone();
+    plan.assembly.quotes.push(quote);
+    // The staged configuration's runtime asks for the factor, which only a sinker publishes.
+    plan.measures
+        .push(convex_core::contracts::MeasureId::new("factor").unwrap());
+    std::fs::write(&path, serde_json::to_vec(&plan).unwrap()).unwrap();
+    prepare(
+        &database,
+        json!([{"client_tier": "2", "width_factor": "1"}]),
+    )
+    .await;
+    let server = Running::start(config).await;
+    let mut prices = images(&keys.treasuries, 1, "99.25");
+    let mut price = image(1, "99.5");
+    price.key = sinker_key;
+    prices.push(price);
+    assert_eq!(
+        server.post_quotes(prices).await.status(),
+        StatusCode::ACCEPTED
+    );
+    priced_in_live(&server, SINKER).await;
+    server
+        .put(
+            &format!("/api/v1/books/{BOOK}"),
+            &json!({"currency": "USD", "positions": [
+                {"instrument_id": SINKER, "quantity": "1000000"},
+            ]}),
+        )
+        .await;
+    server
+        .put(
+            &format!("/api/v1/books/{BOOK}/limits"),
+            &json!({"limits": [
+                {"limit_id": "net", "measure": {"kind": "market_value"}, "upper": "1000000000"},
+            ]}),
+        )
+        .await;
+    let mut request = rfq("RFQ-S", "sell", "2000000", "2", MINUTE);
+    request["instrument_id"] = json!(SINKER);
+    let settlement = request["settlement_date"].as_str().unwrap().to_owned();
+    let key = accepted(&server, request).await;
+    let rfq = priced(&server, &key).await;
+    let price = &rfq["auto_price"];
+    assert_eq!(price["kind"], "priced", "{price}");
+    assert_eq!(number(&price["clean_price"]), 99.5, "{price}");
+    assert_eq!(number(&price["clean_price_mid"]), 99.5, "{price}");
+    assert_eq!(price["mid_only"], "a sinking-fund bond is quoted mid only");
+    let settles = convex_core::Date::parse(&settlement).unwrap();
+    let retired: rust_decimal::Decimal = sinker
+        .contractual_terms
+        .as_ref()
+        .unwrap()
+        .sinking_schedule
+        .iter()
+        .filter(|sink| sink.date.date() <= settles)
+        .map(|sink| sink.amount.decimal())
+        .sum();
+    let factor =
+        (rust_decimal::Decimal::ONE_HUNDRED - retired) / rust_decimal::Decimal::ONE_HUNDRED;
+    assert_eq!(
+        price["factor"]
+            .as_str()
+            .unwrap()
+            .parse::<rust_decimal::Decimal>()
+            .unwrap(),
+        factor,
+        "{price}"
+    );
+    // Its book's limits are checked as if done, on the face held, original face, at its
+    // Live dirty price per original face: at the Live settlement, after two sinks, 99.5
+    // times 0.8 and 0.28 accrued, the reference's.
+    let check = &rfq["check"];
+    assert_eq!(check["kind"], "evaluated", "{rfq}");
+    assert_eq!(
+        number(&limit(check, "net")["value"]),
+        3_000_000.0 * 79.88 / 100.0,
+        "{check}"
+    );
+    let (_, page) = server
+        .send(Method::GET, "/api/v1/runtime/results", None)
+        .await;
+    let live = page["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|record| record["result"]["provenance"]["subject"]["instrument_id"] == SINKER)
+        .unwrap();
+    assert_eq!(
+        number(&live["result"]["results"]["clean_price_mid"]["value"]["value"]),
+        79.6,
+        "{live}"
+    );
+    assert_eq!(
+        number(&live["result"]["results"]["factor"]["value"]["value"]),
+        0.8,
+        "{live}"
+    );
+    server.stop().await;
 }
 
 #[tokio::test]

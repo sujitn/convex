@@ -33,8 +33,8 @@ use crate::futures_reference::exact_bond;
 use crate::quote_event::QuoteField;
 use crate::reference_data::{BondReferenceData, BondType, IssuerType};
 use crate::reference_master::{
-    bond_at_commit, ensure_master_exists, CallStyle, EffectiveInterval, MasterDefinition,
-    MasterKey, MasterRecord, ReferenceProvenance,
+    bond_at_commit, ensure_master_exists, is_mandatory_sinker, CallStyle, EffectiveInterval,
+    MasterDefinition, MasterKey, MasterRecord, ReferenceProvenance,
 };
 use crate::reference_repository::{ReferenceCommit, ReferenceError, ReferenceRecord};
 
@@ -121,16 +121,17 @@ impl PricingMethod {
     }
 
     /// Whether a rule quoting this way, against a benchmark set when `names_benchmark_set`,
-    /// applies to `bond`: a fixed bullet by every method but a discount margin or an OAS;
-    /// any other bond by price with no set; a callable valued on its workouts by its yield
-    /// to worst too; a floating rate note by its discount margin, and a callable the HW1F
-    /// model values ([`is_oas_callable`]) by its OAS, each with no set.
+    /// applies to `bond`: a fixed bullet or a sinking-fund bond ([`is_level_priced`]) by
+    /// every method but a discount margin or an OAS; any other bond by price with no set; a
+    /// callable valued on its workouts by its yield to worst too; a floating rate note by
+    /// its discount margin, and a callable the HW1F model values ([`is_oas_callable`]) by
+    /// its OAS, each with no set.
     pub fn applies_to(&self, names_benchmark_set: bool, bond: &BondReferenceData) -> bool {
-        let is_bullet = is_plain_bullet(bond);
+        let level_priced = is_level_priced(bond);
         match self {
-            Self::Price {} => is_bullet || !names_benchmark_set,
-            Self::Yield {} => is_bullet || (!names_benchmark_set && is_workout_callable(bond)),
-            Self::BenchmarkSpread { .. } | Self::ZSpread {} => is_bullet,
+            Self::Price {} => level_priced || !names_benchmark_set,
+            Self::Yield {} => level_priced || (!names_benchmark_set && is_workout_callable(bond)),
+            Self::BenchmarkSpread { .. } | Self::ZSpread {} => level_priced,
             Self::DiscountMargin {} => {
                 !names_benchmark_set && bond.bond_type == BondType::FloatingRate
             }
@@ -174,6 +175,35 @@ impl PricingMethod {
     }
 }
 
+/// Where a G-spread reads the yield interpolated over its benchmark set's securities.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TenorBasis {
+    /// At the bond's contractual maturity.
+    #[default]
+    Maturity,
+    /// At the bond's average life from settlement, as a sinking-fund bond is usually read.
+    AverageLife,
+}
+
+impl TenorBasis {
+    /// Whether this is the default, the bond's maturity, which a rule omits.
+    pub fn is_maturity(&self) -> bool {
+        *self == Self::Maturity
+    }
+
+    /// Refuse a basis other than maturity on a rule that names no benchmark set: it places
+    /// only the G-spread over that set.
+    fn validate(self, benchmark_set_id: Option<&ReferenceDataId>) -> Result<(), ReferenceError> {
+        if !self.is_maturity() && benchmark_set_id.is_none() {
+            return Err(invalid(
+                "a tenor basis places the G-spread over the rule's benchmark set, and the rule names none",
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// How one stored bond is quoted. Versioned; changed rarely. The level a
 /// trader moves is a quote, not part of the rule.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -187,6 +217,10 @@ pub struct PricingRuleDefinition {
     /// Named by id: the version in force at a valuation's cutoff is read and recorded.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub benchmark_set_id: Option<ReferenceDataId>,
+    /// Where the G-spread over the set reads its yield: at maturity, when omitted, or at
+    /// the bond's average life.
+    #[serde(default, skip_serializing_if = "TenorBasis::is_maturity")]
+    pub tenor_basis: TenorBasis,
     /// The two-way width by trade size, in the unit the method quotes: price points or
     /// 32nds for a price, basis points for a yield or a spread. Applied at request time
     /// to a bond quoted in that unit; with none, a bond quoted by price takes the
@@ -212,6 +246,7 @@ impl PricingRuleDefinition {
     /// bond takes the method and the width is checked against the stored bond.
     pub fn validate(&self) -> Result<(), ReferenceError> {
         self.method.validate(self.benchmark_set_id.as_ref())?;
+        self.tenor_basis.validate(self.benchmark_set_id.as_ref())?;
         if let Some(width) = &self.width {
             width.validate().map_err(|error| invalid(error.reason()))?;
             if !width.unit.quotes(self.method.quote_basis()) {
@@ -306,6 +341,9 @@ pub struct ResolvedPricingRule {
     /// The set its spread is quoted to and its G-spread computed over.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub benchmark_set_id: Option<ReferenceDataId>,
+    /// Where its G-spread reads the set's yield.
+    #[serde(default, skip_serializing_if = "TenorBasis::is_maturity")]
+    pub tenor_basis: TenorBasis,
 }
 
 impl TryFrom<&MasterRecord> for ResolvedPricingRule {
@@ -318,6 +356,7 @@ impl TryFrom<&MasterRecord> for ResolvedPricingRule {
             recorded_at: record.recorded_at,
             method: rule.method.clone(),
             benchmark_set_id: rule.benchmark_set_id.clone(),
+            tenor_basis: rule.tenor_basis,
         })
     }
 }
@@ -361,6 +400,7 @@ impl ResolvedPricingRule {
     /// Check the rule on its own and against `known_at`, the cutoff it was resolved by.
     pub fn validate(&self, known_at: UtcTimestamp) -> Result<(), ReferenceError> {
         self.method.validate(self.benchmark_set_id.as_ref())?;
+        self.tenor_basis.validate(self.benchmark_set_id.as_ref())?;
         if self.recorded_at > known_at {
             return Err(invalid("a resolved pricing rule is recorded by the cutoff"));
         }
@@ -482,7 +522,7 @@ pub(crate) fn validate_level_pricing_links(
 }
 
 /// Why a rule does not apply to a bond ([`PricingMethod::applies_to`]).
-pub const RULE_DOES_NOT_APPLY: &str = "only a fixed bullet is quoted by a spread or against a benchmark set, by a yield only a fixed bullet or a callable valued on its workouts, by a discount margin only a floating rate note, and by an OAS only a callable with European or Bermudan fixed-price calls and no other embedded terms";
+pub const RULE_DOES_NOT_APPLY: &str = "only a fixed bullet or a sinking-fund bond is quoted by a spread or against a benchmark set, by a yield only those or a callable valued on its workouts, by a discount margin only a floating rate note, and by an OAS only a callable with European or Bermudan fixed-price calls and no other embedded terms";
 
 /// Why a callable is not valued on its workouts ([`is_workout_callable`]).
 pub const NOT_A_WORKOUT_CALLABLE: &str = "a callable is valued on its workouts only with European or Bermudan fixed-price calls, at most 128, and no other embedded terms";
@@ -512,19 +552,33 @@ pub fn is_workout_callable(bond: &BondReferenceData) -> bool {
     bond.call_schedule.len() <= MAX_WORKOUT_CALLS && is_oas_callable(bond)
 }
 
-/// A fixed-coupon bullet with no embedded terms: what the router values and the level
-/// stage prices.
+/// A fixed-coupon bullet with no embedded terms.
 pub fn is_plain_bullet(bond: &BondReferenceData) -> bool {
     bond.bond_type == BondType::FixedBullet && !bond.has_embedded_terms()
 }
 
-/// A fixed bullet or a zero with no embedded terms: what the pricing router values and
-/// quotes two-way, so what a rule's width applies to. Callables and floating rate notes
-/// are quoted mid only.
+/// A bond the level stage prices from a yield or a spread and the router values on its
+/// fixed cash: a plain fixed bullet, or a sinking-fund bond with mandatory sinks.
+pub fn is_level_priced(bond: &BondReferenceData) -> bool {
+    is_plain_bullet(bond) || is_mandatory_sinker(bond)
+}
+
+/// A fixed bullet or a zero with no embedded terms: what is quoted two-way, so what a
+/// rule's width applies to. Callables, floating rate notes and sinking-fund bonds are
+/// quoted mid only.
 pub fn is_quoted_two_way(bond: &BondReferenceData) -> bool {
     matches!(bond.bond_type, BondType::FixedBullet | BondType::ZeroCoupon)
         && !bond.has_embedded_terms()
 }
+
+/// What the pricing router values: a bond quoted two-way, or a sinking-fund bond with
+/// mandatory sinks, mid only.
+pub fn is_router_valued(bond: &BondReferenceData) -> bool {
+    is_quoted_two_way(bond) || is_mandatory_sinker(bond)
+}
+
+/// Why a sinking-fund bond has no two-way: it is quoted mid only.
+pub const SINKER_MID_ONLY: &str = "a sinking-fund bond is quoted mid only";
 
 /// Why a rule's width is refused for a bond: only a bond quoted two-way takes one.
 pub const WIDTH_NEEDS_TWO_WAY: &str =

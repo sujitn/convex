@@ -61,13 +61,32 @@ pub const RUNTIME_MEASURES: [&str; 26] = [
     "krd_20y_mid",
     "krd_30y_mid",
 ];
+/// The model a sinking-fund bond is valued under: the router, on its mandatory sinking
+/// cash, per 100 original face.
+pub const SINKING_FUND_SNAPSHOT_MODEL: &str = "convex-sinking-fund-router-v1";
+/// A sinking-fund bond's factor at settlement: the fraction of its original face
+/// outstanding, by which a price per 100 current face becomes one per 100 original face.
+pub const FACTOR_MEASURE: &str = "factor";
+/// The measures a sinking-fund bond publishes: the router's, and its factor.
+pub const SINKING_FUND_MEASURES: [&str; 27] = with_factor(RUNTIME_MEASURES);
 /// The spread to the benchmark set's interpolated yield, published only for a fixed bullet
-/// whose pricing rule names a set it matures within.
+/// or a sinking-fund bond whose pricing rule names a set it reads within.
 pub const G_SPREAD_MEASURE: &str = "g_spread_mid";
-/// Whether a runtime publishes `measure` for some bond: a measure of its fixed bullet
-/// slice, or the G-spread.
+/// Whether a runtime publishes `measure` for some bond: a measure of its fixed bullet or
+/// sinking-fund slice, or the G-spread.
 pub(crate) fn is_runtime_measure(measure: &str) -> bool {
-    RUNTIME_MEASURES.contains(&measure) || measure == G_SPREAD_MEASURE
+    SINKING_FUND_MEASURES.contains(&measure) || measure == G_SPREAD_MEASURE
+}
+
+/// `measures` and the factor.
+const fn with_factor(measures: [&'static str; 26]) -> [&'static str; 27] {
+    let mut all = [FACTOR_MEASURE; 27];
+    let mut index = 0;
+    while index < measures.len() {
+        all[index] = measures[index];
+        index += 1;
+    }
+    all
 }
 /// Measures read from curves: spreads and curve risk. The others read the mid quote's
 /// own yield, so a plan that asks for none of these prices without curves.
@@ -1162,7 +1181,6 @@ impl SnapshotValuator {
         // A request may quote the bond by a method of its own, which the snapshot checked
         // quotes it.
         let requirement = &selected[0].requirement;
-        let rule = reference.pricing_rule.as_ref();
         let method = requirement.quoted_method(reference.pricing_method());
         if crate::optional_valuation::product_model(bond, method) != spec.model_id.as_str() {
             return Err(TraitError::Unsupported(
@@ -1310,10 +1328,11 @@ impl SnapshotValuator {
                 .transpose()?
                 .flatten();
             let curves = spec.measures.iter().any(|m| curve_measure(m.as_str()));
-            // Under a rule, the level stage turns the quote into the clean price the
-            // router values, and gives the set's securities for a G-spread asked of it.
+            // The level stage turns the quote into the clean price the router values, from
+            // the rule's level or, with no rule, a price (a sinking-fund bond's per 100
+            // current face), and gives the set's securities for a G-spread asked of it.
             let quoted = mark;
-            let staged = rule.zip(quoted).map(|(_, quoted)| {
+            let staged = quoted.map(|quoted| {
                 crate::level_pricing::price_in_snapshot(
                     snapshot,
                     reference,
@@ -1324,11 +1343,11 @@ impl SnapshotValuator {
                 )
             });
             let g_spread = spec.measures.iter().any(|m| m.as_str() == G_SPREAD_MEASURE);
-            let (market_price_mid, government_curve, refusal) = match staged {
-                None => (quoted.filter(|_| rule.is_none()), None, None),
+            let (market_price_mid, g_spread_set, refusal) = match staged {
+                None => (None, None, None),
                 Some(Ok(pricing)) => (
                     Some(pricing.clean_price_mid),
-                    pricing.government_curve.filter(|_| g_spread),
+                    pricing.g_spread_set.filter(|_| g_spread),
                     None,
                 ),
                 Some(Err(error)) => (None, None, Some(error)),
@@ -1341,7 +1360,7 @@ impl SnapshotValuator {
                 market_price_ask: None,
                 discount_curve: discount.filter(|_| curves),
                 benchmark_curve: benchmark.filter(|_| curves),
-                government_curve,
+                g_spread_set,
                 volatility: None,
                 bid_ask_config: None,
             };
@@ -2061,6 +2080,9 @@ fn snapshot_mid_value(
             _ => Ok(None),
         },
         "accrued_interest" => price(output.accrued_interest),
+        FACTOR_MEASURE => Ok(output
+            .factor
+            .map(|factor| MeasureValue::Rate(DecimalRate::new(ExactDecimal::new(factor))))),
         "ytm_mid" => output
             .ytm_mid
             .map(|value| {

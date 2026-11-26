@@ -1,9 +1,11 @@
 //! The bond calculator: `POST /api/v1/bonds/:instrument_id/calculate`. Given one level of
 //! a stored bond, by any method, it reports the others.
 //!
-//! Transport only. For a fixed bullet or zero, the level is priced by the engine's level
-//! stage, whatever the bond's rule quotes it by: a clean price is taken as given, and a
-//! yield, Z-spread or benchmark spread is priced through the same definitions as a quote.
+//! Transport only. For a fixed bullet, zero or sinking-fund bond, the level is priced by
+//! the engine's level stage, whatever the bond's rule quotes it by: a clean price is taken
+//! as given (a sinking-fund bond's per 100 current face, valued per 100 original face at
+//! its factor), and a yield, Z-spread or benchmark spread is priced through the same
+//! definitions as a quote.
 //! The router then values that price under the approved context at `known_at`, mid only,
 //! with the G-spread over the set the bond's rule names. A callable is calculated on its
 //! workouts, from a price or a yield to worst, with each workout's yield; it reads no
@@ -28,7 +30,7 @@ use convex_core::Date;
 use convex_engine::level_pricing::{BenchmarkYield, PricingRuleInForce, QuotedInput};
 use convex_engine::ports::{
     level_pricing::{
-        is_quoted_two_way, is_workout_callable, PricingMethod, NOT_A_WORKOUT_CALLABLE,
+        is_router_valued, is_workout_callable, PricingMethod, NOT_A_WORKOUT_CALLABLE,
         RULE_DOES_NOT_APPLY,
     },
     reference_data::{BondReferenceData, BondType},
@@ -120,11 +122,11 @@ async fn calculate(
     let is_by_runtime = is_floating
         || (bond.bond_type == BondType::FixedCallable && request.method == PricingMethod::Oas {});
     let is_on_workouts = is_workout_callable(bond);
-    if !is_by_runtime && !is_on_workouts && !is_quoted_two_way(bond) {
+    if !is_by_runtime && !is_on_workouts && !is_router_valued(bond) {
         // Only the bonds the router, the workout model, the HW1F model or the floating
         // model values are calculated.
         return Err(ApiError::unsupported_product(format!(
-            "the calculator values fixed bullets and zeros with no embedded terms, floating rate notes, callables on their workouts, and callables by OAS: {NOT_A_WORKOUT_CALLABLE}"
+            "the calculator values fixed bullets and zeros with no embedded terms, sinking-fund bonds with mandatory sinks, floating rate notes, callables on their workouts, and callables by OAS: {NOT_A_WORKOUT_CALLABLE}"
         )));
     }
     if is_by_runtime {
@@ -178,8 +180,8 @@ async fn calculate(
     )
 }
 
-/// A fixed bullet or zero: the level priced by the stage, then valued by the router under
-/// the context's curves.
+/// A fixed bullet, zero or sinking-fund bond: the level priced by the stage, then valued by
+/// the router under the context's curves.
 async fn calculate_by_router(
     engine: &PricingEngine,
     context: &mut RequestContext,
@@ -190,7 +192,7 @@ async fn calculate_by_router(
     let curves = context.curves_for(&bond).await?;
     let mut pricing = engine.price_by_method(
         &bond,
-        in_force.and_then(|in_force| in_force.benchmark_set.as_deref()),
+        in_force,
         &request.method,
         request.level,
         request.settlement_date,
@@ -203,7 +205,7 @@ async fn calculate_by_router(
         Some(pricing.clean_price_mid),
         Some(curves.discount),
         curves.benchmark,
-        pricing.government_curve.take(),
+        pricing.g_spread_set.take(),
         None,
     );
     pricing
@@ -218,8 +220,8 @@ async fn calculate_by_router(
     if let Some(in_force) = in_force {
         body["pricing_rule"] = rule_read_json(in_force, &pricing);
     }
-    // A bullet or zero is redeemed only at maturity, so its one workout, and its worst,
-    // is its yield to maturity.
+    // A bullet, zero or sinking-fund bond has no option, so its one workout, and its
+    // worst, is its yield to maturity: a sinking-fund bond's on its sinking cash.
     let maturity = workout_json(Redemption::Maturity, maturity_date, quote.ytm_mid);
     body["worst"] = maturity.clone();
     body["workouts"] = json!([maturity]);

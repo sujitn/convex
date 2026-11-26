@@ -1,5 +1,8 @@
-//! The level stage: a stored fixed bullet quoted by a yield or a spread is priced from
-//! its level, and the bond's model then values that price as it values any other.
+//! The level stage: a stored fixed bullet or sinking-fund bond quoted by a yield or a
+//! spread is priced from its level, and the bond's model then values that price as it
+//! values any other. A sinking-fund bond's price is quoted per 100 current face and valued
+//! per 100 original face: a quoted price is multiplied by its factor at settlement
+//! ([`per_original_face`]).
 //!
 //! The stage adds no formula. It selects the mark a rule names and the benchmark
 //! securities a spread is quoted to, and the price comes from
@@ -23,7 +26,7 @@ use convex_analytics::{
     dto::GovernmentCurveSpec,
     spreads::{GovernmentBenchmark, GovernmentCurve, SecurityId, Sovereign},
 };
-use convex_bonds::prelude::FixedRateBond;
+use convex_bonds::prelude::{Bond, FixedRateBond};
 use convex_bonds::types::Tenor;
 use convex_core::{
     contracts::{
@@ -45,22 +48,24 @@ use std::sync::{Arc, Mutex};
 use crate::curve_builder::BuiltCurve;
 use crate::ports::{
     level_pricing::{
-        is_plain_bullet, is_quoted_two_way, tenor_months, BenchmarkSecurity, PricingMethod,
-        ResolvedPricingRule, WIDTH_NEEDS_TWO_WAY,
+        is_level_priced, is_quoted_two_way, tenor_months, BenchmarkSecurity, PricingMethod,
+        ResolvedPricingRule, TenorBasis, WIDTH_NEEDS_TWO_WAY,
     },
     quote_event::{QuoteField, QuoteInput},
     reference_data::BondReferenceData,
-    reference_master::ResolvedBondReference,
+    reference_master::{is_mandatory_sinker, ResolvedBondReference},
     runtime::PublishedValuation,
     snapshot::MarketSnapshot,
     storage::BidAskSpreadConfig,
 };
-use crate::pricing_router::{PricingInput, PricingRouter};
+use crate::pricing_router::{
+    with_fixed_cash, FixedCashBond, GSpreadSet, PricingInput, PricingRouter,
+};
 use crate::runtime::accepted;
 
 /// Why a rule that quotes a level or names a benchmark set does not price a bond.
-const NOT_A_PLAIN_BULLET: &str =
-    "only a fixed bullet is priced from a level or against a benchmark set";
+const NOT_LEVEL_PRICED: &str =
+    "only a fixed bullet or a sinking-fund bond is priced from a level or against a benchmark set";
 /// The stage's model id, recorded beside a level-priced result.
 pub const LEVEL_PRICE_MODEL: &str = "convex-level-price-v1";
 /// A yield level is a decimal from -10% to 100%. A yield sent in percent (6.12 for
@@ -332,8 +337,8 @@ pub struct BenchmarkYield {
 /// The two-way a quote carries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BidAsk {
-    /// The configuration's percent-of-price width: a bond quoted by price whose rule, if
-    /// it has one, sets no width.
+    /// The configuration's percent-of-price width: a bond quoted two-way by price whose
+    /// rule, if it has one, sets no width. A bond quoted mid only takes none.
     ConfigurationWidth,
     /// The rule's width, applied to what the rule quotes.
     RuleWidth(TwoWay),
@@ -343,11 +348,17 @@ pub enum BidAsk {
 
 impl BidAsk {
     /// Give the router's `input` this two-way, and only it: the rule's sides as its bid
-    /// and ask prices, `configured` (the configuration's percent-of-price width), or
-    /// neither. Any bid, ask or width the input held is replaced.
+    /// and ask prices, `configured` (the configuration's percent-of-price width) for a
+    /// bond quoted two-way, or neither. Any bid, ask or width the input held is replaced.
     pub fn apply(self, input: &mut PricingInput, configured: Option<&BidAskSpreadConfig>) {
         let (bid, ask, width) = match self {
-            Self::ConfigurationWidth => (None, None, configured.cloned()),
+            Self::ConfigurationWidth => (
+                None,
+                None,
+                configured
+                    .filter(|_| is_quoted_two_way(&input.bond))
+                    .cloned(),
+            ),
             Self::RuleWidth(two_way) => (
                 Some(two_way.clean_price_bid),
                 Some(two_way.clean_price_ask),
@@ -385,13 +396,30 @@ pub struct RulePricing {
     pub clean_price_mid: Decimal,
     /// The two-way the quote carries.
     pub bid_ask: BidAsk,
-    /// The set's securities, for the G-spread, when the rule names a set and the bond
-    /// matures within the set's maturities.
-    pub government_curve: Option<GovernmentCurve>,
+    /// The set's securities, for the G-spread, and where it reads them, when the rule
+    /// names a set and the G-spread reads it within the set's maturities.
+    pub g_spread_set: Option<GSpreadSet>,
     /// Why no G-spread is published although the rule names a set.
     pub g_spread_refused: Option<&'static str>,
     /// The benchmark a spread was quoted to.
     pub benchmark: Option<BenchmarkYield>,
+    /// A sinking-fund bond's factor at settlement, by which its quoted price per 100
+    /// current face became the clean price per 100 original face.
+    pub factor: Option<Decimal>,
+}
+
+impl RulePricing {
+    /// `clean_price`, per 100 original face, per 100 current face: over a sinking-fund
+    /// bond's factor, and as given for any other bond.
+    pub fn per_current_face(&self, clean_price: Decimal) -> Result<Decimal, LevelError> {
+        match self.factor {
+            Some(factor) => clean_price
+                .checked_div(factor)
+                .map(|price| price.normalize())
+                .ok_or_else(|| refused("the price per current face overflows")),
+            None => Ok(clean_price),
+        }
+    }
 }
 
 /// Each benchmark security's street yield, solved once for each settlement and clean
@@ -496,7 +524,7 @@ pub(crate) fn price_sized(
     yields: &BenchmarkYieldCache,
 ) -> Result<RulePricing, LevelError> {
     let Some(in_force) = in_force else {
-        return price_without_rule(input);
+        return price_without_rule(bond, input, settlement);
     };
     let width = in_force
         .width
@@ -516,6 +544,7 @@ pub(crate) fn price_sized(
         method,
         width,
         benchmarks.as_deref(),
+        in_force.rule.tenor_basis,
         input,
         settlement,
         discount,
@@ -533,24 +562,27 @@ pub(crate) fn price_sized(
 }
 
 /// Price `level`, quoted by `method` whatever the bond's rule quotes, for the calculator:
-/// mid only, since no width is applied. `set` is the benchmark set the bond's rule names,
-/// as read: a benchmark spread is to one of its securities, and the G-spread is over it.
-/// With none, every method but a benchmark spread is priced.
+/// mid only, since no width is applied. The set the bond's rule `in_force` names is as
+/// read: a benchmark spread is to one of its securities, and the G-spread is over it, at
+/// the rule's tenor basis. With none, every method but a benchmark spread is priced.
 pub fn price_by_method(
     bond: &BondReferenceData,
-    set: Option<&BenchmarkSetQuotes>,
+    in_force: Option<&PricingRuleInForce>,
     method: &PricingMethod,
     level: Decimal,
     settlement: Date,
     discount: Option<&BuiltCurve>,
     yields: &BenchmarkYieldCache,
 ) -> Result<RulePricing, LevelError> {
-    let benchmarks = set.map(benchmark_inputs);
+    let benchmarks = in_force
+        .and_then(|in_force| in_force.benchmark_set.as_deref())
+        .map(benchmark_inputs);
     price_with_rule(
         bond,
         method,
         None,
         benchmarks.as_deref(),
+        in_force.map_or(TenorBasis::Maturity, |in_force| in_force.rule.tenor_basis),
         QuotedInput::quoted_by(method, level),
         settlement,
         discount,
@@ -589,10 +621,9 @@ pub fn price_in_snapshot(
         .bond
         .as_ref()
         .ok_or_else(|| refused("the bond's reference is a tombstone"))?;
-    let rule = reference
-        .pricing_rule
-        .as_ref()
-        .ok_or_else(|| refused("the bond has no pricing rule"))?;
+    let Some(rule) = reference.pricing_rule.as_ref() else {
+        return price_without_rule(bond, QuotedInput::Price(quoted), settlement);
+    };
     let benchmarks = match &rule.benchmark_set_id {
         None => None,
         Some(id) => {
@@ -616,6 +647,7 @@ pub fn price_in_snapshot(
         &rule.method,
         None,
         benchmarks.as_deref(),
+        rule.tenor_basis,
         QuotedInput::quoted_by(&rule.method, quoted),
         settlement,
         discount,
@@ -658,16 +690,24 @@ fn snapshot_benchmark<'a>(
     })
 }
 
-/// A bond with no rule is quoted by price.
-fn price_without_rule(input: QuotedInput) -> Result<RulePricing, LevelError> {
+/// A bond with no rule is quoted by price, at the configuration's width.
+fn price_without_rule(
+    bond: &BondReferenceData,
+    input: QuotedInput,
+    settlement: Date,
+) -> Result<RulePricing, LevelError> {
     match input {
-        QuotedInput::Price(price) => Ok(RulePricing {
-            clean_price_mid: price,
-            bid_ask: BidAsk::ConfigurationWidth,
-            government_curve: None,
-            g_spread_refused: None,
-            benchmark: None,
-        }),
+        QuotedInput::Price(price) => {
+            let factor = sinking_fund_factor(bond, settlement)?;
+            Ok(RulePricing {
+                clean_price_mid: at_factor(price, factor)?,
+                bid_ask: BidAsk::ConfigurationWidth,
+                g_spread_set: None,
+                g_spread_refused: None,
+                benchmark: None,
+                factor,
+            })
+        }
         QuotedInput::Level(_) => Err(refused(
             "this bond has no pricing rule in force for its terms, so it is quoted by price; send market_price",
         )),
@@ -685,17 +725,19 @@ fn price_with_rule(
     method: &PricingMethod,
     width: Option<QuoteWidth>,
     benchmarks: Option<&[BenchmarkInput<'_>]>,
+    tenor_basis: TenorBasis,
     input: QuotedInput,
     settlement: Date,
     discount: Option<&BuiltCurve>,
     yields: &BenchmarkYieldCache,
 ) -> Result<RulePricing, LevelError> {
-    if (method.is_level() || benchmarks.is_some()) && !is_plain_bullet(bond) {
-        return Err(refused(NOT_A_PLAIN_BULLET));
+    if (method.is_level() || benchmarks.is_some()) && !is_level_priced(bond) {
+        return Err(refused(NOT_LEVEL_PRICED));
     }
     if width.is_some() && !is_quoted_two_way(bond) {
         return Err(refused(WIDTH_NEEDS_TWO_WAY));
     }
+    let factor = sinking_fund_factor(bond, settlement)?;
     let benchmarks = match benchmarks {
         Some(set) => Some(price_benchmarks(set, settlement, yields)?),
         None => None,
@@ -704,9 +746,10 @@ fn price_with_rule(
         QuotedInput::Oas(_) => {
             return Err(refused(crate::ports::level_pricing::NOT_AN_OAS_CALLABLE))
         }
-        QuotedInput::Price(price) if method.is_level() => (price, None, BidAsk::MidOnly),
         QuotedInput::Price(price) => {
-            let bid_ask = match width {
+            let price = at_factor(price, factor)?;
+            // A price sent for a level-quoted bond is mid only.
+            let bid_ask = match width.filter(|_| !method.is_level()) {
                 Some(width) => {
                     let mid = Mark::Price {
                         value: price,
@@ -735,34 +778,34 @@ fn price_with_rule(
             )
         }
     };
-    let (government_curve, g_spread_refused) = match benchmarks {
-        Some(all)
-            if matures_within(
-                bond.maturity_date,
+    let (g_spread_set, g_spread_refused) = match benchmarks {
+        Some(all) => {
+            let read = g_spread_read(bond, tenor_basis, settlement)?;
+            if reads_within(
+                read.days,
+                settlement,
                 all.iter().map(|b| b.government_benchmark.maturity),
-            ) =>
-        {
-            (
-                Some(benchmark_curve(
+            ) {
+                let curve = benchmark_curve(
                     all.into_iter().map(|b| b.government_benchmark).collect(),
                     settlement,
                     bond.currency,
-                )?),
-                None,
-            )
+                )?;
+                let tenor = read.tenor;
+                (Some(GSpreadSet { curve, tenor }), None)
+            } else {
+                (None, Some(outside_set_reason(tenor_basis)))
+            }
         }
-        Some(_) => (
-            None,
-            Some("the bond matures outside its benchmark set's maturities"),
-        ),
         None => (None, None),
     };
     Ok(RulePricing {
         clean_price_mid,
         bid_ask,
-        government_curve,
+        g_spread_set,
         g_spread_refused,
         benchmark,
+        factor,
     })
 }
 
@@ -795,8 +838,8 @@ fn level_to_clean_price(
 ) -> Result<(Decimal, Option<BenchmarkYield>, Option<TwoWay>), LevelError> {
     // The level is checked before the bond is built.
     check_level(method, level)?;
-    let fixed = fixed_rate_bond(bond)?;
-    let frequency = fixed.frequency();
+    let fixed = fixed_cash_bond(bond)?;
+    let frequency = with_fixed_cash!(&fixed, bond => bond.frequency());
     let spread = |kind| Mark::Spread {
         value: Spread::new(level, kind),
         benchmark: method.name().into(),
@@ -854,11 +897,11 @@ fn level_to_clean_price(
             };
             // The yield `price_from_level` adds the spread to, so the one reported is the
             // one applied.
-            let ytm = government
-                .benchmark_yield(&fixed, settlement)
-                .map_err(analytics_error)?
-                .value()
-                .as_f64();
+            let ytm =
+                with_fixed_cash!(&fixed, bond => government.benchmark_yield(bond, settlement))
+                    .map_err(analytics_error)?
+                    .value()
+                    .as_f64();
             (
                 spread(SpreadType::GSpread),
                 BondCurves {
@@ -874,8 +917,10 @@ fn level_to_clean_price(
         }
     };
     let clean_price = |mark: &Mark| {
-        let priced = price_from_level(&fixed, settlement, mark, frequency, &curves)
-            .map_err(analytics_error)?;
+        let priced = with_fixed_cash!(&fixed, bond => price_from_level(
+            bond, settlement, mark, frequency, &curves,
+        ))
+        .map_err(analytics_error)?;
         Decimal::from_f64_retain(priced.clean_price_per_100)
             .ok_or_else(|| LevelError::Analytics("the level's price is not finite".into()))
     };
@@ -917,6 +962,94 @@ fn fixed_rate_bond(bond: &BondReferenceData) -> Result<FixedRateBond, LevelError
     PricingRouter::new()
         .to_fixed_rate_bond(bond)
         .map_err(analytics_error)
+}
+
+/// The bond as the router values it: a bullet, or a sinking-fund bond on its sinks.
+fn fixed_cash_bond(bond: &BondReferenceData) -> Result<FixedCashBond, LevelError> {
+    PricingRouter::new()
+        .to_fixed_cash_bond(bond)
+        .map_err(analytics_error)
+}
+
+/// A clean price per 100 face as the router values it: for a sinking-fund bond, its price
+/// per 100 current face times its factor at `settlement`, per 100 original face; for any
+/// other bond, the price as given.
+pub fn per_original_face(
+    bond: &BondReferenceData,
+    clean_price: Decimal,
+    settlement: Date,
+) -> Result<Decimal, LevelError> {
+    at_factor(clean_price, sinking_fund_factor(bond, settlement)?)
+}
+
+/// `clean_price` times `factor`, when there is one.
+fn at_factor(clean_price: Decimal, factor: Option<Decimal>) -> Result<Decimal, LevelError> {
+    match factor {
+        Some(factor) => clean_price
+            .checked_mul(factor)
+            .map(|price| price.normalize())
+            .ok_or_else(|| refused("the price per original face overflows")),
+        None => Ok(clean_price),
+    }
+}
+
+/// A sinking-fund bond's factor at `settlement`: the fraction of its original face
+/// outstanding after any sink on that date. None for any other bond.
+fn sinking_fund_factor(
+    bond: &BondReferenceData,
+    settlement: Date,
+) -> Result<Option<Decimal>, LevelError> {
+    if !is_mandatory_sinker(bond) {
+        return Ok(None);
+    }
+    fixed_cash_bond(bond)?
+        .factor(settlement)
+        .map_err(analytics_error)
+}
+
+/// Where a G-spread reads the benchmark set, from settlement.
+struct GSpreadRead {
+    /// The tenor the router reads the set at.
+    tenor: BenchmarkTenor,
+    /// Its days from settlement: to maturity, or the average life's days of 365.
+    days: Decimal,
+}
+
+/// Where a G-spread at `basis` reads the benchmark set from `settlement`: at the bond's
+/// maturity, or at its average life.
+fn g_spread_read(
+    bond: &BondReferenceData,
+    basis: TenorBasis,
+    settlement: Date,
+) -> Result<GSpreadRead, LevelError> {
+    match basis {
+        TenorBasis::Maturity => Ok(GSpreadRead {
+            tenor: BenchmarkTenor::Maturity,
+            days: Decimal::from(settlement.days_between(&bond.maturity_date)),
+        }),
+        TenorBasis::AverageLife => {
+            let average_life = fixed_cash_bond(bond)?
+                .average_life(settlement)
+                .map_err(analytics_error)?;
+            Ok(GSpreadRead {
+                tenor: BenchmarkTenor::AverageLife(average_life),
+                days: average_life
+                    .years()
+                    .checked_mul(Decimal::from(365))
+                    .ok_or_else(|| refused("the average life overflows"))?,
+            })
+        }
+    }
+}
+
+/// Why no G-spread is published: it reads outside the set's maturities.
+fn outside_set_reason(basis: TenorBasis) -> &'static str {
+    match basis {
+        TenorBasis::Maturity => "the bond matures outside its benchmark set's maturities",
+        TenorBasis::AverageLife => {
+            "the bond's average life ends outside its benchmark set's maturities"
+        }
+    }
 }
 
 fn quoted_by_price() -> LevelError {
@@ -1020,25 +1153,35 @@ fn benchmark_curve(
     government_curve(&spec, settlement, currency).map_err(analytics_error)
 }
 
-/// Whether `maturity` lies within a set's `maturities`, so the G-spread interpolates and
-/// never extrapolates.
-fn matures_within(maturity: Date, maturities: impl Iterator<Item = Date>) -> bool {
+/// Whether a G-spread read `read_days` after `settlement` lies within a set's
+/// `maturities`, so it interpolates and never extrapolates.
+fn reads_within(
+    read_days: Decimal,
+    settlement: Date,
+    maturities: impl Iterator<Item = Date>,
+) -> bool {
     let range = maturities.fold(None, |range: Option<(Date, Date)>, date| match range {
         None => Some((date, date)),
         Some((first, last)) => Some((first.min(date), last.max(date))),
     });
-    range.is_some_and(|(first, last)| first <= maturity && maturity <= last)
+    let days = |date: Date| Decimal::from(settlement.days_between(&date));
+    range.is_some_and(|(first, last)| days(first) <= read_days && read_days <= days(last))
 }
 
-/// Whether a valuation of the bond `reference` resolves in `snapshot` publishes a
-/// G-spread: it is a plain bullet whose rule names a set the snapshot holds, with every
-/// security at its pinned version, and it matures within their maturities. Otherwise
+/// Whether a valuation of the bond `reference` resolves in `snapshot`, settling on
+/// `settlement`, publishes a G-spread: it is a fixed bullet or a sinking-fund bond whose
+/// rule names a set the snapshot holds, with every security at its pinned version, and its
+/// G-spread reads within their maturities at the rule's tenor basis. Otherwise
 /// `g_spread_mid` is not asked of it, so its result stays complete.
-pub fn is_g_spread_published(snapshot: &MarketSnapshot, reference: &ResolvedBondReference) -> bool {
+pub fn is_g_spread_published(
+    snapshot: &MarketSnapshot,
+    reference: &ResolvedBondReference,
+    settlement: Date,
+) -> bool {
     let (Some(bond), Some(rule)) = (&reference.record.bond, &reference.pricing_rule) else {
         return false;
     };
-    if !is_plain_bullet(bond) || rule.benchmark_set_id.is_none() {
+    if !is_level_priced(bond) || rule.benchmark_set_id.is_none() {
         return false;
     }
     let maturities = snapshot.benchmark_securities(rule).and_then(|securities| {
@@ -1050,5 +1193,9 @@ pub fn is_g_spread_published(snapshot: &MarketSnapshot, reference: &ResolvedBond
                 Some(maturities)
             })
     });
-    maturities.is_some_and(|maturities| matures_within(bond.maturity_date, maturities.into_iter()))
+    // The set is looked up before the bond is built for an average life.
+    maturities.is_some_and(|maturities| {
+        g_spread_read(bond, rule.tenor_basis, settlement)
+            .is_ok_and(|read| reads_within(read.days, settlement, maturities.into_iter()))
+    })
 }

@@ -1376,6 +1376,7 @@ fn pricing_rule(
                 instrument_id: InstrumentId::new(instrument).unwrap(),
                 method,
                 benchmark_set_id: set.map(|s| ReferenceDataId::new(s).unwrap()),
+                tenor_basis: Default::default(),
                 width: None,
                 effective: EffectiveInterval {
                     from: time("2025-01-01T00:00:00Z"),

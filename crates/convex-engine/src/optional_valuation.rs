@@ -9,7 +9,9 @@ use crate::level_pricing::{check_level, LevelError};
 use crate::ports::{
     level_pricing::PricingMethod,
     reference_data::{BondReferenceData, BondType},
-    reference_master::{BondContractTerms, CalendarDefinition, CallStyle, CallTerms},
+    reference_master::{
+        is_mandatory_sinker, BondContractTerms, CalendarDefinition, CallStyle, CallTerms,
+    },
     storage::BondPricingConfig,
 };
 use crate::pricing_router::PricingRouter;
@@ -93,15 +95,16 @@ pub fn is_runtime_product(bond: &BondReferenceData) -> bool {
     )
 }
 /// Every model a runtime plan's instruments are valued under.
-pub const PRODUCT_MODELS: [&str; 4] = [
+pub const PRODUCT_MODELS: [&str; 5] = [
     crate::snapshot::BOND_SNAPSHOT_MODEL,
+    crate::snapshot::SINKING_FUND_SNAPSHOT_MODEL,
     OPTIONAL_SNAPSHOT_MODEL,
     WORKOUT_SNAPSHOT_MODEL,
     crate::floating_valuation::FLOATING_SNAPSHOT_MODEL,
 ];
 /// The model a pinned bond is valued under, quoted by `method` when it has a pricing rule:
 /// a callable quoted by price or yield to worst on its workouts, any other callable on
-/// HW1F trees.
+/// HW1F trees; a sinking-fund bond on its sinking cash.
 pub fn product_model(bond: &BondReferenceData, method: Option<&PricingMethod>) -> &'static str {
     match bond.bond_type {
         BondType::FixedCallable
@@ -114,6 +117,7 @@ pub fn product_model(bond: &BondReferenceData, method: Option<&PricingMethod>) -
         }
         BondType::FixedCallable => OPTIONAL_SNAPSHOT_MODEL,
         BondType::FloatingRate => crate::floating_valuation::FLOATING_SNAPSHOT_MODEL,
+        _ if is_mandatory_sinker(bond) => crate::snapshot::SINKING_FUND_SNAPSHOT_MODEL,
         _ => crate::snapshot::BOND_SNAPSHOT_MODEL,
     }
 }
@@ -133,6 +137,7 @@ pub fn product_measures(model: &str) -> &'static [&'static str] {
         crate::floating_valuation::FLOATING_SNAPSHOT_MODEL => {
             &crate::floating_valuation::FLOATING_MEASURES
         }
+        crate::snapshot::SINKING_FUND_SNAPSHOT_MODEL => &crate::snapshot::SINKING_FUND_MEASURES,
         _ => &crate::snapshot::RUNTIME_MEASURES,
     }
 }

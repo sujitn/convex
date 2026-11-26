@@ -115,7 +115,7 @@ fn create_pricing_inputs(
                 market_price_ask: None,
                 discount_curve: Some(curve.clone()),
                 benchmark_curve: Some(curve.clone()),
-                government_curve: None,
+                g_spread_set: None,
                 volatility: None,
                 bid_ask_config: None,
             }
@@ -139,6 +139,7 @@ fn create_test_quotes(count: usize) -> Vec<BondQuoteOutput> {
             clean_price_mid: Some(dec!(100.0)),
             clean_price_ask: None,
             accrued_interest: Some(dec!(1.0)),
+            factor: None,
             ytm_bid: None,
             ytm_mid: Some(dec!(0.05)),
             ytm_ask: None,
@@ -253,7 +254,7 @@ fn bench_single_bond_pricing(c: &mut Criterion) {
         market_price_ask: None,
         discount_curve: Some(curve.clone()),
         benchmark_curve: Some(curve.clone()),
-        government_curve: None,
+        g_spread_set: None,
         volatility: None,
         bid_ask_config: None,
     };
@@ -276,7 +277,7 @@ fn bench_single_bond_no_curves(c: &mut Criterion) {
         market_price_ask: None,
         discount_curve: None,
         benchmark_curve: None,
-        government_curve: None,
+        g_spread_set: None,
         volatility: None,
         bid_ask_config: None,
     };

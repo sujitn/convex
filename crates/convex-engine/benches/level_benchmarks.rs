@@ -89,7 +89,7 @@ fn bench_level_stage(c: &mut Criterion) {
                         Some(pricing.clean_price_mid),
                         Some(discount.clone()),
                         None,
-                        pricing.government_curve.take(),
+                        pricing.g_spread_set.take(),
                         None,
                     ))
                     .unwrap()

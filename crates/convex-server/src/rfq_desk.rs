@@ -159,12 +159,17 @@ impl AutoPrice {
 #[derive(Debug, Clone, Serialize)]
 pub(crate) struct PricedSide {
     pub(crate) desk_side: DeskSide,
-    /// The desk side's clean price.
+    /// The desk side's clean price, per 100 face; a sinking-fund bond's per 100 current
+    /// face.
     pub(crate) clean_price: ExactDecimal,
     /// The desk side's level with its unit, for a bond quoted by a level.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) level: Option<QuoteValue>,
     pub(crate) clean_price_mid: ExactDecimal,
+    /// A sinking-fund bond's factor at the request's settlement: its prices here are its
+    /// Live prices per 100 original face over it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) factor: Option<ExactDecimal>,
     /// Why the price is the mid: the bond has no two-way width.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) mid_only: Option<&'static str>,
