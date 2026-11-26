@@ -199,9 +199,10 @@ the changes that matter when you upgrade.
   mechanics and an optional coupon reset (benchmark id, margin, first reset,
   interval, fixing offset), and its schedule ends on its first call.
   `build_perpetual` returns a `PerpetualContract`. Admission takes 30/360 US or
-  30E/360 and a fixed positive coupon, and refuses floating coupons, step-ups,
-  amortization and other exercise terms. `PerpetualContract::dated_through`
-  composes its dated cash up to a coupon date.
+  30E/360, unadjusted accrual and a fixed positive coupon, holds each regular
+  period to 1/f year under the day count, and refuses floating coupons,
+  step-ups, amortization and other exercise terms.
+  `PerpetualContract::dated_through` composes its dated cash up to a coupon date.
 - **Breaking:** `BondTerms` has a `redemption` field, and `build` refuses a
   perpetual. A struct literal adds `redemption: BondRedemption::Dated`.
 
@@ -211,9 +212,10 @@ the changes that matter when you upgrade.
   after settlement up to a horizon, and the perpetuity, from one price; the
   worst is the lowest yield. `quote_perpetual_price_to_worst` prices each at one
   yield; the worst is the lowest price. The perpetuity is its coupons to the
-  tail start and then a closed-form tail. A reset reads its published fixing,
-  and every later reset holds the benchmark level you pass. The result carries
-  the calls, each reset's rate and origin, the held level and the tail.
+  tail start and then a closed-form tail. A reset reads its published fixing as
+  of the quote's information date, and every later reset holds the benchmark
+  level you pass. The result carries the calls, each reset's rate and origin,
+  the held level and the tail.
 - **A G-spread read at a workout.** `BenchmarkTenor::Workout(date)` reads the
   supplied government yields at the call date a yield is quoted to.
   `price_from_level` and `quote_fixed` quote a yield to maturity and refuse it.

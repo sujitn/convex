@@ -114,6 +114,9 @@ fn admission_refuses_what_a_perpetual_here_cannot_be() {
     refused("perpetual day count", |t| {
         t["day_count"] = json!("Thirty360EIsda")
     });
+    refused("perpetual accrual adjustment", |t| {
+        t["dates"]["accrual_adjustment"] = json!("ModifiedFollowing")
+    });
     refused("floating perpetual", |t| {
         t["coupon"] = json!({
             "kind": "overnight",
@@ -272,7 +275,15 @@ fn the_dated_composition_pays_each_reset_and_is_callable_before_its_end() {
 /// The fixed perpetual moved to another coupon day: accrual from the same day in 2025, a
 /// first call on it in 2030.
 fn on_day(month_day: &str, end_of_month: bool) -> Value {
-    let (start, end) = (format!("2025-{month_day}"), format!("2030-{month_day}"));
+    on_day_through(month_day, end_of_month, 2030)
+}
+
+/// As `on_day`, with its schedule ending in `end_year`.
+fn on_day_through(month_day: &str, end_of_month: bool, end_year: i32) -> Value {
+    let (start, end) = (
+        format!("2025-{month_day}"),
+        format!("{end_year}-{month_day}"),
+    );
     let mut terms = perpetual(0);
     terms["issue_date"] = json!(start);
     terms["schedule"]["start_date"] = json!(start);
@@ -299,5 +310,63 @@ fn coupon_dates_roll_by_whole_months_from_the_first_call() {
             .unwrap(),
         ["2030-06-30", "2030-12-31", "2031-06-30", "2031-12-31"].map(date)
     );
-    assert!(build(on_day("08-28", false)).is_ok());
+    assert!(build(on_day("01-28", false)).is_ok());
+}
+
+/// Each of these rolls passes the roll-day rule, and is admitted exactly when every regular
+/// period from the first call counts 360/f days, as the perpetuity's tail takes it to: the
+/// same roll as a dated bond to 2041 shows the counts.
+#[test]
+fn a_perpetual_is_admitted_only_when_each_regular_period_counts_one_period() {
+    let (mut admitted, mut refused) = (0, 0);
+    for day_count in ["Thirty360US", "Thirty360E"] {
+        for (frequency, months) in [
+            ("Annual", 12),
+            ("SemiAnnual", 6),
+            ("Quarterly", 3),
+            ("Monthly", 1),
+        ] {
+            for month_day in [
+                "01-15", "01-27", "01-28", "08-28", "02-28", "08-31", "06-30", "05-31", "03-31",
+            ] {
+                let first_call = date(&format!("2030-{month_day}"));
+                let rolled = |end_year| {
+                    let mut terms =
+                        on_day_through(month_day, first_call.is_end_of_month(), end_year);
+                    terms["day_count"] = json!(day_count);
+                    terms["schedule"]["frequency"] = json!(frequency);
+                    terms
+                };
+                let mut terms = rolled(2030);
+                terms["redemption"]["call"]["interval_months"] = json!(12);
+                let mut dated = rolled(2041);
+                dated["schema_version"] = json!(1);
+                dated.as_object_mut().unwrap().remove("redemption");
+                let dated = serde_json::from_value::<BondTerms>(dated)
+                    .unwrap()
+                    .build()
+                    .unwrap();
+                let counter = dated.terms().day_count.to_day_count();
+                let is_regular = dated
+                    .periods()
+                    .map(|period| period.accrual_dates())
+                    .filter(|(start, _)| *start >= first_call)
+                    .all(|(start, end)| counter.day_count(start, end) == 30 * months);
+                let is_admitted = build(terms).is_ok();
+                assert_eq!(
+                    is_admitted, is_regular,
+                    "{day_count} {frequency} {month_day}"
+                );
+                if is_admitted {
+                    admitted += 1;
+                } else {
+                    refused += 1;
+                }
+            }
+        }
+    }
+    assert!(
+        admitted > 0 && refused > 0,
+        "{admitted} admitted, {refused} refused"
+    );
 }

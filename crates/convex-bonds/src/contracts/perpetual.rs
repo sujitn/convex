@@ -158,15 +158,21 @@ impl PerpetualContract {
         if terms.schema_version != 2 {
             return Err(invalid("schema_version", "a perpetual needs version 2"));
         }
-        // Each period after the tail start counts 1/f year, as a regular 30/360 period
-        // does; these two are also the 30/360 counts a dated yield reads.
+        // The tail counts each period as 1/f year; these two 30/360 counts are ones a
+        // dated yield also reads. The grid is held to 1/f below.
         if !matches!(
             terms.day_count,
             DayCountConvention::Thirty360US | DayCountConvention::Thirty360E
         ) {
             return Err(unsupported(
                 "perpetual day count",
-                "30/360 US or 30E/360, whose regular periods each count 1/f year",
+                "30/360 US or 30E/360, which a dated yield also reads",
+            ));
+        }
+        if terms.dates.accrual_adjustment != BusinessDayConvention::Unadjusted {
+            return Err(unsupported(
+                "perpetual accrual adjustment",
+                "Unadjusted, so each accrual boundary is a regular coupon date",
             ));
         }
         if !matches!(terms.coupon, BondCoupon::Fixed) {
@@ -243,6 +249,21 @@ impl PerpetualContract {
         // The schedule to the first call is checked as the dated bond redeemed on it.
         let stated = BondContract::new(as_dated(&terms), calendars)?;
         let contract = Self { terms, perpetual };
+        // A 30/360 count moves February's last day apart from other days, so each regular
+        // period's own count is checked. Nine years of the grid hold every February a later
+        // year has: leap years are at most eight years apart.
+        let day_counter = contract.terms.day_count.to_day_count();
+        let mut start = first_call;
+        for k in 1..=9 * 12 / period {
+            let end = contract.regular_date(k)?;
+            if day_counter.day_count(start, end) != 30 * i64::from(period) {
+                return Err(invalid(
+                    "schedule",
+                    "each regular period counts 1/f year under its day count",
+                ));
+            }
+            start = end;
+        }
         contract.call_terms(vec![first_call]).validate(
             contract.terms.issue_date,
             first_call,
@@ -275,7 +296,6 @@ impl PerpetualContract {
         let dates = |period: &CouponPeriod| {
             (
                 period.contractual_dates(),
-                period.accrual_dates(),
                 period.payment_date(),
                 period.ex_coupon(),
             )

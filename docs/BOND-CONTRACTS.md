@@ -220,15 +220,18 @@ periods, calls and resets recur on the regular coupon grid for ever:
 
 `build` refuses a perpetual; `build_perpetual` returns a `PerpetualContract`.
 No `BondContract` ends on a first call, so nothing that reads a contract's
-schedule end takes it for a maturity. Admission takes 30/360 US or 30E/360 only
-(the tail below counts each period as 1/f year) and a fixed positive coupon,
-and refuses a floating coupon, a step-up, a spread or gearing, amortization,
-an exercise list, principal prices, a redemption multiplier other than 1, a
-back stub and intervals that are not whole coupon periods. Coupon dates roll by
-whole months from the first call, so its day must be one every month has (the
-28th at the latest), or month end with `end_of_month`. Write-down and
-conversion triggers, coupon cancellation, American and make-whole calls have
-no terms here.
+schedule end takes it for a maturity. Admission takes 30/360 US or 30E/360 only,
+unadjusted accrual and a fixed positive coupon, and refuses a floating coupon,
+a step-up, a spread or gearing, amortization, an exercise list, principal
+prices, a redemption multiplier other than 1, a back stub and intervals that
+are not whole coupon periods. Coupon dates roll by whole months from the first
+call, so its day must be one every month has (the 28th at the latest), or month
+end with `end_of_month`. The tail below counts each period as 1/f year, so each
+regular period must count exactly that under the day count. A 30/360 count
+moves February's last day, so a grid that reaches February refuses a month-end
+roll (except an annual one under 30/360 US) and, under 30/360 US, a roll on the
+28th. Write-down and conversion triggers, coupon cancellation, American and
+make-whole calls have no terms here.
 
 `PerpetualContract::dated_through(end, last_call, benchmark_rates, calendars)`
 composes the dated bond that pays as the perpetual does through a regular
@@ -251,12 +254,15 @@ starts at the first regular coupon date on or after the first call that ends
 settlement's period, and at the first reset fixed after the valuation date or
 later. It has no price at
 a yield of zero or below and is then left out. Reset fixings are read from a
-`FixingSeries` as a floating coupon's are, and a missing published fixing is
-refused. Every later reset holds the benchmark level you pass, and the result
-carries that level, each reset's origin and the tail. A notice already given
-forces its call alone. The fixtures come from
-`tests/scripts/perpetual_quote_reference.py`, which sums the tail term by
-term in 60-digit `Decimal`.
+`FixingSeries` as a floating coupon's are, as of the quote's information
+date, and a missing published fixing is refused. Every later reset holds the
+benchmark level you pass, and the result carries that level, each reset's
+origin and the tail. A notice already given forces its call alone. The tail
+discounts each coupon one whole period after the one before, on its unadjusted
+date. A dated yield would discount it on its payment date, and from a
+settlement before the 30th a 30/360 US yield counts a 31st one day later than a
+30th; the tail follows neither. The fixtures come from `tests/scripts/perpetual_quote_reference.py`, which sums the
+tail term by term in 60-digit `Decimal`.
 
 ## Bounds and coverage
 

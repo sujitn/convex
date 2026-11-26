@@ -15,7 +15,7 @@ use convex_core::{
     Date,
 };
 use rust_decimal::Decimal;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::str::FromStr;
 
 struct Weekends;
@@ -508,6 +508,70 @@ fn settled_on_a_call_date_at_its_coupon_the_perpetuity_is_par() {
         "{}",
         perpetuity.dirty_per100
     );
+}
+
+#[test]
+fn settled_ex_coupon_before_the_tail_the_perpetuity_is_its_tail_alone() {
+    let mut terms = reference()["bonds"][0]["terms"].clone();
+    terms["dates"]["ex_coupon"] = json!({
+        "offset": {"BusinessDays": -7},
+        "anchor": "ContractualEnd",
+        "boundary": "OnDate"
+    });
+    let contract = contract(&json!({ "terms": terms }));
+    // Settled Monday 8 July 2030, after the ex date of the 15 July coupon: the buyer has
+    // no explicit cash, only the tail from 15 July.
+    let case = json!({
+        "trade_date": "2030-07-04",
+        "settlement": "2030-07-08",
+        "horizon": "2031-01-15",
+        "fixings": []
+    });
+    let supplied = Case::new(&contract, &case);
+    let worst =
+        quote_perpetual_price_to_worst(&supplied.inputs(&contract), CONVENTION, 0.065).unwrap();
+    assert_eq!(
+        worst.composition.tail.start,
+        Date::from_ymd(2030, 7, 15).unwrap()
+    );
+    let perpetuity = worst.quotes.last().unwrap();
+    assert_eq!(perpetuity.workout, PerpetualWorkout::Perpetuity);
+    assert!(perpetuity.accrued_per100 < 0.0);
+    // At its coupon the tail is par on 15 July, discounted seven 30/360 days.
+    let expected = 100.0 * 1.0325_f64.powf(-2.0 * 7.0 / 360.0);
+    assert!(
+        (perpetuity.dirty_per100 - expected).abs() < 1e-9,
+        "{}",
+        perpetuity.dirty_per100
+    );
+    let solved = quote_perpetual_worst(
+        &supplied.inputs(&contract),
+        CONVENTION,
+        BondPriceTarget::Dirty(expected),
+        SETTINGS,
+    )
+    .unwrap();
+    let quote = solved.quotes.last().unwrap();
+    assert_eq!(quote.workout, PerpetualWorkout::Perpetuity);
+    assert!((quote.decimal_yield - 0.065).abs() < 1e-10, "{quote:?}");
+}
+
+#[test]
+fn fixings_read_on_another_date_than_the_quote_are_refused() {
+    let reference = reference();
+    let bond = &reference["bonds"][1];
+    let (contract, case) = (contract(bond), &bond["cases"][0]);
+    let mut supplied = Case::new(&contract, case);
+    // Read as of the first reset's fixing, the quote would take a fixing not yet made.
+    supplied.valuation.valuation_date = Date::from_ymd(2030, 1, 11).unwrap();
+    supplied.valuation.known_at = timestamp(supplied.valuation.valuation_date, "18:00:00");
+    assert!(matches!(
+        quote_perpetual_price_to_worst(&supplied.inputs(&contract), CONVENTION, 0.07),
+        Err(WorkflowError::Invalid {
+            field: "perpetual.reset_market",
+            ..
+        })
+    ));
 }
 
 #[test]

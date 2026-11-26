@@ -5,8 +5,9 @@
 //! same paths and notice rules as a dated bond's workouts. The perpetuity's is every
 //! coupon to the tail start, then the coupon in force for ever, valued in closed form:
 //! one period's discount `d` at the yield gives `C·d/(1−d)` at the tail start. Each
-//! period after the tail start counts 1/f year, as each regular period does under
-//! 30/360, so only that family is admitted. A reset coupon not yet fixed holds the
+//! period after the tail start counts 1/f year and pays on its unadjusted date, so only
+//! the 30/360 family is admitted. Read from settlement, a 30/360 US yield can count a
+//! 31st one day later than the 30th; the tail keeps whole periods. A reset coupon not yet fixed holds the
 //! benchmark's current level, and the quote carries that level and each reset's origin.
 use super::workout::{
     charge_cash_evaluations, check_information, check_purchase, eligible_workout_paths,
@@ -36,7 +37,8 @@ pub struct ResetMarket<'a> {
     pub fixings: &'a FixingSeries,
     /// When each fixing is due to publish.
     pub publications: &'a PublicationSchedule,
-    /// The valuation date and information cutoff the fixings are read at.
+    /// The fixings' information cutoff, and their valuation date: the quote's reference
+    /// date.
     pub fixing: FixingContext,
     /// The benchmark's current level, held for every reset not yet fixed.
     pub held_level: Decimal,
@@ -242,7 +244,9 @@ pub fn quote_perpetual_worst(
             lower: settings.inverse.lower.max(MIN_PERPETUITY_YIELD),
             ..settings.inverse
         };
-        let inverse = solve_bond(&prepared.perpetuity, target, bounds, 10.0, |y| {
+        // The tail's coupon is positive, so the price falls with the yield even when the
+        // explicit cash holds nothing after settlement.
+        let inverse = solve_bond(&prepared.perpetuity, true, target, bounds, 10.0, |y| {
             prepared.perpetuity_value(y, convention)
         })?;
         record(PerpetualWorkout::Perpetuity, None, inverse)?;
@@ -360,6 +364,12 @@ fn prepare(
     let (resets, held_level) = match (&contract.perpetual().reset, &input.reset_market) {
         (None, None) => (vec![], None),
         (Some(_), Some(market)) => {
+            if market.fixing.valuation_date != c.reference_date {
+                return Err(invalid(
+                    "perpetual.reset_market",
+                    "fixings read as of the quote's information date",
+                ));
+            }
             // The tail follows the last reset fixed by the valuation date: every later one
             // holds the current level.
             if let Some(first_held) = contract
