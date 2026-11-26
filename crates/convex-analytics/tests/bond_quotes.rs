@@ -813,6 +813,50 @@ mod benchmark_tenor {
     }
 
     #[test]
+    fn a_workout_reads_the_yield_at_its_call_date() {
+        let (curve, bond) = (treasuries(), regular());
+        let call = "2027-01-15";
+        close(
+            read(&curve, BenchmarkTenor::Workout(date(call)), &bond),
+            interpolated(years_to(call)),
+            1e-12,
+            0.0,
+            "workout",
+        );
+        // A yield to maturity is not read against a workout's benchmark.
+        let curves = BondCurves {
+            government: Some(GSpreadBenchmark {
+                curve: &curve,
+                tenor: BenchmarkTenor::Workout(date(call)),
+            }),
+            ..Default::default()
+        };
+        let mark = Mark::from_str("50 G@USD.TSY").unwrap();
+        assert!(
+            price_from_level(&bond, settlement(), &mark, Frequency::SemiAnnual, &curves).is_err()
+        );
+        let price = Mark::from_str("99.5").unwrap();
+        let quote = quote_fixed(
+            &bond,
+            settlement(),
+            &price,
+            Frequency::SemiAnnual,
+            curves,
+            1.0,
+            &[],
+        )
+        .unwrap();
+        assert!(quote.g_spread_bps.is_none());
+        // A workout on or before settlement has no tenor.
+        let refused = GSpreadBenchmark {
+            curve: &curve,
+            tenor: BenchmarkTenor::Workout(settlement()),
+        }
+        .benchmark_yield(&bond, settlement());
+        assert!(matches!(refused, Err(AnalyticsError::InvalidInput(_))));
+    }
+
+    #[test]
     fn an_average_life_from_another_settlement_is_refused() {
         let (curve, bond) = (treasuries(), sinker());
         let life = bond.average_life(date("2025-01-16")).unwrap();

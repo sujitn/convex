@@ -82,6 +82,48 @@ pub struct WorkoutSolveSettings {
     /// Positive ceiling on reserved individual cash discount evaluations.
     pub max_cash_evaluations: u64,
 }
+impl WorkoutSolveSettings {
+    pub(super) fn check_budgets(&self) -> WorkflowResult<()> {
+        if self.max_dates == 0
+            || self.max_dates > MAX_WORKOUT_DATES
+            || self.max_cash_evaluations == 0
+            || self.max_cash_evaluations > MAX_WORKOUT_CASH_EVALUATIONS
+        {
+            return Err(invalid(
+                "workout.settings",
+                "positive bounded contractual-date and cash-evaluation budgets required",
+            ));
+        }
+        Ok(())
+    }
+    /// The cash discount evaluations `paths` inverses may take over at most `cash` cash
+    /// flows each, reserved before any is solved.
+    pub(super) fn reserve_cash_evaluations(
+        &self,
+        paths: usize,
+        cash: usize,
+    ) -> WorkflowResult<u64> {
+        let reserved = (paths as u64)
+            .checked_mul(cash as u64 + 2)
+            .and_then(|n| n.checked_mul(u64::from(self.inverse.max_iterations) + 8))
+            .ok_or(CashflowError::BoundExceeded("workout cash evaluations"))?;
+        if reserved > self.max_cash_evaluations {
+            return Err(CashflowError::BoundExceeded("workout cash evaluations").into());
+        }
+        Ok(reserved)
+    }
+}
+/// Add the cash discount evaluations an inverse took to `total`.
+pub(super) fn charge_cash_evaluations(
+    total: &mut u64,
+    inverse: &BondInverse,
+) -> WorkflowResult<()> {
+    *total = (inverse.valuation.cash.cashflows()?.len() as u64)
+        .checked_mul(inverse.price_evaluations as u64)
+        .and_then(|n| total.checked_add(n))
+        .ok_or(CashflowError::BoundExceeded("workout cash evaluations"))?;
+    Ok(())
+}
 /// Original exercise economics; complete scheduled source cash is retained once.
 #[derive(Debug, Clone, Serialize)]
 pub struct WorkoutCashDetails {
@@ -144,9 +186,19 @@ pub struct WorkoutInputs<'a> {
     pub purchase_calendar: (&'a CalendarId, &'a dyn Calendar),
 }
 pub(super) fn purchase(input: &WorkoutInputs<'_>) -> WorkflowResult<()> {
-    let t = input.contract.terms();
-    let c = input.context;
-    if input.purchase_calendar.0 != &t.calendars.payment
+    check_purchase(
+        input.contract.terms(),
+        input.context,
+        input.purchase_calendar,
+    )
+}
+/// The trade settles at the settlement date under the bond's own lag and calendar.
+pub(super) fn check_purchase(
+    t: &BondTerms,
+    c: &WorkoutContext,
+    (calendar_id, calendar): (&CalendarId, &dyn Calendar),
+) -> WorkflowResult<()> {
+    if calendar_id != &t.calendars.payment
         || c.trade_date < t.issue_date
         || c.trade_date > c.settlement
         || !(1..=9999).contains(&c.trade_date.year())
@@ -160,7 +212,7 @@ pub(super) fn purchase(input: &WorkoutInputs<'_>) -> WorkflowResult<()> {
         c.trade_date,
         t.settlement_lag,
         t.settlement_adjustment,
-        input.purchase_calendar.1,
+        calendar,
     )?;
     if expected != c.settlement {
         return Err(invalid(
@@ -171,12 +223,25 @@ pub(super) fn purchase(input: &WorkoutInputs<'_>) -> WorkflowResult<()> {
     Ok(())
 }
 pub(super) fn context(contract: &BondContract, c: &WorkoutContext) -> WorkflowResult<()> {
+    if c.settlement >= contract.terms().schedule.end_date {
+        return Err(invalid(
+            "workout.context",
+            "purchase settlement before contractual maturity required",
+        ));
+    }
+    check_information(contract.terms(), c)
+}
+/// The information date lies between issue and settlement, and the notice facts or
+/// policy are known at it.
+pub(super) fn check_information(t: &BondTerms, c: &WorkoutContext) -> WorkflowResult<()> {
     if !(1..=9999).contains(&c.reference_date.year())
-        || c.reference_date < contract.terms().issue_date
+        || c.reference_date < t.issue_date
         || c.reference_date > c.settlement
-        || c.settlement >= contract.terms().schedule.end_date
     {
-        return Err(invalid("workout.context", "valid information date between issue and future purchase settlement, with live contractual maturity required"));
+        return Err(invalid(
+            "workout.context",
+            "information date between issue and purchase settlement required",
+        ));
     }
     match c.notice {
         WorkoutNotice::Unnotified { earliest_notice } => {
@@ -188,7 +253,7 @@ pub(super) fn context(contract: &BondContract, c: &WorkoutContext) -> WorkflowRe
             }
         }
         WorkoutNotice::Notified { notice_date, .. } => {
-            if notice_date < contract.terms().issue_date || notice_date > c.reference_date {
+            if notice_date < t.issue_date || notice_date > c.reference_date {
                 return Err(invalid(
                     "workout.notice",
                     "supplied actual notice must be known at information date and after issue",
@@ -411,26 +476,10 @@ pub fn quote_workout_worst(
         ..
     } = input;
     context(contract, c)?;
-    if settings.max_dates == 0
-        || settings.max_dates > MAX_WORKOUT_DATES
-        || settings.max_cash_evaluations == 0
-        || settings.max_cash_evaluations > MAX_WORKOUT_CASH_EVALUATIONS
-    {
-        return Err(invalid(
-            "workout.settings",
-            "positive bounded contractual-date and cash-evaluation budgets required",
-        ));
-    }
+    settings.check_budgets()?;
     let (choices, examined, forced) = eligible_workout_paths(input, settings.max_dates)?;
     let original = contract.fixed_projection(c.settlement, c.on_payment)?;
-    let max_cash = original.cashflows()?.len() as u64 + 2;
-    let reserved = (choices.len() as u64)
-        .checked_mul(max_cash)
-        .and_then(|n| n.checked_mul(u64::from(settings.inverse.max_iterations) + 8))
-        .ok_or(CashflowError::BoundExceeded("workout cash evaluations"))?;
-    if reserved > settings.max_cash_evaluations {
-        return Err(CashflowError::BoundExceeded("workout cash evaluations").into());
-    }
+    let reserved = settings.reserve_cash_evaluations(choices.len(), original.cashflows()?.len())?;
     let mut quotes = Vec::with_capacity(choices.len());
     let mut selected: Option<WorkoutQuotation> = None;
     let mut selected_index = 0;
@@ -445,13 +494,7 @@ pub fn quote_workout_worst(
         evaluations = evaluations
             .checked_add(inverse.price_evaluations)
             .ok_or(CashflowError::BoundExceeded("workout evaluations"))?;
-        cash_evaluations = cash_evaluations
-            .checked_add(
-                (inverse.valuation.cash.cashflows()?.len() as u64)
-                    .checked_mul(inverse.price_evaluations as u64)
-                    .ok_or(CashflowError::BoundExceeded("workout cash evaluations"))?,
-            )
-            .ok_or(CashflowError::BoundExceeded("workout cash evaluations"))?;
+        charge_cash_evaluations(&mut cash_evaluations, inverse)?;
         quotes.push(WorkoutYieldSummary {
             selection: choice.clone(),
             exercise: q.exercise.clone(),

@@ -7,6 +7,7 @@
 
 mod average_life;
 mod exercise;
+mod perpetual;
 mod projection;
 mod terms;
 mod workout;
@@ -14,6 +15,9 @@ mod workout;
 pub use average_life::AverageLife;
 pub(crate) use exercise::{call_terms, put_terms};
 pub use exercise::{ExerciseAccrued, ExerciseDates, ExerciseRight, ExerciseStyle, ExerciseTerms};
+pub use perpetual::{
+    BondRedemption, CouponReset, PerpetualCall, PerpetualContract, PerpetualTerms, ResetDates,
+};
 pub use projection::{
     BondProjection, BondProjectionContext, BondProjectionPolicy, CouponProjection,
     OvernightAccrualCutoff, ProjectionRequest,
@@ -95,6 +99,12 @@ pub struct BondContract {
 
 impl BondContract {
     fn new(terms: BondTerms, calendars: &BondCalendars<'_>) -> Result<Self, BondContractError> {
+        if !terms.redemption.is_dated() {
+            return Err(invalid(
+                "redemption",
+                "a perpetual builds through `build_perpetual`",
+            ));
+        }
         if terms.schema_version != 1
             || !(1..=9999).contains(&terms.issue_date.year())
             || terms.issue_date >= terms.schedule.end_date

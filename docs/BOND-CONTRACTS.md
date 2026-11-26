@@ -26,7 +26,7 @@ contracts have not been independently validated against a vendor system.
 
 ## Construction and reconstruction
 
-`BondTerms` is the full version-1 economic input, also reexported by
+`BondTerms` is the full economic input, version 1, or 2 for a perpetual, also reexported by
 `convex_analytics::dto`. It retains issue versus dated dates, anchored coupon
 schedule/stubs/references, independent date rules, calendar identities,
 settlement, all four independently dated profiles, term resets or overnight
@@ -204,6 +204,59 @@ Not yet covered: general caps/floors, American, make-whole, triggered and
 overnight option models. The supplied contracts are engineering checks, not
 independent quantitative or market certification, and model, market and
 production sign-off is still pending.
+
+## Perpetuals
+
+A perpetual is `BondTerms` version 2 with `redemption` set to `perpetual`.
+A dated bond omits `redemption`, so version 1 documents read and write as
+before. A perpetual's schedule ends on its first call. After it, coupon
+periods, calls and resets recur on the regular coupon grid for ever:
+
+- `call`: the interval in months between call dates, the price per 100, the
+  notice offset, the settlement lag and adjustment, and the accrued treatment;
+- `reset` (optional): the benchmark id, the margin over it, the first reset
+  (a coupon date on or after the first call), the interval in months and the
+  fixing offset on the reset calendar.
+
+`build` refuses a perpetual; `build_perpetual` returns a `PerpetualContract`.
+No `BondContract` ends on a first call, so nothing that reads a contract's
+schedule end takes it for a maturity. Admission takes 30/360 US or 30E/360 only
+(the tail below counts each period as 1/f year) and a fixed positive coupon,
+and refuses a floating coupon, a step-up, a spread or gearing, amortization,
+an exercise list, principal prices, a redemption multiplier other than 1, a
+back stub and intervals that are not whole coupon periods. Coupon dates roll by
+whole months from the first call, so its day must be one every month has (the
+28th at the latest), or month end with `end_of_month`. Write-down and
+conversion triggers, coupon cancellation, American and make-whole calls have
+no terms here.
+
+`PerpetualContract::dated_through(end, last_call, benchmark_rates, calendars)`
+composes the dated bond that pays as the perpetual does through a regular
+coupon date after the first call. Its coupon steps at each reset to the
+benchmark rate you pass for it plus the margin, and it is callable on each call
+date before `end`, through `last_call`. Its par redemption
+on `end` is not the perpetual's cash: it composes a call's cash and the
+coupons up to `end`.
+
+`convex_analytics::workflow::quote_perpetual_worst` and
+`quote_perpetual_price_to_worst` quote every call date after settlement up to
+your horizon, and the perpetuity, under a dated 30/360 US or 30E/360 yield
+compounded at any frequency (not simple). The calls follow the dated workouts'
+paths and notice rules, and the calendars must be bound to the contract's own
+calendar identities. The worst is the lowest yield, or
+the lowest price. The perpetuity pays every coupon to its tail start on its
+payment date, then the coupon in force for ever: with `d` one period's
+discount at the yield, the tail is `C·d/(1−d)` at the tail start. The tail
+starts at the first regular coupon date on or after the first call that ends
+settlement's period, and at the first reset fixed after the valuation date or
+later. It has no price at
+a yield of zero or below and is then left out. Reset fixings are read from a
+`FixingSeries` as a floating coupon's are, and a missing published fixing is
+refused. Every later reset holds the benchmark level you pass, and the result
+carries that level, each reset's origin and the tail. A notice already given
+forces its call alone. The fixtures come from
+`tests/scripts/perpetual_quote_reference.py`, which sums the tail term by
+term in 60-digit `Decimal`.
 
 ## Bounds and coverage
 

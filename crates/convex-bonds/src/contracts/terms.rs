@@ -14,7 +14,7 @@ use convex_core::{
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use super::{BondContract, BondContractError, ExerciseTerms};
+use super::{BondContract, BondContractError, BondRedemption, ExerciseTerms, PerpetualContract};
 use crate::types::CalendarId;
 
 /// Independently dated absolute principal and annualized decimal components.
@@ -199,7 +199,7 @@ pub struct PrincipalPrice {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct BondTerms {
-    /// Exact supported economic schema version (1).
+    /// Exact supported economic schema version: 1 for a dated bond, 2 for a perpetual.
     pub schema_version: u32,
     /// Contract currency; numerical cash is absolute in this currency.
     pub currency: Currency,
@@ -247,22 +247,52 @@ pub struct BondTerms {
     pub ex_coupon_accrual: ExCouponAccrual,
     /// Call and put terms, including notice and settlement, if contracted.
     pub exercise: Vec<ExerciseTerms>,
+    /// Redemption on the schedule's end date, its maturity, or never for a perpetual.
+    /// Omitted when dated, so a version 1 document reads and writes unchanged.
+    #[serde(default, skip_serializing_if = "BondRedemption::is_dated")]
+    pub redemption: BondRedemption,
 }
 
 impl BondTerms {
     /// Construct with checked compiled calendar identifiers. Unknown calendars
-    /// fail; custom/versioned calendars use `build_with_calendars`.
+    /// fail; custom/versioned calendars use `build_with_calendars`. A perpetual is
+    /// refused: it builds through `build_perpetual`.
     pub fn build(self) -> Result<BondContract, BondContractError> {
+        self.with_compiled_calendars(|terms, calendars| terms.build_with_calendars(calendars))
+    }
+
+    /// Construct a perpetual with checked compiled calendar identifiers.
+    pub fn build_perpetual(self) -> Result<PerpetualContract, BondContractError> {
+        self.with_compiled_calendars(|terms, calendars| {
+            terms.build_perpetual_with_calendars(calendars)
+        })
+    }
+
+    /// Construct a perpetual from actual resolved calendars.
+    pub fn build_perpetual_with_calendars(
+        self,
+        calendars: &BondCalendars<'_>,
+    ) -> Result<PerpetualContract, BondContractError> {
+        PerpetualContract::new(self, calendars)
+    }
+
+    fn with_compiled_calendars<T>(
+        self,
+        build: impl FnOnce(Self, &BondCalendars<'_>) -> Result<T, BondContractError>,
+    ) -> Result<T, BondContractError> {
         let payment = self.calendars.payment.try_to_calendar()?;
         let reset = self.calendars.reset.try_to_calendar()?;
         let observation = self.calendars.observation.try_to_calendar()?;
         let exercise = self.calendars.exercise.try_to_calendar()?;
-        self.build_with_calendars(&BondCalendars {
-            payment: payment.as_ref(),
-            reset: reset.as_ref(),
-            observation: observation.as_ref(),
-            exercise: exercise.as_ref(),
-        })
+        build(
+            self,
+            &BondCalendars {
+                payment: payment.as_ref(),
+                reset: reset.as_ref(),
+                observation: observation.as_ref(),
+                exercise: exercise.as_ref(),
+            },
+        )
     }
 
     /// Construct from actual resolved calendars; IDs/versions belong to the

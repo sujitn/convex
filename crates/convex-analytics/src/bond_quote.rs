@@ -76,6 +76,8 @@ pub enum BenchmarkTenor {
     /// Its average life from the same settlement date, in the years of 365 days the
     /// securities' maturities are interpolated on.
     AverageLife(AverageLife),
+    /// A workout's date: the call date a yield to that call is quoted to.
+    Workout(Date),
 }
 
 /// The government securities a G-spread is over, read at one tenor, so a level priced
@@ -95,7 +97,8 @@ impl GSpreadBenchmark<'_> {
     /// # Errors
     ///
     /// A foreign currency; a bond with no maturity, for [`BenchmarkTenor::Maturity`]; an
-    /// average life measured from another settlement date; and the curve's own refusals.
+    /// average life measured from another settlement date; a workout on or before
+    /// settlement; and the curve's own refusals.
     pub fn benchmark_yield(&self, bond: &dyn Bond, settlement: Date) -> AnalyticsResult<Yield> {
         if self.curve.sovereign().currency() != bond.currency() {
             return Err(AnalyticsError::InvalidInput(
@@ -122,7 +125,32 @@ impl GSpreadBenchmark<'_> {
                     })?;
                 self.curve.supplied_yield_in_years(settlement, years)
             }
+            BenchmarkTenor::Workout(date) => {
+                if date <= settlement {
+                    return Err(AnalyticsError::InvalidInput(
+                        "the workout is on or before settlement".into(),
+                    ));
+                }
+                self.curve.supplied_yield(settlement, date)
+            }
         }
+    }
+}
+
+impl GSpreadBenchmark<'_> {
+    // A yield to maturity is read against the benchmark at maturity or average life; a
+    // workout's benchmark pairs only with a yield to that workout.
+    fn yield_to_maturity_benchmark(
+        &self,
+        bond: &dyn Bond,
+        settlement: Date,
+    ) -> AnalyticsResult<Yield> {
+        if matches!(self.tenor, BenchmarkTenor::Workout(_)) {
+            return Err(AnalyticsError::InvalidInput(
+                "a yield to maturity is not read against a workout's benchmark".into(),
+            ));
+        }
+        self.benchmark_yield(bond, settlement)
     }
 }
 
@@ -292,7 +320,7 @@ pub fn price_from_level<B: Bond + FixedCouponBond>(
             let benchmark = curves
                 .government
                 .ok_or_else(|| missing("government benchmarks for G-spread mark"))?
-                .benchmark_yield(bond, settlement)?;
+                .yield_to_maturity_benchmark(bond, settlement)?;
             let value = benchmark
                 .value()
                 .checked_add(value.as_decimal()?)
@@ -381,7 +409,7 @@ pub fn quote_fixed<B: Bond + FixedCouponBond>(
             let government = curves
                 .government
                 .ok_or_else(|| missing("government benchmarks"))?;
-            let benchmark = government.benchmark_yield(bond, settlement)?;
+            let benchmark = government.yield_to_maturity_benchmark(bond, settlement)?;
             finite(
                 GSpreadCalculator::new(government.curve)
                     .with_benchmark(crate::spreads::BenchmarkSpec::ExplicitYield(benchmark))

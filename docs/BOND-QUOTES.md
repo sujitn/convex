@@ -130,8 +130,11 @@ calibration or model.
 
 A G-spread reads the securities at the tenor `BondCurves.government` names with
 them, a `GSpreadBenchmark`: `BenchmarkTenor::Maturity` (the bond's contractual
-maturity) or `AverageLife(average_life)` (a sinker's average life, on the same
-ACT/365F axis). Nothing infers the tenor from the bond. `price_from_level` and
+maturity), `AverageLife(average_life)` (a sinker's average life, on the same
+ACT/365F axis) or `Workout(date)` (the call date a yield is quoted to; one on
+or before settlement is refused). Nothing infers the tenor from the bond.
+`price_from_level` and `quote_fixed` quote a yield to maturity, so they refuse
+a `Workout` tenor. `price_from_level` and
 `quote_fixed` read the same benchmark yield, so a level priced from a G-spread
 quotes back as that G-spread. An average life measured from another settlement
 date is refused.

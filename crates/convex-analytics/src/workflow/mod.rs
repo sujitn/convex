@@ -16,6 +16,7 @@ mod icma_workout;
 mod inputs;
 mod inverse;
 mod optional_hedge;
+mod perpetual;
 mod reconciliation;
 mod scenario;
 mod valuation;
@@ -34,6 +35,7 @@ pub use icma_workout::*;
 pub use inputs::*;
 pub use inverse::*;
 pub use optional_hedge::*;
+pub use perpetual::*;
 pub use reconciliation::*;
 pub use scenario::*;
 pub use valuation::*;
@@ -141,6 +143,14 @@ fn finite(value: f64, field: &'static str) -> WorkflowResult<f64> {
     } else {
         Err(invalid(field, "nonfinite result"))
     }
+}
+/// A nonzero `Decimal` that converts to zero, or one beyond a binary64, is refused.
+fn decimal_to_f64(value: rust_decimal::Decimal, field: &'static str) -> WorkflowResult<f64> {
+    use rust_decimal::prelude::ToPrimitive;
+    value
+        .to_f64()
+        .filter(|n| n.is_finite() && (value.is_zero() || *n != 0.0))
+        .ok_or_else(|| invalid(field, "Decimal conversion overflow/underflow"))
 }
 impl From<CashflowError> for WorkflowError {
     fn from(e: CashflowError) -> Self {

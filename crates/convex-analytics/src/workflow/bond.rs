@@ -11,7 +11,7 @@ use convex_curves::contracts::{
     discount_from_rate, year_fraction, BuiltCurve, CurvePoint, CurveQuery, CurveRole,
 };
 use convex_math::portable;
-use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 /// Explicit dated-cash yield convention. This is not an inferred Street yield.
@@ -206,11 +206,7 @@ impl PreparedBondCash {
         mut discount: impl FnMut(Date) -> WorkflowResult<f64>,
         basis: BondValueBasis,
     ) -> WorkflowResult<BondValue> {
-        let number = |v: Decimal| {
-            v.to_f64()
-                .filter(|n| n.is_finite() && (v.is_zero() || *n != 0.0))
-                .ok_or_else(|| invalid("cash", "Decimal conversion overflow/underflow"))
-        };
+        let number = |v: Decimal| decimal_to_f64(v, "cash");
         let mut pv = 0.0;
         for cash in self.projection.cashflows()? {
             let df = discount(cash.date)?;

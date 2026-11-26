@@ -158,7 +158,9 @@ impl FixedRateBond {
     pub fn contract_terms(
         &self,
     ) -> Result<crate::contracts::BondTerms, crate::contracts::BondContractError> {
-        use crate::contracts::{BondCalendarIds, BondCoupon, BondProfiles, BondTerms};
+        use crate::contracts::{
+            BondCalendarIds, BondCoupon, BondProfiles, BondRedemption, BondTerms,
+        };
         use convex_core::cashflows::{
             CashRounding, CouponPrincipal, DateOffset, DateRules, ExCouponAccrual,
             ExCouponBoundary, ExCouponRule, ExDateAnchor, NegativeCouponPolicy, ScheduleSpec,
@@ -228,6 +230,7 @@ impl FixedRateBond {
             negative_coupons: NegativeCouponPolicy::Allow,
             ex_coupon_accrual: ExCouponAccrual::SubtractCoupon,
             exercise: vec![],
+            redemption: BondRedemption::Dated,
         })
     }
 
