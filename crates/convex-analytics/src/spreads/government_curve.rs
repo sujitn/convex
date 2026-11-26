@@ -325,8 +325,7 @@ impl GovernmentCurve {
                 points.iter().map(|p| p.1).collect(),
             )
             .map_err(|_| invalid())?
-            .with_extrapolation()
-            .interpolate(time)
+            .interpolate(time.clamp(points[0].0, points[points.len() - 1].0))
             .map_err(|_| invalid())?
         };
         let value = Decimal::from_f64_retain(value).ok_or_else(invalid)?;

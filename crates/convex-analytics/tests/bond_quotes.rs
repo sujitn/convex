@@ -767,6 +767,36 @@ mod benchmark_tenor {
     }
 
     #[test]
+    fn beyond_the_shortest_and_longest_securities_the_yield_is_flat() {
+        let curve = treasuries();
+        for (maturity, flat) in [("2025-07-15", 0.03), ("2035-01-15", 0.05)] {
+            let supplied = curve.supplied_yield(settlement(), date(maturity)).unwrap();
+            close(
+                supplied.value().to_f64().unwrap(),
+                flat,
+                1e-12,
+                0.0,
+                maturity,
+            );
+        }
+        // Nine tenths of the face sinks in six months: an average life inside a year.
+        let bond = SinkingFundBond::new(
+            regular(),
+            SinkingFundSchedule::new()
+                .with_payment(SinkingFundPayment::new(date("2025-07-15"), 90.0)),
+        );
+        let life = average_life(&bond);
+        assert!(life.years() < Decimal::ONE);
+        close(
+            read(&curve, BenchmarkTenor::AverageLife(life), &bond),
+            0.03,
+            1e-12,
+            0.0,
+            "average life",
+        );
+    }
+
+    #[test]
     fn a_bullets_average_life_reads_the_yield_its_maturity_does() {
         let (curve, bond) = (treasuries(), regular());
         let life = bond

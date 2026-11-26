@@ -318,7 +318,7 @@ impl BondContract {
         )
     }
 
-    fn check_settlement(&self, settlement: Date) -> Result<(), BondContractError> {
+    pub(super) fn check_settlement(&self, settlement: Date) -> Result<(), BondContractError> {
         if !(1..=9999).contains(&settlement.year()) || settlement < self.terms.issue_date {
             return Err(invalid("settlement", "invalid date or before issue"));
         }

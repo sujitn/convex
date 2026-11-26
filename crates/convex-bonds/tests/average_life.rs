@@ -122,3 +122,18 @@ fn no_principal_outstanding_is_refused() {
         }
     }
 }
+
+#[test]
+fn a_settlement_after_accrual_starts_but_before_issue_is_refused() {
+    let fixture = fixture();
+    let case = fixture.cases.iter().find(|c| c.name == "bullet").unwrap();
+    let mut terms = bullet(case).contract_terms().unwrap();
+    // Accrual starts on 15 June 2019; the bond is issued two weeks later.
+    terms.issue_date = d("2019-07-01");
+    match terms.build().unwrap().average_life(d("2019-06-20")) {
+        Err(BondContractError::Cashflow(CashflowError::InvalidTerms { field, .. })) => {
+            assert_eq!(field, "settlement");
+        }
+        other => panic!("{other:?}"),
+    }
+}

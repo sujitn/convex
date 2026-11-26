@@ -49,10 +49,11 @@ impl BondContract {
     ///
     /// # Errors
     ///
-    /// An invalid-terms error when no principal is outstanding after `settlement` (before
-    /// issue, or at or after the final redemption), or when an amount exceeds what the
-    /// exact sums hold.
+    /// An invalid-terms error when `settlement` is before issue, when no principal is
+    /// outstanding after it (at or after the final redemption), or when an amount exceeds
+    /// what the exact sums hold.
     pub fn average_life(&self, settlement: Date) -> Result<AverageLife, BondContractError> {
+        self.check_settlement(settlement)?;
         let outstanding = self.outstanding_principal(settlement, BoundarySide::After)?;
         if outstanding <= Decimal::ZERO {
             return Err(invalid(

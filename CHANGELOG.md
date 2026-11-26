@@ -186,8 +186,8 @@ the changes that matter when you upgrade.
   `AverageLife` in years of 365 days. Each later change in outstanding principal
   is weighted by the face it retires and timed at its contractual date. The
   exact sum is rounded once to a `Decimal`. A sink priced above par retires the
-  same face as one at par. Settling with no principal outstanding (before issue,
-  at or after the final redemption) is refused.
+  same face as one at par. Settling before issue, even after accrual starts, or
+  with no principal outstanding after the final redemption is refused.
 - **Breaking:** the `f64` average life is removed, with no compatibility layer:
   `SinkingFundSchedule::average_life`, `AmortizingBond::weighted_average_life`
   and `SinkingFundBond::yield_to_average_life`. That yield retired the bond at a
@@ -205,6 +205,11 @@ the changes that matter when you upgrade.
   back as that G-spread. An average life is read on the ACT/365F axis the
   securities' maturities are interpolated on, and one measured from another
   settlement date is refused.
+- **Fixed:** a supplied government yield read before the shortest security or
+  after the longest is that security's yield, flat, as documented. It was
+  extrapolated linearly along the end segment, so a G-spread for a bond maturing
+  outside the securities, or one read at an average life inside the shortest,
+  was measured from a yield no security quoted.
 
 - **Breaking:** `hedge_cost_bps` is removed, with its re-exports from `risk`,
   `risk::hedging` and the `convex` facade; use `HeuristicCostFeed.cost_bps`.
@@ -604,7 +609,9 @@ the changes that matter when you upgrade.
 ### convex-engine
 
 - The level stage and the pricing router name the maturity tenor for every
-  G-spread and benchmark spread. Results are unchanged.
+  G-spread and benchmark spread, the reading before this change. Only a bond
+  maturing outside its supplied government securities reads differently, at the
+  nearer security's yield (see convex-analytics).
 - **Book risk from the limit evaluation.** `limits::evaluate_book` evaluates a
   book's limits and gives its risk from the same market values and aggregates:
   market value, gross market value, DV01, CS01, modified duration and key-rate
