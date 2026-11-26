@@ -826,7 +826,7 @@ version = "0.14.0"
 dependencies = [
  "async-trait",
  "axum 0.7.9",
- "base64 0.22.1",
+ "base64 0.23.1",
  "chrono",
  "convex",
  "convex-analytics",
