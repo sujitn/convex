@@ -457,7 +457,7 @@ async fn a_schedule_that_disagrees_with_its_bond_or_a_width_is_refused() {
             Some(serde_json::to_value(&bond).unwrap()),
         )
         .await;
-        assert!(status.is_client_error(), "{status} {refused}");
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
         assert!(
             refused.to_string().contains("sinkable exactly"),
             "{refused}"

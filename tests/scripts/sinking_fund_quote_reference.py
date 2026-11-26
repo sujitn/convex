@@ -3,8 +3,8 @@
 
 One stated bond: 6% semiannual 30/360 US, dated and issued 15 March 2020, coupons 15 March
 and 15 September, unadjusted, maturing 15 March 2032 at par, with five mandatory sinks per
-100 of original face, one above par and one between coupon dates. The rest is redeemed at
-maturity.
+100 of original face: one of a fractional amount at a fractional price above par, and one
+between coupon dates. The rest is redeemed at maturity.
 
 For each settlement, from the stated terms alone:
 - the factor is the face outstanding after any sink on settlement over the original face;
@@ -41,7 +41,7 @@ MATURITY = date(2032, 3, 15)
 REDEMPTION = D('100')
 # Date, face retired per 100 of original face, price per 100 of the face retired.
 SINKS = [('2025-03-15', '10', '100'), ('2026-03-15', '10', '100'),
-         ('2027-03-15', '10', '101'), ('2027-11-13', '10', '100'),
+         ('2027-03-15', '7.3', '100.15'), ('2027-11-13', '10', '100'),
          ('2028-03-15', '20', '100')]
 # Settlement, clean price per 100 current face. 2026-10-06 is the Live runtime's.
 QUOTES = [('2024-06-10', '98.25'), ('2026-03-14', '99.5'), ('2026-03-15', '99.5'),

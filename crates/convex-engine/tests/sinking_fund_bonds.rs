@@ -289,13 +289,22 @@ fn admission_refuses_a_schedule_that_does_not_fit_the_bond() {
         refused(&|bond| sinks(bond).clear()),
         ReferenceError::InvalidInput(reason) if reason.contains("sinkable exactly")
     ));
+    for change in [
+        &(|bond: &mut BondReferenceData| bond.bond_type = BondType::FixedBullet)
+            as &dyn Fn(&mut BondReferenceData),
+        &|bond| bond.is_putable = true,
+    ] {
+        assert!(matches!(
+            refused(change),
+            ReferenceError::InvalidInput(reason) if reason.contains("amortizing fixed-coupon")
+        ));
+    }
     assert!(matches!(
-        refused(&|bond| bond.bond_type = BondType::FixedBullet),
-        ReferenceError::Unsupported(_)
-    ));
-    assert!(matches!(
-        refused(&|bond| bond.is_putable = true),
-        ReferenceError::Unsupported(_)
+        refused(&|bond| {
+            let first = sinks(bond)[0].clone();
+            sinks(bond).resize(convex_engine::ports::reference_master::MAX_SINKS + 1, first);
+        }),
+        ReferenceError::InvalidInput(reason) if reason.contains("1,024")
     ));
     for change in [
         // Not exact in the library's binary schedule.
@@ -310,14 +319,35 @@ fn admission_refuses_a_schedule_that_does_not_fit_the_bond() {
         // 110 retired.
         &|bond| sinks(bond)[4] = sink("2028-03-15", "70"),
         // All the face retired before maturity.
-        &|bond| sinks(bond)[4] = sink("2028-03-15", "60"),
+        &|bond| sinks(bond)[4] = sink("2028-03-15", "62.7"),
     ] {
         assert!(matches!(refused(change), ReferenceError::InvalidInput(_)));
     }
-    // All of it retired by a sink on maturity is a schedule.
+    // Fractional amounts and prices of up to 15 significant digits are held exactly;
+    // 17 are not.
+    for (amount, price) in [
+        ("3.33", "100"),
+        ("14.285714", "100.125"),
+        ("1.23456789012345", "99.9999999999999"),
+    ] {
+        let mut fractional = sinker();
+        sinks(&mut fractional)[0] =
+            serde_json::from_value(json!({"date": "2025-03-15", "amount": amount, "price": price}))
+                .unwrap();
+        validate_bond_reference(&fractional).unwrap();
+    }
+    assert!(matches!(
+        refused(&|bond| sinks(bond)[0] = sink("2025-03-15", "1.2345678901234567")),
+        ReferenceError::InvalidInput(_)
+    ));
+    // All of it retired by a sink on maturity is a schedule, and is priced: its last sink
+    // retires the rest at its own price.
     let mut on_maturity = sinker();
-    sinks(&mut on_maturity).push(sink("2032-03-15", "40"));
+    sinks(&mut on_maturity).push(sink("2032-03-15", "42.7"));
     validate_bond_reference(&on_maturity).unwrap();
+    let settlement = Date::parse("2031-06-10").unwrap();
+    let quote = router_quote(&on_maturity, settlement, "40".parse().unwrap());
+    assert_eq!(quote.factor, Some("0.427".parse().unwrap()));
     // A sinkable flag on a bullet with no schedule is refused, as before it was stored.
     let mut flagged = corporate("FLAGGED", "2030-01-15", "0.05");
     flagged.is_sinkable = true;

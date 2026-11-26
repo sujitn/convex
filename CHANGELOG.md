@@ -803,6 +803,7 @@ the changes that matter when you upgrade.
     by a sink on maturity.
   - Each amount and price must have at most 15 significant digits, so the
     library's binary schedule holds it exactly.
+  - Each refusal is `InvalidInput`, a 400 at the reference routes.
   - `is_mandatory_sinker` names such a bond, and service valuation admits it.
     `BondReferenceData::has_terms_beyond_sinks` lists the terms a sinker may not
     have.

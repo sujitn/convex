@@ -1248,12 +1248,14 @@ fn validate_sinking_schedule(
         return Ok(());
     }
     if !is_mandatory_sinker(bond) {
-        return Err(ReferenceError::Unsupported(
+        return Err(ReferenceError::InvalidInput(
             "a sinking schedule belongs to an amortizing fixed-coupon bond with no calls, puts, floating or inflation terms",
         ));
     }
     if sinks.len() > MAX_SINKS {
-        return Err(ReferenceError::CapacityExceeded);
+        return Err(ReferenceError::InvalidInput(
+            "a sinking schedule holds at most 1,024 sinks",
+        ));
     }
     let mut previous = terms.dated_date.date().max(bond.issue_date);
     let mut retired = Decimal::ZERO;

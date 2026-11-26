@@ -591,6 +591,9 @@ async fn a_sinkers_request_is_quoted_per_current_face_at_its_factor() {
     quote.key.instrument_id = sinker.instrument_id.clone();
     let sinker_key = quote.key.clone();
     plan.assembly.quotes.push(quote);
+    // The staged configuration's runtime asks for the factor, which only a sinker publishes.
+    plan.measures
+        .push(convex_core::contracts::MeasureId::new("factor").unwrap());
     std::fs::write(&path, serde_json::to_vec(&plan).unwrap()).unwrap();
     prepare(
         &database,
@@ -676,6 +679,11 @@ async fn a_sinkers_request_is_quoted_per_current_face_at_its_factor() {
     assert_eq!(
         number(&live["result"]["results"]["clean_price_mid"]["value"]["value"]),
         79.6,
+        "{live}"
+    );
+    assert_eq!(
+        number(&live["result"]["results"]["factor"]["value"]["value"]),
+        0.8,
         "{live}"
     );
     server.stop().await;
