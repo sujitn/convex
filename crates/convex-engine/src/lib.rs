@@ -815,12 +815,13 @@ impl PricingEngine {
     }
 
     /// The calculator's stage at request time: `level`, quoted by `method`, priced mid only
-    /// against `set`, the set the bond's rule names as [`Self::rule_in_force`] read it,
-    /// sharing each benchmark's solved yield as [`Self::price_in_force`] does.
+    /// against the set the bond's rule `in_force` names, as [`Self::rule_in_force`] read
+    /// it, with the G-spread at the rule's tenor basis, sharing each benchmark's solved
+    /// yield as [`Self::price_in_force`] does.
     pub fn price_by_method(
         &self,
         bond: &ports::reference_data::BondReferenceData,
-        set: Option<&level_pricing::BenchmarkSetQuotes>,
+        in_force: Option<&level_pricing::PricingRuleInForce>,
         method: &ports::level_pricing::PricingMethod,
         level: rust_decimal::Decimal,
         settlement: convex_core::Date,
@@ -828,7 +829,7 @@ impl PricingEngine {
     ) -> Result<level_pricing::RulePricing, level_pricing::LevelError> {
         level_pricing::price_by_method(
             bond,
-            set,
+            in_force,
             method,
             level,
             settlement,

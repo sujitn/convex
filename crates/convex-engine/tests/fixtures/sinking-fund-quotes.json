@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "bond": {
+    "coupon_rate": "0.06",
+    "frequency": 2,
+    "day_count": "30/360 US",
+    "business_day_convention": "Unadjusted",
+    "dated_date": "2020-03-15",
+    "issue_date": "2020-03-15",
+    "maturity_date": "2032-03-15",
+    "face_value": "100",
+    "redemption_value": "100",
+    "sinking_schedule": [
+      {
+        "date": "2025-03-15",
+        "amount": "10",
+        "price": "100"
+      },
+      {
+        "date": "2026-03-15",
+        "amount": "10",
+        "price": "100"
+      },
+      {
+        "date": "2027-03-15",
+        "amount": "10",
+        "price": "101"
+      },
+      {
+        "date": "2027-11-13",
+        "amount": "10",
+        "price": "100"
+      },
+      {
+        "date": "2028-03-15",
+        "amount": "20",
+        "price": "100"
+      }
+    ]
+  },
+  "provenance": "Evaluated with Python Decimal at 60 digits from the stated terms, before the server was run against them; no library import or output.",
+  "quotes": [
+    {
+      "settlement": "2024-06-10",
+      "clean_price_per_current_face": "98.25",
+      "factor": "1.00000000000000000000",
+      "clean_price_mid": "98.25000000000000000000",
+      "accrued_interest": "1.41666666666666666667",
+      "ytm_mid": "0.06471818535542925279",
+      "average_life_years": "4.73095890410958904110"
+    },
+    {
+      "settlement": "2026-03-14",
+      "clean_price_per_current_face": "99.5",
+      "factor": "0.90000000000000000000",
+      "clean_price_mid": "89.55000000000000000000",
+      "accrued_interest": "2.68500000000000000000",
+      "ytm_mid": "0.06208633323497270810",
+      "average_life_years": "3.41308980213089802131"
+    },
+    {
+      "settlement": "2026-03-15",
+      "clean_price_per_current_face": "99.5",
+      "factor": "0.80000000000000000000",
+      "clean_price_mid": "79.60000000000000000000",
+      "accrued_interest": "0.00000000000000000000",
+      "ytm_mid": "0.06189577680429155847",
+      "average_life_years": "3.83664383561643835616"
+    },
+    {
+      "settlement": "2026-10-06",
+      "clean_price_per_current_face": "99.5",
+      "factor": "0.80000000000000000000",
+      "clean_price_mid": "79.60000000000000000000",
+      "accrued_interest": "0.28000000000000000000",
+      "ytm_mid": "0.06219675935348565176",
+      "average_life_years": "3.27500000000000000000"
+    },
+    {
+      "settlement": "2027-08-20",
+      "clean_price_per_current_face": "100.75",
+      "factor": "0.70000000000000000000",
+      "clean_price_mid": "70.52500000000000000000",
+      "accrued_interest": "1.80833333333333333333",
+      "ytm_mid": "0.05692690232232566039",
+      "average_life_years": "2.80900195694716242661"
+    },
+    {
+      "settlement": "2027-12-01",
+      "clean_price_per_current_face": "100.1",
+      "factor": "0.60000000000000000000",
+      "clean_price_mid": "60.06000000000000000000",
+      "accrued_interest": "0.85666666666666666667",
+      "ytm_mid": "0.05956115888333679009",
+      "average_life_years": "2.95616438356164383562"
+    }
+  ],
+  "entitled_cash": [
+    {
+      "from": "2026-03-01",
+      "to": "2026-03-20",
+      "cash_per_100": "12.70000000000000000000"
+    },
+    {
+      "from": "2027-08-20",
+      "to": "2027-12-01",
+      "cash_per_100": "12.10000000000000000000"
+    },
+    {
+      "from": "2024-06-10",
+      "to": "2024-06-10",
+      "cash_per_100": "0.00000000000000000000"
+    }
+  ]
+}

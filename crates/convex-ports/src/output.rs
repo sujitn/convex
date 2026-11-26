@@ -36,6 +36,11 @@ pub struct BondQuoteOutput {
     pub clean_price_ask: Option<Decimal>,
     /// Accrued interest
     pub accrued_interest: Option<Decimal>,
+    /// A sinking-fund bond's factor: the fraction of its original face outstanding after
+    /// settlement. Its prices are per 100 original face; a price per 100 current face is
+    /// the price over the factor. Absent for every other bond.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub factor: Option<Decimal>,
 
     // Yields (bid/mid/ask)
     /// Yield to maturity (bid)
@@ -163,6 +168,7 @@ impl BondQuoteOutput {
             clean_price_mid: None,
             clean_price_ask: None,
             accrued_interest: None,
+            factor: None,
             ytm_bid: None,
             ytm_mid: None,
             ytm_ask: None,

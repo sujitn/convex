@@ -289,6 +289,7 @@ fn staged_clean_price(plan: &RuntimePlan, two_year: Decimal, ten_year: Decimal) 
             recorded_at: rule.effective.from,
             method: rule.method,
             benchmark_set_id: rule.benchmark_set_id,
+            tenor_basis: rule.tenor_basis,
         },
         width: None,
         benchmark_set: Some(Arc::new(BenchmarkSetQuotes {

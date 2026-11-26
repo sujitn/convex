@@ -812,7 +812,7 @@ fn risk_measures_publish_the_router_quote_in_explicit_units() {
                 market_price_ask: None,
                 discount_curve: curve(),
                 benchmark_curve: curve(),
-                government_curve: None,
+                g_spread_set: None,
                 volatility: None,
                 bid_ask_config: content.configuration.bid_ask_spread.clone(),
             },

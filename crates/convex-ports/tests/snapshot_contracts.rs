@@ -868,6 +868,7 @@ fn a_manual_level_is_the_desks_mark_in_the_whole_snapshot() {
             recorded_at: fixture::time("2025-01-01T00:00:00Z"),
             method,
             benchmark_set_id: None,
+            tenor_basis: Default::default(),
         });
         MarketSnapshot::new(content).unwrap().quality().quality
     };

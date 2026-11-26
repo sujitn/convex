@@ -930,6 +930,7 @@ fn create_test_quote(id: &str, clean_price: Decimal) -> BondQuoteOutput {
         clean_price_mid: Some(clean_price),
         clean_price_ask: None,
         accrued_interest: Some(dec!(0.50)),
+        factor: None,
         ytm_bid: None,
         ytm_mid: Some(dec!(0.05)),
         ytm_ask: None,

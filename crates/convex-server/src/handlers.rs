@@ -11,12 +11,14 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+use convex_analytics::bond_quote::BenchmarkTenor;
 use convex_analytics::risk::{Duration as AnalyticsDuration, KeyRateDuration, KeyRateDurations};
 use convex_bonds::types::BondIdentifiers;
 use convex_core::Currency;
 use convex_core::Date;
-use convex_engine::level_pricing::BidAsk;
+use convex_engine::level_pricing::{per_original_face, BidAsk};
 use convex_engine::optional_valuation::is_runtime_product;
+use convex_engine::pricing_router::GSpreadSet;
 use convex_engine::{Portfolio, Position, PricingEngine};
 
 use crate::level_pricing::{
@@ -604,10 +606,10 @@ async fn staged_input(
         .zip(pricing.as_ref())
         .map(|(in_force, (quoted, pricing))| pricing_rule_json(in_force, *quoted, pricing));
     let pricing = pricing.map(|(_, pricing)| pricing);
-    let (market_price_mid, government_curve, bid_ask) = match pricing {
+    let (market_price_mid, g_spread_set, bid_ask) = match pricing {
         Some(pricing) => (
             Some(pricing.clean_price_mid),
-            pricing.government_curve,
+            pricing.g_spread_set,
             pricing.bid_ask,
         ),
         None => (None, None, BidAsk::ConfigurationWidth),
@@ -618,7 +620,7 @@ async fn staged_input(
         market_price_mid,
         Some(curves.discount),
         curves.benchmark,
-        government_curve,
+        g_spread_set,
         None,
     );
     bid_ask.apply(&mut input, context.config().bid_ask_spread.as_ref());
@@ -681,6 +683,18 @@ fn invalid_quote_input(error: impl Into<String>) -> axum::response::Response {
         Json(serde_json::json!({"code":"INVALID_INPUT","error":error.into()})),
     )
         .into_response()
+}
+
+/// A price sent with no configuration, as the router values it: a sinking-fund bond's is
+/// sent per 100 current face and valued per 100 original face.
+fn supplied_price(
+    bond: &BondReferenceData,
+    market_price: Option<Decimal>,
+    settlement: Date,
+) -> Result<Option<Decimal>, convex_engine::level_pricing::LevelError> {
+    market_price
+        .map(|price| per_original_face(bond, price, settlement))
+        .transpose()
 }
 
 /// Curves a what-if request supplies, checked against the bond and settlement.
@@ -876,14 +890,22 @@ async fn price_one_bond(
                 Ok(curves) => curves,
                 Err(error) => return invalid_quote_input(error),
             };
+            let market_price =
+                match supplied_price(&request.bond, request.market_price, settlement_date) {
+                    Ok(price) => price,
+                    Err(error) => return invalid_quote_input(error.to_string()),
+                };
             StagedInput {
                 input: PricingInput::with_mid_price(
                     request.bond,
                     settlement_date,
-                    request.market_price,
+                    market_price,
                     discount,
                     swap,
-                    government,
+                    government.map(|curve| GSpreadSet {
+                        curve,
+                        tenor: BenchmarkTenor::Maturity,
+                    }),
                     request.volatility,
                 ),
                 in_force: None,
@@ -1197,19 +1219,29 @@ pub async fn batch_price(
                     }
                 }
             }
-            None => StagedInput {
-                input: PricingInput::with_mid_price(
-                    item.bond,
-                    settlement_date,
-                    item.market_price,
-                    None,
-                    None,
-                    None,
-                    None,
-                ),
-                in_force: None,
-                pricing_rule: None,
-            },
+            None => {
+                let market_price =
+                    match supplied_price(&item.bond, item.market_price, settlement_date) {
+                        Ok(price) => price,
+                        Err(error) => {
+                            outcomes[index] = refused(error.to_string());
+                            continue;
+                        }
+                    };
+                StagedInput {
+                    input: PricingInput::with_mid_price(
+                        item.bond,
+                        settlement_date,
+                        market_price,
+                        None,
+                        None,
+                        None,
+                        None,
+                    ),
+                    in_force: None,
+                    pricing_rule: None,
+                }
+            }
         };
         routed.push((index, staged.input, staged.pricing_rule));
     }

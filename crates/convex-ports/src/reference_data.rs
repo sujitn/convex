@@ -233,6 +233,18 @@ impl BondReferenceData {
             || self.has_deflation_floor
     }
 
+    /// Whether the bond has a call, a put, or floating or inflation terms: anything beyond a
+    /// fixed bond's cash flows and its sinks.
+    pub fn has_terms_beyond_sinks(&self) -> bool {
+        self.is_callable
+            || !self.call_schedule.is_empty()
+            || self.is_putable
+            || self.floating_terms.is_some()
+            || self.inflation_index.is_some()
+            || self.inflation_base_index.is_some()
+            || self.has_deflation_floor
+    }
+
     /// Validate reference identity/dates/face and expose explicit units.
     /// Does not certify schedules, optionality or unsupported product terms.
     pub fn canonical_boundary(

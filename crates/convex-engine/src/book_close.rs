@@ -34,7 +34,7 @@ use crate::ports::book_close::{BookCloseDefinition, PositionValue, UnvaluedReaso
 use crate::ports::output::BondQuoteOutput;
 use crate::ports::reference_data::{BondReferenceData, BondType};
 use crate::ports::reference_master::{
-    is_valued_floating, QuantityUnit, ReferenceLookup, MAX_BOOK_POSITIONS,
+    is_mandatory_sinker, is_valued_floating, QuantityUnit, ReferenceLookup, MAX_BOOK_POSITIONS,
 };
 use crate::pricing_router::PricingRouter;
 
@@ -183,8 +183,9 @@ impl crate::PricingEngine {
     /// owed and one settling at `to` is not: `None` when it cannot be projected. `bond` is
     /// the version's terms.
     ///
-    /// A fixed bullet or callable reads its bullet schedule, and a zero its redemption, as
-    /// the router builds them, so the cash comes from the schedule its accrued reads. A
+    /// A fixed bullet or callable reads its bullet schedule, a sinking-fund bond its sinks
+    /// and its coupons on the face outstanding, and a zero its redemption, as the router
+    /// builds them, so the cash comes from the schedule its accrued reads. A
     /// valued floating rate note reads its contract, built with its pinned calendars and
     /// rate index as its valuation builds it: its cash is not projected when a coupon
     /// falls between the two dates. Any other bond is not projected. Nothing is read or
@@ -261,6 +262,9 @@ fn cash_between(
     match bond.bond_type {
         BondType::FixedBullet | BondType::FixedCallable => projected(
             convex_bonds::cashflows::entitled_cash(&router.to_fixed_rate_bond(bond)?, from, to),
+        ),
+        BondType::Amortizing if is_mandatory_sinker(bond) => projected(
+            convex_bonds::cashflows::entitled_cash(&router.to_sinking_fund_bond(bond)?, from, to),
         ),
         BondType::ZeroCoupon => projected(convex_bonds::cashflows::entitled_cash(
             &router.to_zero_coupon_bond(bond)?,
@@ -544,5 +548,32 @@ mod tests {
             cash_between(&amortizing, None, date("2026-10-06"), date("2027-01-19")).unwrap(),
             None
         );
+    }
+
+    /// A sinking-fund bond's cash between two settlement dates is each coupon on the face
+    /// then outstanding and each sink at its price, per 100 original face, as the
+    /// independent reference states it (`tests/scripts/sinking_fund_quote_reference.py`).
+    #[test]
+    fn a_sinkers_entitled_cash_counts_its_sinks() {
+        let pack: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/sinking-fund-quotes.json"))
+                .unwrap();
+        let text = |value: &serde_json::Value| value.as_str().unwrap().to_owned();
+        let sinker = crate::products::sinker(bond());
+        for case in pack["entitled_cash"].as_array().unwrap() {
+            let cash = cash_between(
+                &sinker,
+                None,
+                date(&text(&case["from"])),
+                date(&text(&case["to"])),
+            )
+            .unwrap()
+            .unwrap();
+            let expected: Decimal = text(&case["cash_per_100"]).parse().unwrap();
+            assert!(
+                (cash - expected).abs() < dec!(0.000000000001),
+                "{case}: {cash}"
+            );
+        }
     }
 }

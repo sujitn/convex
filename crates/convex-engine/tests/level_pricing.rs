@@ -266,7 +266,7 @@ fn the_calculator_prices_any_method_mid_only() {
     ];
     let yields = BenchmarkYieldCache::default();
     let rule = rule_in_force(json!({"kind": "price"}), &notes);
-    let set = rule.benchmark_set.as_deref();
+    let set = Some(&rule);
     let calculate = |bond: &BondReferenceData, set, method: serde_json::Value, level| {
         let method: PricingMethod = serde_json::from_value(method).unwrap();
         price_by_method(
@@ -306,7 +306,7 @@ fn the_calculator_prices_any_method_mid_only() {
             "{method}"
         );
         assert_eq!(calculated.bid_ask, BidAsk::MidOnly, "{method}");
-        assert!(calculated.government_curve.is_some(), "{method}");
+        assert!(calculated.g_spread_set.is_some(), "{method}");
         assert_eq!(
             calculated.benchmark.map(|b| b.instrument_id),
             quoted.benchmark.map(|b| b.instrument_id),
@@ -324,7 +324,7 @@ fn the_calculator_prices_any_method_mid_only() {
         no_rule.clean_price_mid,
         under_rule(json!({"kind": "yield"}), dec!(0.0612)).clean_price_mid
     );
-    assert!(no_rule.government_curve.is_none());
+    assert!(no_rule.g_spread_set.is_none());
     let by_price = calculate(&corporate, None, json!({"kind": "price"}), dec!(98)).unwrap();
     assert_eq!(by_price.bid_ask, BidAsk::MidOnly);
 
@@ -346,7 +346,7 @@ fn the_calculator_prices_any_method_mid_only() {
         (
             &zero,
             json!({"kind": "yield"}),
-            "only a fixed bullet is priced from a level or against a benchmark set",
+            "only a fixed bullet or a sinking-fund bond is priced from a level or against a benchmark set",
         ),
     ] {
         let refused = calculate(bond, None, method, dec!(0.05)).err();

@@ -1,5 +1,5 @@
-//! Fictional callable and floating rate note terms built on a supplied fixture bond, with
-//! the resources, published fixings and projection recipe a floating note needs.
+//! Fictional callable, floating rate note and sinking-fund terms built on a supplied fixture
+//! bond, with the resources, published fixings and projection recipe a floating note needs.
 #![allow(dead_code)] // Suites use different subsets of these constructors.
 use convex_core::{
     calendars::{Calendar, SIFMACalendar},
@@ -129,7 +129,38 @@ pub fn frn(mut bond: BondReferenceData) -> BondReferenceData {
     bond
 }
 
-/// The note's ACT/360 convention pack; overnight compounding accrues on ACT/360 or ACT/365F.
+/// `bond` as the sinking-fund bond of the independent reference
+/// `tests/scripts/sinking_fund_quote_reference.py`: 6% semiannual 30/360 US, unadjusted,
+/// from 15 March 2020 to 15 March 2032, with its five mandatory sinks, under a convention
+/// pack of its own ([`convention`]).
+pub fn sinker(mut bond: BondReferenceData) -> BondReferenceData {
+    let pack: serde_json::Value =
+        serde_json::from_str(include_str!("../fixtures/sinking-fund-quotes.json")).unwrap();
+    let stated = &pack["bond"];
+    let text = |field: &str| stated[field].as_str().unwrap();
+    bond.bond_type = BondType::Amortizing;
+    bond.is_sinkable = true;
+    bond.issue_date = Date::parse(text("issue_date")).unwrap();
+    bond.maturity_date = Date::parse(text("maturity_date")).unwrap();
+    bond.coupon_rate = Some(text("coupon_rate").parse().unwrap());
+    bond.day_count = text("day_count").into();
+    bond.face_value = text("face_value").parse().unwrap();
+    bond.first_coupon_date = None;
+    let terms = bond.contractual_terms.as_mut().unwrap();
+    terms.dated_date = BusinessDate::parse(text("dated_date")).unwrap();
+    terms.stub = convex_ports::reference_master::BondStub::None;
+    terms.redemption_value = ExactDecimal::parse(text("redemption_value")).unwrap();
+    terms.settings.day_count = convex_core::daycounts::DayCountConvention::Thirty360US;
+    terms.settings.business_day_convention =
+        convex_core::calendars::BusinessDayConvention::Unadjusted;
+    terms.settings.end_of_month = false;
+    terms.convention.id = ReferenceDataId::new("fixture-convention-sinker").unwrap();
+    terms.sinking_schedule = serde_json::from_value(stated["sinking_schedule"].clone()).unwrap();
+    bond
+}
+
+/// The bond's own convention pack: the note's ACT/360, or the sinker's 30/360 US
+/// unadjusted. Overnight compounding accrues on ACT/360 or ACT/365F.
 pub fn convention(bond: &BondReferenceData) -> MasterChange {
     let terms = bond.contractual_terms.as_ref().unwrap();
     MasterChange {

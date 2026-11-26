@@ -180,6 +180,30 @@ pub struct BondContractTerms {
     /// Coupon mechanics of a floating rate note; an FRN is valued only with them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub floating_mechanics: Option<FloatingMechanics>,
+    /// A sinking-fund bond's mandatory sinks, in date order; empty for every other bond.
+    /// A bond is sinkable exactly when it has some.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sinking_schedule: Vec<ScheduledSink>,
+}
+
+/// The most sinks a sinking-fund schedule holds.
+pub const MAX_SINKS: usize = 1_024;
+
+/// One mandatory sink: the original face it retires on its date, and the price paid.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ScheduledSink {
+    /// The contractual date the face is retired.
+    pub date: BusinessDate,
+    /// Face retired, per 100 of original face.
+    pub amount: ExactDecimal,
+    /// Price paid, per 100 of the face retired; par when omitted.
+    #[serde(default = "par")]
+    pub price: ExactDecimal,
+}
+
+fn par() -> ExactDecimal {
+    ExactDecimal::new(rust_decimal::Decimal::ONE_HUNDRED)
 }
 
 /// How a scheduled call may be exercised.
@@ -1150,7 +1174,8 @@ pub fn validate_valuation_terms(bond: &BondReferenceData) -> Result<(), Referenc
             "unsupported reference pricing frequency",
         ));
     }
-    if bond.bond_type == BondType::FixedBullet {
+    validate_sinking_schedule(bond, terms)?;
+    if bond.bond_type == BondType::FixedBullet || bond.is_sinkable {
         validate_bullet_boundaries(bond, terms)?;
     }
     if let Some(call) = &terms.call_terms {
@@ -1200,6 +1225,87 @@ fn validate_call_terms(
         ));
     }
     Ok(())
+}
+
+/// A sinking schedule exists exactly when the bond is sinkable, and only on an amortizing
+/// fixed-coupon bond with no other embedded terms. Its sinks fall on increasing dates after
+/// issue and accrual start and no later than maturity. Each retires a positive face at a
+/// price above zero and at most 1,000. Together they retire at most the original face, and
+/// all of it only when the last sink is on maturity. Each amount and price has at most 15
+/// significant digits, so the library's binary schedule holds it exactly.
+fn validate_sinking_schedule(
+    bond: &BondReferenceData,
+    terms: &BondContractTerms,
+) -> Result<(), ReferenceError> {
+    use rust_decimal::Decimal;
+    let sinks = &terms.sinking_schedule;
+    if bond.is_sinkable == sinks.is_empty() {
+        return Err(ReferenceError::InvalidInput(
+            "a bond is sinkable exactly when its terms hold a sinking schedule",
+        ));
+    }
+    if sinks.is_empty() {
+        return Ok(());
+    }
+    if !is_mandatory_sinker(bond) {
+        return Err(ReferenceError::Unsupported(
+            "a sinking schedule belongs to an amortizing fixed-coupon bond with no calls, puts, floating or inflation terms",
+        ));
+    }
+    if sinks.len() > MAX_SINKS {
+        return Err(ReferenceError::CapacityExceeded);
+    }
+    let mut previous = terms.dated_date.date().max(bond.issue_date);
+    let mut retired = Decimal::ZERO;
+    for sink in sinks {
+        let (amount, price) = (sink.amount.decimal(), sink.price.decimal());
+        if sink.date.date() <= previous
+            || sink.date.date() > bond.maturity_date
+            || amount <= Decimal::ZERO
+            || price <= Decimal::ZERO
+            || price > Decimal::ONE_THOUSAND
+            || !is_exact_in_binary(amount)
+            || !is_exact_in_binary(price)
+        {
+            return Err(ReferenceError::InvalidInput(
+                "each sink needs a later date after issue and up to maturity, a positive amount and a price above 0 and at most 1,000, each with at most 15 significant digits",
+            ));
+        }
+        retired = retired
+            .checked_add(amount)
+            .ok_or(ReferenceError::InvalidInput("sink amounts overflow"))?;
+        previous = sink.date.date();
+    }
+    if retired > Decimal::ONE_HUNDRED
+        || (retired == Decimal::ONE_HUNDRED && previous != bond.maturity_date)
+    {
+        return Err(ReferenceError::InvalidInput(
+            "the sinks retire at most the original face, and all of it only with a sink on maturity",
+        ));
+    }
+    Ok(())
+}
+
+/// Whether `value` reads back exactly from the binary float the library's sinking schedule
+/// holds it in.
+fn is_exact_in_binary(value: rust_decimal::Decimal) -> bool {
+    use rust_decimal::prelude::ToPrimitive;
+    value
+        .to_f64()
+        .and_then(|binary| rust_decimal::Decimal::try_from(binary).ok())
+        == Some(value)
+}
+
+/// A sinking-fund bond the service values: an amortizing fixed-coupon bond whose only
+/// embedded terms are its mandatory sinks.
+pub fn is_mandatory_sinker(bond: &BondReferenceData) -> bool {
+    bond.bond_type == BondType::Amortizing
+        && bond.is_sinkable
+        && bond
+            .contractual_terms
+            .as_ref()
+            .is_some_and(|terms| !terms.sinking_schedule.is_empty())
+        && !bond.has_terms_beyond_sinks()
 }
 
 fn validate_bullet_boundaries(
@@ -1433,23 +1539,26 @@ pub fn validate_service_resources(
         .as_ref()
         .ok_or(ReferenceError::InvalidInput("missing terms"))?;
     // Expanded families require their complete contractual models in subsequent tasks.
-    // A fixed callable is admitted only with its explicit call mechanics, and a floating
-    // rate note only with its rate index and no cap or floor, which need an option model.
+    // A fixed callable is admitted only with its explicit call mechanics, a floating rate
+    // note only with its rate index and no cap or floor, which need an option model, and a
+    // sinking-fund bond only with mandatory sinks.
     let callable = bond.bond_type == BondType::FixedCallable && terms.call_terms.is_some();
     let floating = is_valued_floating(bond);
+    let sinker = is_mandatory_sinker(bond);
     if !(callable
         || floating
+        || sinker
         || matches!(bond.bond_type, BondType::FixedBullet | BondType::ZeroCoupon))
         || (!callable && (bond.is_callable || !bond.call_schedule.is_empty()))
         || bond.is_putable
-        || bond.is_sinkable
+        || (!sinker && bond.is_sinkable)
         || (!floating && bond.floating_terms.is_some())
         || bond.inflation_index.is_some()
         || bond.inflation_base_index.is_some()
         || bond.has_deflation_floor
     {
         return Err(ReferenceError::Unsupported(
-            "service reference valuation supports nominal fixed bullets, zeros, callables with explicit call terms and uncapped floating rate notes with a rate index",
+            "service reference valuation supports nominal fixed bullets, zeros, callables with explicit call terms, uncapped floating rate notes with a rate index and sinking-fund bonds with mandatory sinks",
         ));
     }
     if !terms.effective.contains(lookup.as_of) {

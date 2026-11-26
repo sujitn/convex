@@ -792,7 +792,7 @@ async fn the_calculator_prices_one_level_by_any_method() {
     assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
     assert_eq!(
         refused["error"],
-        "only a fixed bullet is priced from a level or against a benchmark set"
+        "only a fixed bullet or a sinking-fund bond is priced from a level or against a benchmark set"
     );
 
     for (id, method, level, reason) in [

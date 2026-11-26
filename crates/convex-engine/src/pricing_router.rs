@@ -5,14 +5,18 @@ use crate::reference_terms;
 
 use crate::curve_builder::BuiltCurve;
 use crate::error::EngineError;
+use crate::ports::level_pricing::{is_quoted_two_way, is_router_valued, SINKER_MID_ONLY};
 use crate::ports::output::BondQuoteOutput;
 use crate::ports::reference_data::{BondReferenceData, BondType};
+use crate::ports::reference_master::is_mandatory_sinker;
 use crate::ports::storage::BidAskSpreadConfig;
 use convex_analytics::bond_quote::{
     quote_fixed, quote_zero, BenchmarkTenor, BondCurves, BondQuote, GSpreadBenchmark,
 };
 use convex_analytics::risk::STANDARD_KEY_RATE_TENORS;
 use convex_analytics::spreads::GovernmentCurve;
+use convex_bonds::contracts::{AverageLife, BondContract};
+use convex_bonds::instruments::{SinkingFundBond, SinkingFundPayment, SinkingFundSchedule};
 #[cfg(test)]
 use convex_bonds::prelude::Bond;
 use convex_bonds::prelude::{FixedRateBond, FixedRateBondBuilder};
@@ -24,8 +28,7 @@ use convex_core::types::Compounding;
 use convex_core::types::Yield;
 use convex_core::types::{Frequency, Mark, PriceKind};
 use convex_core::Date;
-#[cfg(test)]
-use rust_decimal::prelude::*;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use std::str::FromStr;
 #[cfg(test)]
@@ -73,8 +76,8 @@ pub struct PricingInput {
     pub discount_curve: Option<BuiltCurve>,
     /// Benchmark curve (for I-spread / swap curve)
     pub benchmark_curve: Option<BuiltCurve>,
-    /// Government curve (for G-spread)
-    pub government_curve: Option<GovernmentCurve>,
+    /// The benchmark securities a G-spread is computed over, and where it reads them.
+    pub g_spread_set: Option<GSpreadSet>,
     /// Volatility (for OAS)
     pub volatility: Option<Decimal>,
 
@@ -101,7 +104,7 @@ impl PricingInput {
         market_price: Option<Decimal>,
         discount_curve: Option<BuiltCurve>,
         benchmark_curve: Option<BuiltCurve>,
-        government_curve: Option<GovernmentCurve>,
+        g_spread_set: Option<GSpreadSet>,
         volatility: Option<Decimal>,
     ) -> Self {
         Self {
@@ -112,7 +115,7 @@ impl PricingInput {
             market_price_ask: None,
             discount_curve,
             benchmark_curve,
-            government_curve,
+            g_spread_set,
             volatility,
             bid_ask_config: None,
         }
@@ -180,6 +183,75 @@ impl PricingInput {
             self.market_price_mid,
             self.effective_ask_price(),
         )
+    }
+}
+
+/// The government securities a G-spread is computed over, as a curve, and the tenor it
+/// reads their yield at.
+#[derive(Debug)]
+pub struct GSpreadSet {
+    /// The securities' curve.
+    pub curve: GovernmentCurve,
+    /// Where the G-spread reads it: at the bond's maturity or its average life.
+    pub tenor: BenchmarkTenor,
+}
+
+/// A bond the router values on its fixed cash: a plain bullet, or a sinking-fund bond on
+/// its mandatory sinking cash, per 100 original face.
+pub(crate) enum FixedCashBond {
+    /// A fixed bullet.
+    Bullet(FixedRateBond),
+    /// A sinking-fund bond, with its contract built once for its factor and average life.
+    Sinker {
+        bond: SinkingFundBond,
+        contract: Box<BondContract>,
+    },
+}
+
+/// `$body` with `$bond` bound to whichever bond `$fixed` holds, for the pure crates'
+/// functions generic over a fixed-coupon bond.
+macro_rules! with_fixed_cash {
+    ($fixed:expr, $bond:ident => $body:expr) => {
+        match $fixed {
+            $crate::pricing_router::FixedCashBond::Bullet($bond) => $body,
+            $crate::pricing_router::FixedCashBond::Sinker { bond: $bond, .. } => $body,
+        }
+    };
+}
+pub(crate) use with_fixed_cash;
+
+impl FixedCashBond {
+    /// A sinking-fund bond's factor at `settlement`: the fraction of its original face
+    /// outstanding after any sink on that date. None for a bullet. A settlement on or after
+    /// the final redemption, with nothing outstanding, is refused.
+    pub(crate) fn factor(&self, settlement: Date) -> Result<Option<Decimal>, EngineError> {
+        let Self::Sinker { contract, .. } = self else {
+            return Ok(None);
+        };
+        let outstanding = contract
+            .outstanding_principal(settlement, convex_core::cashflows::BoundarySide::After)
+            .map_err(pricing_error)?;
+        if outstanding <= Decimal::ZERO {
+            return Err(EngineError::PricingError(
+                "no face of the sinking-fund bond is outstanding after settlement".into(),
+            ));
+        }
+        outstanding
+            .checked_div(contract.terms().face_value)
+            .map(|factor| Some(factor.normalize()))
+            .ok_or_else(|| EngineError::PricingError("the factor overflows".into()))
+    }
+
+    /// Its average life from `settlement`.
+    pub(crate) fn average_life(&self, settlement: Date) -> Result<AverageLife, EngineError> {
+        match self {
+            Self::Bullet(bond) => bond
+                .contract_terms()
+                .and_then(|terms| terms.build())
+                .and_then(|contract| contract.average_life(settlement)),
+            Self::Sinker { contract, .. } => contract.average_life(settlement),
+        }
+        .map_err(pricing_error)
     }
 }
 
@@ -253,6 +325,53 @@ impl PricingRouter {
         builder
             .build()
             .map_err(|e| EngineError::PricingError(format!("Failed to build bond: {}", e)))
+    }
+
+    /// The fixed-cash bond `ref_data` describes: a sinking-fund bond on its mandatory
+    /// sinks, or a bullet.
+    pub(crate) fn to_fixed_cash_bond(
+        &self,
+        ref_data: &BondReferenceData,
+    ) -> Result<FixedCashBond, EngineError> {
+        if is_mandatory_sinker(ref_data) {
+            let bond = self.to_sinking_fund_bond(ref_data)?;
+            let contract = Box::new(bond.try_contract().map_err(pricing_error)?);
+            Ok(FixedCashBond::Sinker { bond, contract })
+        } else {
+            self.to_fixed_rate_bond(ref_data).map(FixedCashBond::Bullet)
+        }
+    }
+
+    /// A sinking-fund bond's base bullet with its stored mandatory sinks. Each amount and
+    /// price was admitted only if the library's binary schedule holds it exactly.
+    pub(crate) fn to_sinking_fund_bond(
+        &self,
+        ref_data: &BondReferenceData,
+    ) -> Result<SinkingFundBond, EngineError> {
+        let terms = ref_data
+            .contractual_terms
+            .as_ref()
+            .ok_or_else(|| EngineError::PricingError("Missing contractual terms".into()))?;
+        let binary = |value: Decimal| {
+            value
+                .to_f64()
+                .ok_or_else(|| EngineError::PricingError("a sink is not finite".into()))
+        };
+        let payments = terms
+            .sinking_schedule
+            .iter()
+            .map(|sink| {
+                Ok(SinkingFundPayment::with_price(
+                    sink.date.date(),
+                    binary(sink.amount.decimal())?,
+                    binary(sink.price.decimal())?,
+                ))
+            })
+            .collect::<Result<Vec<_>, EngineError>>()?;
+        Ok(SinkingFundBond::new(
+            self.to_fixed_rate_bond(ref_data)?,
+            SinkingFundSchedule::from_payments(payments),
+        ))
     }
 
     /// Convert a zero coupon bond's reference data, refusing coupon or adjusted-payment
@@ -335,7 +454,7 @@ impl PricingRouter {
     ) -> Result<BondQuoteOutput, EngineError> {
         crate::ports::reference_repository::validate_bond_reference(&input.bond)
             .map_err(pricing_error)?;
-        if !crate::ports::level_pricing::is_quoted_two_way(&input.bond) {
+        if !is_router_valued(&input.bond) {
             let reason = if matches!(
                 input.bond.bond_type,
                 BondType::FixedBullet | BondType::ZeroCoupon
@@ -345,6 +464,13 @@ impl PricingRouter {
                 "unsupported production bond terms/model: FRNs require published fixings and projection, optional/amortizing products require the completed explicit model contract (CVX-055)"
             };
             return Err(EngineError::PricingError(reason.into()));
+        }
+        if !is_quoted_two_way(&input.bond)
+            && (input.market_price_bid.is_some()
+                || input.market_price_ask.is_some()
+                || input.bid_ask_config.is_some())
+        {
+            return Err(EngineError::PricingError(SINKER_MID_ONLY.into()));
         }
         if let Some(config) = &input.bid_ask_config {
             if [
@@ -386,43 +512,47 @@ impl PricingRouter {
             value,
             kind: PriceKind::Clean,
         };
-        let bond = if input.bond.bond_type == BondType::FixedBullet {
-            Some(self.to_fixed_rate_bond(&input.bond)?)
-        } else {
+        let fixed = if input.bond.bond_type == BondType::ZeroCoupon {
             None
+        } else {
+            Some(self.to_fixed_cash_bond(&input.bond)?)
         };
-        let zero = if bond.is_none() {
+        let zero = if fixed.is_none() {
             Some(self.to_zero_coupon_bond(&input.bond)?)
         } else {
             None
         };
+        let factor = fixed
+            .as_ref()
+            .map(|fixed| fixed.factor(input.settlement_date))
+            .transpose()?
+            .flatten();
+        let government = input.g_spread_set.as_ref().map(|set| GSpreadBenchmark {
+            curve: &set.curve,
+            tenor: set.tenor,
+        });
         let quote = |value| -> Result<BondQuote, EngineError> {
-            if let Some(bond) = &bond {
-                quote_fixed(
+            if let Some(fixed) = &fixed {
+                let curves = BondCurves {
+                    discount: input
+                        .discount_curve
+                        .as_ref()
+                        .map(|c| c as &dyn convex_curves::RateCurveDyn),
+                    swap: input
+                        .benchmark_curve
+                        .as_ref()
+                        .map(|c| c as &dyn convex_curves::RateCurveDyn),
+                    government,
+                };
+                with_fixed_cash!(fixed, bond => quote_fixed(
                     bond,
                     input.settlement_date,
                     &price_mark(value),
                     frequency,
-                    BondCurves {
-                        discount: input
-                            .discount_curve
-                            .as_ref()
-                            .map(|c| c as &dyn convex_curves::RateCurveDyn),
-                        swap: input
-                            .benchmark_curve
-                            .as_ref()
-                            .map(|c| c as &dyn convex_curves::RateCurveDyn),
-                        government: input
-                            .government_curve
-                            .as_ref()
-                            .map(|curve| GSpreadBenchmark {
-                                curve,
-                                tenor: BenchmarkTenor::Maturity,
-                            }),
-                    },
+                    curves,
                     self.bump_bps,
                     STANDARD_KEY_RATE_TENORS,
-                )
+                ))
                 .map_err(pricing_error)
             } else {
                 let zero = zero
@@ -502,6 +632,7 @@ impl PricingRouter {
             clean_price_mid: mid,
             clean_price_ask: ask,
             accrued_interest: Some(d(base.pricing.accrued_per_100)?),
+            factor,
             ytm_bid: side(&qb, |q| Some(q.pricing.ytm_decimal))?,
             ytm_mid: side(&qm, |q| Some(q.pricing.ytm_decimal))?,
             ytm_ask: side(&qa, |q| Some(q.pricing.ytm_decimal))?,
@@ -859,7 +990,7 @@ mod tests {
             market_price_ask: None,
             discount_curve: None,
             benchmark_curve: None,
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: None,
         };
@@ -900,7 +1031,7 @@ mod tests {
             market_price_ask: None, // Discount price
             discount_curve: Some(curve),
             benchmark_curve: None,
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: None,
         };
@@ -934,7 +1065,7 @@ mod tests {
             market_price_ask: None,
             discount_curve: None,
             benchmark_curve: Some(swap_curve),
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: None,
         };
@@ -1009,7 +1140,10 @@ mod tests {
             market_price_ask: None,
             discount_curve: None,
             benchmark_curve: None,
-            government_curve: Some(gov_curve),
+            g_spread_set: Some(GSpreadSet {
+                curve: gov_curve,
+                tenor: BenchmarkTenor::Maturity,
+            }),
             volatility: None,
             bid_ask_config: None,
         };
@@ -1046,7 +1180,7 @@ mod tests {
             market_price_ask: None, // Discount price
             discount_curve: None,
             benchmark_curve: Some(swap_curve),
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: None,
         };
@@ -1086,7 +1220,7 @@ mod tests {
             market_price_ask: None, // Par price
             discount_curve: Some(discount_curve),
             benchmark_curve: None,
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: None,
         };
@@ -1299,7 +1433,7 @@ mod tests {
             market_price_ask: None, // Discount
             discount_curve: None,
             benchmark_curve: None,
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: None,
         };
@@ -1327,7 +1461,7 @@ mod tests {
             market_price_ask: None, // Premium
             discount_curve: None,
             benchmark_curve: None,
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: None,
         };
@@ -1395,7 +1529,7 @@ mod tests {
             market_price_ask: None, // Discount price
             discount_curve: Some(discount_curve),
             benchmark_curve: None,
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: None,
         };
@@ -1467,7 +1601,7 @@ mod tests {
             market_price_ask: None, // Par price
             discount_curve: Some(discount_curve),
             benchmark_curve: None,
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: None,
         };
@@ -1552,7 +1686,7 @@ mod tests {
             market_price_ask: None, // Discount price
             discount_curve: Some(discount_curve),
             benchmark_curve: None,
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: None,
         };
@@ -1632,7 +1766,7 @@ mod tests {
             market_price_ask: None, // Par price
             discount_curve: Some(discount_curve),
             benchmark_curve: None,
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: None,
         };
@@ -1709,7 +1843,7 @@ mod tests {
             market_price_ask: None, // Par price
             discount_curve: Some(discount_curve),
             benchmark_curve: None,
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: None,
         };
@@ -1859,7 +1993,7 @@ mod tests {
                     market_price_ask: None,
                     discount_curve: Some(curve.clone()),
                     benchmark_curve: Some(curve.clone()),
-                    government_curve: None,
+                    g_spread_set: None,
                     volatility: None,
                     bid_ask_config: None,
                 }
@@ -1925,7 +2059,7 @@ mod tests {
                     market_price_ask: None,
                     discount_curve: Some(curve.clone()),
                     benchmark_curve: Some(curve.clone()),
-                    government_curve: None,
+                    g_spread_set: None,
                     volatility: None,
                     bid_ask_config: None,
                 }
@@ -2000,7 +2134,7 @@ mod tests {
                 market_price_ask: None,
                 discount_curve: Some(curve.clone()),
                 benchmark_curve: None,
-                government_curve: None,
+                g_spread_set: None,
                 volatility: None,
                 bid_ask_config: None,
             })
@@ -2050,7 +2184,7 @@ mod tests {
                 market_price_ask: None,
                 discount_curve: Some(curve.clone()),
                 benchmark_curve: Some(curve.clone()),
-                government_curve: None,
+                g_spread_set: None,
                 volatility: None,
                 bid_ask_config: None,
             })
@@ -2133,7 +2267,7 @@ mod tests {
             market_price_ask: None, // No market ask
             discount_curve: Some(curve.clone()),
             benchmark_curve: Some(curve),
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: Some(spread_config),
         };
@@ -2270,7 +2404,7 @@ mod tests {
             market_price_ask: None,
             discount_curve: None,
             benchmark_curve: None,
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: Some(spread_config),
         };
@@ -2323,7 +2457,7 @@ mod tests {
             market_price_ask: Some(dec!(100.5)), // Market ask
             discount_curve: None,
             benchmark_curve: None,
-            government_curve: None,
+            g_spread_set: None,
             volatility: None,
             bid_ask_config: Some(spread_config),
         };

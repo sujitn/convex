@@ -39,7 +39,7 @@ pub(super) fn context(
         .as_ref()
         .ok_or(RuntimeError::RecoveryConflict)?;
     // Each instrument requests only the plan measures its own model publishes, and a
-    // G-spread only when it is priced against a benchmark set it matures within.
+    // G-spread only when it is priced against a benchmark set it reads within.
     let model = product_model(bond, reference.pricing_method());
     let measures: Vec<_> = plan
         .measures
@@ -47,7 +47,11 @@ pub(super) fn context(
         .filter(|measure| {
             product_measures(model).contains(&measure.as_str())
                 || (measure.as_str() == crate::snapshot::G_SPREAD_MEASURE
-                    && crate::level_pricing::is_g_spread_published(snapshot, reference))
+                    && crate::level_pricing::is_g_spread_published(
+                        snapshot,
+                        reference,
+                        plan.settlement_date.date(),
+                    ))
         })
         .cloned()
         .collect();
@@ -1115,6 +1119,7 @@ mod tests {
                 tenor: "2Y".into(),
             },
             benchmark_set_id: Some(ReferenceDataId::new("UST-OTR").unwrap()),
+            tenor_basis: Default::default(),
         }
     }
 

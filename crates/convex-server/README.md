@@ -536,6 +536,16 @@ bond's G-spread is computed over it. The set's version in force at a valuation's
 is the one read, so rolling an on-the-run issue is one commit to the set. The level
 itself is a quote, never part of the rule.
 
+`tenor_basis` sets where the G-spread reads the set's yield, interpolated over its
+securities on a 365-day axis:
+- `maturity` (the default, omitted when stored) reads it at the bond's maturity;
+- `average_life` reads it at the bond's average life from settlement, as a sinker is
+  usually read.
+
+A basis other than `maturity` needs a set. A benchmark spread is to one named security
+and is the same at any tenor. A G-spread is published only when its read point falls
+within the set's maturities, and otherwise the rule's report says why.
+
 A `benchmark_set` holds a currency and 1 to 32 securities. Each security has a
 `tenor` (`6M`, `2Y`, `10Y`, up to `50Y`) and pins one stored bond version. Tenors and
 instruments are unique within the set, so `12M` and `1Y` cannot both appear, and a rule
@@ -546,21 +556,66 @@ Both kinds are committed through `POST /api/v1/reference/transactions` and liste
 refused with 400 if:
 - a rule names a bond that is not stored;
 - a rule names a set that does not exist;
-- a rule quotes a bond other than a fixed bullet by `z_spread` or `benchmark_spread`, or
-  against a set;
+- a rule quotes a bond other than a fixed bullet or a sinking-fund bond by `z_spread` or
+  `benchmark_spread`, or against a set;
 - a rule quotes a bond other than a floating rate note by `discount_margin`, or by `oas`
   a bond other than a callable with European or Bermudan fixed-price calls, none
   make-whole, and no other embedded terms;
-- a rule quotes by a yield a bond that is neither a fixed bullet nor a callable valued on
-  its workouts (below);
+- a rule quotes by a yield a bond that is not a fixed bullet, a sinking-fund bond or a
+  callable valued on its workouts (below);
 - a rule's `width` is not a valid schedule, or is in a unit its method does not quote;
-- a rule with a `width` names a callable or floating rate note, which are quoted mid
-  only;
+- a rule with a `width` names a callable, floating rate note or sinking-fund bond, which
+  are quoted mid only;
+- a rule's `tenor_basis` is `average_life` and it names no set;
 - a set holds anything but a government fixed bullet in its currency;
 - a set is not in USD: spreads are quoted against Treasuries only.
 
 A set of more than 32 securities, or a width of more than 16 buckets, is refused with 400
 `INVALID_INPUT`.
+
+### Sinking-fund bonds
+
+A bond with mandatory sinks is stored as `bond_type` `Amortizing`, with
+`is_sinkable: true` and the sinks in `contractual_terms.sinking_schedule`:
+```json
+"sinking_schedule": [
+  {"date": "2027-03-15", "amount": "10", "price": "101"},
+  {"date": "2028-03-15", "amount": "20"}
+]
+```
+Each sink retires `amount` per 100 of original face on its contractual date, at `price`
+per 100 of the face retired (par when omitted). Any face left is redeemed at maturity.
+
+A commit is refused with 400 if:
+- `is_sinkable` and the schedule disagree, either way;
+- the bond is not `Amortizing`, or it has calls, puts, floating or inflation terms;
+- a sink falls before issue or accrual start, or after maturity;
+- the sinks are not in date order;
+- an amount is not positive, or a price is not above 0 and at most 1,000;
+- an amount or price has more than 15 significant digits;
+- the sinks retire more than the original face, or all of it without a sink on
+  maturity;
+- the schedule has more than 1,024 sinks.
+
+Optional sinks, the delivery option and acceleration are not supported.
+
+**Prices and face.**
+- **Quotes coming in.** A sinker's price is quoted per 100 of current face. A Live quote
+  by price, `market_price` and the calculator's `price` are each multiplied by the factor
+  at their settlement before the bond is valued. The factor is the fraction of original
+  face outstanding after any sink on that date.
+- **Values going out.** Live records and quote and calculator replies are per 100
+  original face, so a book's original face values them as the limit evaluator and
+  closes do. A sinker publishes the measure `factor`, and replies carry `factor`. Its
+  price per 100 current face is the price divided by the factor.
+- **RFQs.** An RFQ on a sinker is priced from its Live quote and sent to the client per
+  100 current face, with its record's `factor`. The face traded and the limit check stay
+  in original face.
+- **Model.** A sinker is quoted mid only, under model `convex-sinking-fund-router-v1`:
+  the router's measures on the sinking cash, and `factor`. Its yield is to maturity on
+  that cash, and so is the calculator's one workout.
+- **Book close.** A close counts a sinker's sinks at their prices, and its coupons on
+  the face outstanding, as cash owed between settlement dates.
 
 A callable whose rule quotes it by `price` or `yield` is valued on its workouts, as
 high-yield callables are quoted: model `convex-callable-workout-v1`, in Live and at
