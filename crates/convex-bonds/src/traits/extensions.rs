@@ -210,9 +210,6 @@ pub trait AmortizingBond: Bond {
             self.face_value() * pct_dec
         })
     }
-
-    /// Returns the weighted average life (WAL) from the given date.
-    fn weighted_average_life(&self, from: Date) -> f64;
 }
 
 /// Extension trait for inflation-linked bonds.

@@ -128,6 +128,14 @@ remaining ACT/365F maturities. Yields are converted to semiannual compounding,
 then interpolated linearly with flat endpoints. This is not a government curve
 calibration or model.
 
+A G-spread reads the securities at the tenor `BondCurves.government` names with
+them, a `GSpreadBenchmark`: `BenchmarkTenor::Maturity` (the bond's contractual
+maturity) or `AverageLife(average_life)` (a sinker's average life, on the same
+ACT/365F axis). Nothing infers the tenor from the bond. `price_from_level` and
+`quote_fixed` read the same benchmark yield, so a level priced from a G-spread
+quotes back as that G-spread. An average life measured from another settlement
+date is refused.
+
 The quote route supports distinct I-spread and G-spread mark inputs. The older
 generic `price_from_mark` G-par-curve interpretation and the older YAS and
 model helpers remain as compatibility diagnostics. They are not the

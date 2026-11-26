@@ -5,11 +5,13 @@
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+mod average_life;
 mod exercise;
 mod projection;
 mod terms;
 mod workout;
 
+pub use average_life::AverageLife;
 pub(crate) use exercise::{call_terms, put_terms};
 pub use exercise::{ExerciseAccrued, ExerciseDates, ExerciseRight, ExerciseStyle, ExerciseTerms};
 pub use projection::{

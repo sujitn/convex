@@ -17,7 +17,9 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use convex_analytics::{
-    bond_quote::{government_curve, price_from_level, BondCurves},
+    bond_quote::{
+        government_curve, price_from_level, BenchmarkTenor, BondCurves, GSpreadBenchmark,
+    },
     dto::GovernmentCurveSpec,
     spreads::{GovernmentBenchmark, GovernmentCurve, SecurityId, Sovereign},
 };
@@ -846,17 +848,21 @@ fn level_to_clean_price(
                 settlement,
                 bond.currency,
             )?;
+            let government = GSpreadBenchmark {
+                curve: &single_benchmark,
+                tenor: BenchmarkTenor::Maturity,
+            };
             // The yield `price_from_level` adds the spread to, so the one reported is the
             // one applied.
-            let ytm = single_benchmark
-                .supplied_yield(settlement, bond.maturity_date)
+            let ytm = government
+                .benchmark_yield(&fixed, settlement)
                 .map_err(analytics_error)?
                 .value()
                 .as_f64();
             (
                 spread(SpreadType::GSpread),
                 BondCurves {
-                    government: Some(&single_benchmark),
+                    government: Some(government),
                     ..Default::default()
                 },
                 Some(BenchmarkYield {

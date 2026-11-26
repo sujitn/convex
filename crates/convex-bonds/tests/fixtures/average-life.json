@@ -1,0 +1,277 @@
+{
+  "schema_version": 1,
+  "convention": "Average life in years of 365 days from settlement: the face each principal change after settlement retires, times its calendar days from settlement, over 365 times the face outstanding. Changes are timed at their contractual dates and weighted by face, not cash.",
+  "bond": "6% semiannual 30/360 US corporate, issued 2019-06-15, coupons 15 June and 15 December, maturing as stated; sinks per 100 of original face.",
+  "rounding": "Exact rational, rounded once nearest/even to the finest scale <= 28 whose coefficient fits 96 bits.",
+  "provenance": "Evaluated with Python fractions from the stated dates and amounts, before the library was run against them; no library import or output.",
+  "cases": [
+    {
+      "name": "bullet",
+      "note": "No sinks: the time to maturity, days / 365.",
+      "face": "100",
+      "maturity": "2029-06-15",
+      "settlement": "2026-03-10",
+      "sinks": [],
+      "years": "3.2684931506849315068493150685"
+    },
+    {
+      "name": "bullet_large_face",
+      "note": "The face does not change the life.",
+      "face": "1000000",
+      "maturity": "2029-06-15",
+      "settlement": "2026-03-10",
+      "sinks": [],
+      "years": "3.2684931506849315068493150685"
+    },
+    {
+      "name": "annual_sinker_before_the_first_sink",
+      "note": "",
+      "face": "100",
+      "maturity": "2029-06-15",
+      "settlement": "2024-01-01",
+      "sinks": [
+        {
+          "date": "2025-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2026-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2027-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2028-06-15",
+          "percent": "20",
+          "price": "100"
+        }
+      ],
+      "years": "3.4558904109589041095890410959"
+    },
+    {
+      "name": "annual_sinker_on_a_sink_date",
+      "note": "The sink effective on settlement is behind it; 60 of 100 remains.",
+      "face": "100",
+      "maturity": "2029-06-15",
+      "settlement": "2026-06-15",
+      "sinks": [
+        {
+          "date": "2025-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2026-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2027-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2028-06-15",
+          "percent": "20",
+          "price": "100"
+        }
+      ],
+      "years": "2.0018264840182648401826484018"
+    },
+    {
+      "name": "annual_sinker_after_its_last_sink",
+      "note": "Only the residual 20 at maturity remains: the time to maturity.",
+      "face": "100",
+      "maturity": "2029-06-15",
+      "settlement": "2028-07-01",
+      "sinks": [
+        {
+          "date": "2025-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2026-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2027-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2028-06-15",
+          "percent": "20",
+          "price": "100"
+        }
+      ],
+      "years": "0.9561643835616438356164383562"
+    },
+    {
+      "name": "annual_sinker_above_par",
+      "note": "Sinks at 102 retire the same face: the same life as at par.",
+      "face": "100",
+      "maturity": "2029-06-15",
+      "settlement": "2024-01-01",
+      "sinks": [
+        {
+          "date": "2025-06-15",
+          "percent": "20",
+          "price": "102"
+        },
+        {
+          "date": "2026-06-15",
+          "percent": "20",
+          "price": "102"
+        },
+        {
+          "date": "2027-06-15",
+          "percent": "20",
+          "price": "102"
+        },
+        {
+          "date": "2028-06-15",
+          "percent": "20",
+          "price": "102"
+        }
+      ],
+      "years": "3.4558904109589041095890410959"
+    },
+    {
+      "name": "final_sink_on_maturity_above_par",
+      "note": "A priced sink on maturity is split from the residual; each part counts once.",
+      "face": "100",
+      "maturity": "2029-06-15",
+      "settlement": "2024-01-01",
+      "sinks": [
+        {
+          "date": "2025-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2026-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2027-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2028-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2029-06-15",
+          "percent": "10",
+          "price": "101"
+        }
+      ],
+      "years": "3.4558904109589041095890410959"
+    },
+    {
+      "name": "weekend_sink",
+      "note": "15 November 2025 is a Saturday: the change is timed at its date, not the Monday it pays.",
+      "face": "100",
+      "maturity": "2029-06-15",
+      "settlement": "2024-01-01",
+      "sinks": [
+        {
+          "date": "2025-11-15",
+          "percent": "25",
+          "price": "100"
+        },
+        {
+          "date": "2027-06-15",
+          "percent": "25",
+          "price": "100"
+        }
+      ],
+      "years": "4.0609589041095890410958904110"
+    },
+    {
+      "name": "uneven_sinks",
+      "note": "Uneven amounts mid-coupon and on coupon dates, settling on a leap day.",
+      "face": "250000",
+      "maturity": "2029-06-15",
+      "settlement": "2024-02-29",
+      "sinks": [
+        {
+          "date": "2024-12-15",
+          "percent": "12.5",
+          "price": "100"
+        },
+        {
+          "date": "2026-06-15",
+          "percent": "7.25",
+          "price": "100"
+        },
+        {
+          "date": "2028-12-15",
+          "percent": "30",
+          "price": "100"
+        }
+      ],
+      "years": "4.3659315068493150684931506849"
+    }
+  ],
+  "refused": [
+    {
+      "name": "at_maturity",
+      "note": "Nothing is outstanding after the final redemption.",
+      "face": "100",
+      "maturity": "2029-06-15",
+      "settlement": "2029-06-15",
+      "sinks": [
+        {
+          "date": "2025-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2026-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2027-06-15",
+          "percent": "20",
+          "price": "100"
+        },
+        {
+          "date": "2028-06-15",
+          "percent": "20",
+          "price": "100"
+        }
+      ],
+      "years": null
+    },
+    {
+      "name": "after_maturity",
+      "note": "",
+      "face": "100",
+      "maturity": "2029-06-15",
+      "settlement": "2029-07-01",
+      "sinks": [],
+      "years": null
+    },
+    {
+      "name": "before_issue",
+      "note": "Nothing is outstanding before issue.",
+      "face": "100",
+      "maturity": "2029-06-15",
+      "settlement": "2019-06-01",
+      "sinks": [],
+      "years": null
+    }
+  ]
+}

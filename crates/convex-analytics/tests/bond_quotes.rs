@@ -1,5 +1,7 @@
 use convex_analytics::{
-    bond_quote::{curve_risk, quote_fixed, quote_zero, BondCurves},
+    bond_quote::{
+        curve_risk, quote_fixed, quote_zero, BenchmarkTenor, BondCurves, GSpreadBenchmark,
+    },
     dto::{BondSpec, FixedRateSpec},
     pricing::price_from_mark,
     spreads::ZSpreadCalculator,
@@ -438,16 +440,12 @@ fn checked_construction_and_native_deserialization_reject_invalid_economics() {
         .is_err());
 }
 
-#[test]
-fn government_yields_use_actual_securities_maturities_and_no_empty_zero_benchmark() {
-    use convex_analytics::{
-        dto::GovernmentCurveSpec,
-        spreads::{GovernmentBenchmark, GovernmentCurve, Sovereign},
-    };
+/// A 2-year at 3% maturing 15 January 2026 and a 10-year at 5% maturing 15 January 2030,
+/// semi-annual yields, supplied on 15 January 2025.
+fn treasury_spec() -> convex_analytics::dto::GovernmentCurveSpec {
+    use convex_analytics::spreads::{GovernmentBenchmark, Sovereign};
     use convex_bonds::types::Tenor;
     use convex_core::types::Yield;
-    let b = regular();
-    let s = date("2025-01-15");
     let benchmark = |tenor, maturity, y| {
         GovernmentBenchmark::with_cusip_unchecked(
             Sovereign::UST,
@@ -458,14 +456,22 @@ fn government_yields_use_actual_securities_maturities_and_no_empty_zero_benchmar
             Yield::new(y, Compounding::SemiAnnual),
         )
     };
-    let spec = GovernmentCurveSpec {
-        reference_date: s,
+    convex_analytics::dto::GovernmentCurveSpec {
+        reference_date: date("2025-01-15"),
         sovereign: Sovereign::UST,
         benchmarks: vec![
             benchmark(Tenor::Y2, "2026-01-15", dec!(0.03)),
             benchmark(Tenor::Y10, "2030-01-15", dec!(0.05)),
         ],
-    };
+    }
+}
+
+#[test]
+fn government_yields_use_actual_securities_maturities_and_no_empty_zero_benchmark() {
+    use convex_analytics::spreads::{GovernmentCurve, Sovereign};
+    let b = regular();
+    let s = date("2025-01-15");
+    let spec = treasury_spec();
     let g = convex_analytics::bond_quote::government_curve(&spec, s, b.currency()).unwrap();
     let weight =
         s.days_between(&b.maturity().unwrap()) as f64 - s.days_between(&date("2026-01-15")) as f64;
@@ -488,7 +494,10 @@ fn government_yields_use_actual_securities_maturities_and_no_empty_zero_benchmar
         &mark,
         Frequency::SemiAnnual,
         BondCurves {
-            government: Some(&g),
+            government: Some(GSpreadBenchmark {
+                curve: &g,
+                tenor: BenchmarkTenor::Maturity,
+            }),
             ..Default::default()
         },
         1.0,
@@ -516,7 +525,10 @@ fn government_yields_use_actual_securities_maturities_and_no_empty_zero_benchmar
         },
         Frequency::SemiAnnual,
         BondCurves {
-            government: Some(&empty),
+            government: Some(GSpreadBenchmark {
+                curve: &empty,
+                tenor: BenchmarkTenor::Maturity,
+            }),
             ..Default::default()
         },
         1.0,
@@ -608,7 +620,10 @@ proptest::proptest! {
         let curves = || BondCurves {
             discount: Some(&discount as &dyn RateCurveDyn),
             swap: Some(&swap as &dyn RateCurveDyn),
-            government: Some(&g),
+            government: Some(GSpreadBenchmark {
+                curve: &g,
+                tenor: BenchmarkTenor::Maturity,
+            }),
         };
         let level = Decimal::new(level_bp, 4);
         let spread = |kind| Mark::Spread {
@@ -660,5 +675,197 @@ proptest::proptest! {
                 _ => proptest::prop_assert_eq!(quoted.i_spread_bps, Some(level_bp as f64)),
             }
         }
+    }
+}
+
+/// A G-spread reads the supplied government yields at the tenor its caller names: the
+/// bond's maturity or its average life.
+mod benchmark_tenor {
+    use super::{close, date, regular, treasury_spec};
+    use convex_analytics::{
+        bond_quote::{
+            government_curve, price_from_level, quote_fixed, BenchmarkTenor, BondCurves,
+            GSpreadBenchmark,
+        },
+        spreads::GovernmentCurve,
+        AnalyticsError,
+    };
+    use convex_bonds::contracts::AverageLife;
+    use convex_bonds::instruments::{SinkingFundBond, SinkingFundPayment, SinkingFundSchedule};
+    use convex_bonds::traits::Bond;
+    use convex_core::types::{Date, Frequency, Mark, PriceKind};
+    use rust_decimal::{prelude::ToPrimitive, Decimal};
+    use rust_decimal_macros::dec;
+    use std::str::FromStr;
+
+    fn settlement() -> Date {
+        date("2025-01-15")
+    }
+
+    /// The regular bullet sinking a quarter of its face on each 15 January from 2026 to
+    /// 2028.
+    fn sinker() -> SinkingFundBond {
+        let schedule = ["2026-01-15", "2027-01-15", "2028-01-15"]
+            .into_iter()
+            .fold(SinkingFundSchedule::new(), |schedule, sink| {
+                schedule.with_payment(SinkingFundPayment::new(date(sink), 25.0))
+            });
+        SinkingFundBond::new(regular(), schedule)
+    }
+
+    fn treasuries() -> GovernmentCurve {
+        government_curve(&treasury_spec(), settlement(), convex_core::Currency::USD).unwrap()
+    }
+
+    /// Years of 365 days from settlement to `to`.
+    fn years_to(to: &str) -> f64 {
+        settlement().days_between(&date(to)) as f64 / 365.0
+    }
+
+    /// The treasuries' yields linearly interpolated at `years` from settlement.
+    fn interpolated(years: f64) -> f64 {
+        let (two, ten) = (years_to("2026-01-15"), years_to("2030-01-15"));
+        0.03 + 0.02 * (years - two) / (ten - two)
+    }
+
+    fn read(curve: &GovernmentCurve, tenor: BenchmarkTenor, bond: &dyn Bond) -> f64 {
+        GSpreadBenchmark { curve, tenor }
+            .benchmark_yield(bond, settlement())
+            .unwrap()
+            .value()
+            .to_f64()
+            .unwrap()
+    }
+
+    fn average_life(bond: &SinkingFundBond) -> AverageLife {
+        bond.average_life(settlement()).unwrap()
+    }
+
+    #[test]
+    fn each_tenor_reads_the_yield_at_its_own_point() {
+        let (curve, bond) = (treasuries(), sinker());
+        close(
+            read(&curve, BenchmarkTenor::Maturity, &bond),
+            interpolated(years_to("2029-01-15")),
+            1e-12,
+            0.0,
+            "maturity",
+        );
+        let life = average_life(&bond);
+        // A quarter of the face each 365, 730, 1,095 and 1,461 days from settlement.
+        assert_eq!(
+            life.years(),
+            Decimal::from(365 + 730 + 1095 + 1461) / dec!(1460)
+        );
+        close(
+            read(&curve, BenchmarkTenor::AverageLife(life), &bond),
+            interpolated(life.years().to_f64().unwrap()),
+            1e-12,
+            0.0,
+            "average life",
+        );
+    }
+
+    #[test]
+    fn beyond_the_shortest_and_longest_securities_the_yield_is_flat() {
+        let curve = treasuries();
+        for (maturity, flat) in [("2025-07-15", 0.03), ("2035-01-15", 0.05)] {
+            let supplied = curve.supplied_yield(settlement(), date(maturity)).unwrap();
+            close(
+                supplied.value().to_f64().unwrap(),
+                flat,
+                1e-12,
+                0.0,
+                maturity,
+            );
+        }
+        // Nine tenths of the face sinks in six months: an average life inside a year.
+        let bond = SinkingFundBond::new(
+            regular(),
+            SinkingFundSchedule::new()
+                .with_payment(SinkingFundPayment::new(date("2025-07-15"), 90.0)),
+        );
+        let life = average_life(&bond);
+        assert!(life.years() < Decimal::ONE);
+        close(
+            read(&curve, BenchmarkTenor::AverageLife(life), &bond),
+            0.03,
+            1e-12,
+            0.0,
+            "average life",
+        );
+    }
+
+    #[test]
+    fn a_bullets_average_life_reads_the_yield_its_maturity_does() {
+        let (curve, bond) = (treasuries(), regular());
+        let life = bond
+            .contract_terms()
+            .unwrap()
+            .build()
+            .unwrap()
+            .average_life(settlement())
+            .unwrap();
+        assert_eq!(
+            read(&curve, BenchmarkTenor::AverageLife(life), &bond).to_bits(),
+            read(&curve, BenchmarkTenor::Maturity, &bond).to_bits()
+        );
+    }
+
+    #[test]
+    fn an_average_life_from_another_settlement_is_refused() {
+        let (curve, bond) = (treasuries(), sinker());
+        let life = bond.average_life(date("2025-01-16")).unwrap();
+        let refused = GSpreadBenchmark {
+            curve: &curve,
+            tenor: BenchmarkTenor::AverageLife(life),
+        }
+        .benchmark_yield(&bond, settlement());
+        assert!(matches!(refused, Err(AnalyticsError::InvalidInput(_))));
+    }
+
+    #[test]
+    fn a_g_spread_priced_at_a_tenor_quotes_back_at_that_tenor() {
+        let (curve, bond) = (treasuries(), sinker());
+        let curves = |tenor| BondCurves {
+            government: Some(GSpreadBenchmark {
+                curve: &curve,
+                tenor,
+            }),
+            ..Default::default()
+        };
+        let at_life = BenchmarkTenor::AverageLife(average_life(&bond));
+        let mark = Mark::from_str("50 G@USD.TSY").unwrap();
+        let priced = price_from_level(
+            &bond,
+            settlement(),
+            &mark,
+            Frequency::SemiAnnual,
+            &curves(at_life),
+        )
+        .unwrap();
+        let clean = Mark::Price {
+            value: Decimal::from_f64_retain(priced.clean_price_per_100).unwrap(),
+            kind: PriceKind::Clean,
+        };
+        let g_spread = |tenor| {
+            quote_fixed(
+                &bond,
+                settlement(),
+                &clean,
+                Frequency::SemiAnnual,
+                curves(tenor),
+                1.0,
+                &[],
+            )
+            .unwrap()
+            .g_spread_bps
+            .unwrap()
+        };
+        let quoted = g_spread(at_life);
+        assert!((quoted - 50.0).abs() < 1e-6, "{quoted}");
+        // Read at maturity, the same price is a G-spread over a higher benchmark yield.
+        let at_maturity = g_spread(BenchmarkTenor::Maturity);
+        assert!(quoted - at_maturity > 10.0, "{quoted} {at_maturity}");
     }
 }
