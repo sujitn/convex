@@ -98,6 +98,17 @@ averaged redemption price. The sinking schedule's percentages are
 converted against original face, with dates, totals and prices validated;
 delivery, acceleration and optional sinks fail this deterministic cash route.
 
+`BondContract::average_life(settlement)` reads the outstanding principal, not
+its cash. Each later change retires face; that face, times the calendar days
+from settlement to the change's contractual date (not the business day it
+pays), is summed and divided by 365 times the face outstanding. The exact
+ratio is rounded once, nearest/even, to a `Decimal`. A sink priced above par
+retires the same face as one at par, and a bullet's average life is its time
+to maturity. Settling before issue or at or after the final redemption leaves
+no principal and is refused. Calls and puts are not exercised. The fixtures
+come from `tests/scripts/average_life_reference.py`, exact rationals worked
+from the stated dates and amounts.
+
 `AmortizationSchedule::notional_profile` accepts deterministic entries
 without sorting or clipping. Remaining factors you pass in must reconcile within
 1e-12 (the old input type stores f64). Pass-through/prepayment is unsupported.

@@ -4,14 +4,12 @@
 //! - Scheduled mandatory principal redemptions
 //! - Delivery option (issuer can deliver bonds instead of cash)
 //! - Acceleration/double-up provisions
-//! - Average life and yield-to-average-life calculations
+//! - Average life
 //! - Factor-adjusted cash flows
 
-use convex_math::portable;
 use rust_decimal::Decimal;
 
 use convex_core::types::{Currency, Date, Frequency};
-use convex_math::solvers::{newton_raphson, SolverConfig};
 
 use crate::error::{BondError, BondResult};
 use crate::instruments::FixedRateBond;
@@ -242,48 +240,6 @@ impl SinkingFundSchedule {
         self.remaining_principal_pct(settlement) / 100.0
     }
 
-    /// Calculates the average life of the sinking fund.
-    ///
-    /// Average life = `sum(time_i` * `principal_i`) / `total_principal`
-    ///
-    /// # Arguments
-    ///
-    /// * `settlement` - Settlement date
-    /// * `maturity` - Final maturity date for remaining principal
-    ///
-    /// # Returns
-    ///
-    /// Weighted average life in years
-    #[must_use]
-    pub fn average_life(&self, settlement: Date, maturity: Date) -> f64 {
-        let remaining_pct = self.remaining_principal_pct(settlement);
-
-        if remaining_pct <= 0.0 {
-            return 0.0;
-        }
-
-        let mut weighted_time = 0.0_f64;
-        let mut total_principal = 0.0_f64;
-
-        // Weight by sinking fund payments after settlement
-        for payment in &self.payments {
-            if payment.date > settlement {
-                let years = settlement.days_between(&payment.date) as f64 / 365.0;
-                weighted_time += years * payment.amount_pct;
-                total_principal += payment.amount_pct;
-            }
-        }
-
-        // Add final maturity for remaining principal
-        let final_principal = remaining_pct - total_principal;
-        if final_principal > 0.0 {
-            let years = settlement.days_between(&maturity) as f64 / 365.0;
-            weighted_time += years * final_principal;
-        }
-
-        weighted_time / remaining_pct
-    }
-
     /// Returns all payment dates after settlement.
     #[must_use]
     pub fn payment_dates_from(&self, settlement: Date) -> Vec<Date> {
@@ -367,11 +323,8 @@ impl Default for SinkingFundSchedule {
 /// // Get current factor
 /// let factor = sf_bond.factor(settlement);
 ///
-/// // Calculate average life
-/// let avg_life = sf_bond.average_life(settlement);
-///
-/// // Yield to average life
-/// let ytal = sf_bond.yield_to_average_life(dec!(100), settlement)?;
+/// // Average life
+/// let average_life = sf_bond.average_life(settlement)?;
 /// ```
 #[derive(Debug, Clone)]
 pub struct SinkingFundBond {
@@ -530,11 +483,18 @@ impl SinkingFundBond {
         self.sinking_schedule.factor(settlement)
     }
 
-    /// Returns the average life from settlement.
-    #[must_use]
-    pub fn average_life(&self, settlement: Date) -> f64 {
-        let maturity = self.base.maturity().unwrap();
-        self.sinking_schedule.average_life(settlement, maturity)
+    /// The average life from `settlement` of its mandatory sinking cash, as
+    /// [`BondContract::average_life`](crate::contracts::BondContract::average_life) reads
+    /// it.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::try_contract`] and that average life.
+    pub fn average_life(
+        &self,
+        settlement: Date,
+    ) -> Result<crate::contracts::AverageLife, crate::contracts::BondContractError> {
+        self.try_contract()?.average_life(settlement)
     }
 
     /// Returns the remaining principal at settlement.
@@ -542,169 +502,6 @@ impl SinkingFundBond {
     pub fn remaining_principal(&self, settlement: Date) -> Decimal {
         let factor = Decimal::try_from(self.current_factor(settlement)).unwrap_or(Decimal::ONE);
         self.original_face * factor
-    }
-
-    /// Calculates yield to average life.
-    ///
-    /// This calculates the yield assuming the bond is retired at its
-    /// average life date.
-    ///
-    /// # Arguments
-    ///
-    /// * `clean_price` - Market clean price (percentage of par)
-    /// * `settlement` - Settlement date
-    ///
-    /// # Returns
-    ///
-    /// Yield to average life as a decimal.
-    pub fn yield_to_average_life(
-        &self,
-        clean_price: Decimal,
-        settlement: Date,
-    ) -> BondResult<Decimal> {
-        let avg_life_years = self.average_life(settlement);
-        let avg_life_days = (avg_life_years * 365.0) as i64;
-        let avg_life_date = settlement + avg_life_days;
-
-        // Generate cash flows to average life
-        let flows = self.cash_flows_to_date(settlement, avg_life_date);
-
-        if flows.is_empty() {
-            return Err(BondError::invalid_spec("no cash flows to average life"));
-        }
-
-        self.solve_yield(&flows, clean_price, settlement)
-    }
-
-    /// Factor-adjusted cash flows. Coupon at sink date D accrues on the
-    /// pre-paydown factor; see test_coupon_at_sink_date_uses_pre_paydown_factor.
-    fn cash_flows_to_date(&self, settlement: Date, end_date: Date) -> Vec<BondCashFlow> {
-        let mut flows = Vec::new();
-        let maturity = self.base.maturity().unwrap();
-        let coupon_rate = self.base.coupon_rate();
-        let freq = self.base.coupon_frequency();
-
-        let base_flows = self.base.cash_flows(settlement);
-        let mut remaining_factor = self.current_factor(settlement);
-
-        for cf in base_flows {
-            if cf.date > end_date {
-                break;
-            }
-
-            let pre_paydown_factor = remaining_factor;
-
-            if let Some(sf_payment) = self.sinking_schedule.payment_on(cf.date) {
-                let sf_amount = self.original_face
-                    * Decimal::try_from(sf_payment.amount_pct / 100.0).unwrap_or(Decimal::ZERO)
-                    * Decimal::try_from(sf_payment.price / 100.0).unwrap_or(Decimal::ONE);
-
-                flows.push(BondCashFlow {
-                    date: cf.date,
-                    amount: sf_amount,
-                    flow_type: CashFlowType::Principal,
-                    accrual_start: cf.accrual_start,
-                    accrual_end: cf.accrual_end,
-                    factor: Decimal::try_from(pre_paydown_factor).unwrap_or(Decimal::ONE),
-                    reference_rate: None,
-                });
-
-                remaining_factor -= sf_payment.amount_pct / 100.0;
-                remaining_factor = remaining_factor.max(0.0);
-            }
-
-            if cf.is_coupon() || cf.is_principal() {
-                let coupon_factor = Decimal::try_from(pre_paydown_factor).unwrap_or(Decimal::ONE);
-                let coupon_amount = if freq > 0 {
-                    self.original_face * coupon_rate * coupon_factor / Decimal::from(freq)
-                } else {
-                    Decimal::ZERO
-                };
-
-                if coupon_amount > Decimal::ZERO {
-                    flows.push(
-                        BondCashFlow::coupon(cf.date, coupon_amount)
-                            .with_accrual(
-                                cf.accrual_start.unwrap_or(settlement),
-                                cf.accrual_end.unwrap_or(cf.date),
-                            )
-                            .with_factor(coupon_factor),
-                    );
-                }
-            }
-        }
-
-        // YTAL workouts that don't extend to maturity leave residual principal.
-        if remaining_factor > 0.0 && end_date <= maturity {
-            let final_amount =
-                self.original_face * Decimal::try_from(remaining_factor).unwrap_or(Decimal::ZERO);
-            flows.push(BondCashFlow::principal(end_date, final_amount));
-        }
-
-        flows
-    }
-
-    /// Solves for yield given cash flows and target price.
-    fn solve_yield(
-        &self,
-        flows: &[BondCashFlow],
-        clean_price: Decimal,
-        settlement: Date,
-    ) -> BondResult<Decimal> {
-        let factor = self.current_factor(settlement);
-        let adjusted_price = clean_price * Decimal::try_from(factor).unwrap_or(Decimal::ONE);
-        let accrued = self.accrued_interest(settlement);
-        let target_dirty = adjusted_price + accrued;
-        let target = target_dirty.to_string().parse::<f64>().unwrap_or(100.0);
-
-        let freq = f64::from(self.base.coupon_frequency());
-        let coupon_rate = self
-            .base
-            .coupon_rate()
-            .to_string()
-            .parse::<f64>()
-            .unwrap_or(0.05);
-        let initial_guess = coupon_rate;
-
-        // Collect flow data for closures
-        let flow_data: Vec<(f64, f64)> = flows
-            .iter()
-            .map(|cf| {
-                let t = settlement.days_between(&cf.date) as f64 / 365.0;
-                let amount = cf.amount.to_string().parse::<f64>().unwrap_or(0.0);
-                (t, amount)
-            })
-            .collect();
-
-        if flow_data.is_empty() {
-            return Err(BondError::invalid_spec(
-                "no cash flows for yield calculation",
-            ));
-        }
-
-        let objective = |y: f64| {
-            let mut pv = 0.0;
-            for &(t, amount) in &flow_data {
-                let df = 1.0 / portable::pow(1.0 + y / freq, freq * t);
-                pv += amount * df;
-            }
-            pv - target
-        };
-
-        let derivative = |y: f64| {
-            let mut dpv = 0.0;
-            for &(t, amount) in &flow_data {
-                let df = 1.0 / portable::pow(1.0 + y / freq, freq * t);
-                dpv += amount * (-t) * df / (1.0 + y / freq);
-            }
-            dpv
-        };
-
-        let config = SolverConfig::new(1e-10, 100);
-        let result = newton_raphson(objective, derivative, initial_guess, &config)
-            .map_err(|_| BondError::YieldConvergenceFailed { iterations: 100 })?;
-
-        Ok(Decimal::from_f64_retain(result.root).unwrap_or(Decimal::ZERO))
     }
 }
 
@@ -778,9 +575,72 @@ impl Bond for SinkingFundBond {
         self.base.frequency()
     }
 
-    fn cash_flows(&self, from: Date) -> Vec<BondCashFlow> {
+    /// Factor-adjusted cash flows. Coupon at sink date D accrues on the
+    /// pre-paydown factor; see test_coupon_at_sink_date_uses_pre_paydown_factor.
+    fn cash_flows(&self, settlement: Date) -> Vec<BondCashFlow> {
+        let mut flows = Vec::new();
         let maturity = self.base.maturity().unwrap();
-        self.cash_flows_to_date(from, maturity)
+        let coupon_rate = self.base.coupon_rate();
+        let freq = self.base.coupon_frequency();
+
+        let base_flows = self.base.cash_flows(settlement);
+        let mut remaining_factor = self.current_factor(settlement);
+
+        for cf in base_flows {
+            if cf.date > maturity {
+                break;
+            }
+
+            let pre_paydown_factor = remaining_factor;
+
+            if let Some(sf_payment) = self.sinking_schedule.payment_on(cf.date) {
+                let sf_amount = self.original_face
+                    * Decimal::try_from(sf_payment.amount_pct / 100.0).unwrap_or(Decimal::ZERO)
+                    * Decimal::try_from(sf_payment.price / 100.0).unwrap_or(Decimal::ONE);
+
+                flows.push(BondCashFlow {
+                    date: cf.date,
+                    amount: sf_amount,
+                    flow_type: CashFlowType::Principal,
+                    accrual_start: cf.accrual_start,
+                    accrual_end: cf.accrual_end,
+                    factor: Decimal::try_from(pre_paydown_factor).unwrap_or(Decimal::ONE),
+                    reference_rate: None,
+                });
+
+                remaining_factor -= sf_payment.amount_pct / 100.0;
+                remaining_factor = remaining_factor.max(0.0);
+            }
+
+            if cf.is_coupon() || cf.is_principal() {
+                let coupon_factor = Decimal::try_from(pre_paydown_factor).unwrap_or(Decimal::ONE);
+                let coupon_amount = if freq > 0 {
+                    self.original_face * coupon_rate * coupon_factor / Decimal::from(freq)
+                } else {
+                    Decimal::ZERO
+                };
+
+                if coupon_amount > Decimal::ZERO {
+                    flows.push(
+                        BondCashFlow::coupon(cf.date, coupon_amount)
+                            .with_accrual(
+                                cf.accrual_start.unwrap_or(settlement),
+                                cf.accrual_end.unwrap_or(cf.date),
+                            )
+                            .with_factor(coupon_factor),
+                    );
+                }
+            }
+        }
+
+        // Principal not sunk by maturity is repaid on it.
+        if remaining_factor > 0.0 {
+            let final_amount =
+                self.original_face * Decimal::try_from(remaining_factor).unwrap_or(Decimal::ZERO);
+            flows.push(BondCashFlow::principal(maturity, final_amount));
+        }
+
+        flows
     }
 
     fn next_coupon_date(&self, after: Date) -> Option<Date> {
@@ -847,10 +707,6 @@ impl AmortizingBond for SinkingFundBond {
 
     fn outstanding_principal(&self, as_of: Date) -> Decimal {
         self.remaining_principal(as_of)
-    }
-
-    fn weighted_average_life(&self, from: Date) -> f64 {
-        self.average_life(from)
     }
 }
 
@@ -965,20 +821,6 @@ mod tests {
     }
 
     #[test]
-    fn test_sinking_fund_average_life() {
-        let schedule = create_sinking_schedule();
-        let settlement = date(2024, 1, 1);
-        let maturity = date(2029, 6, 15);
-
-        let avg_life = schedule.average_life(settlement, maturity);
-
-        // With 20% at each of 5 years + remaining 20% at maturity
-        // Average should be somewhere between settlement and maturity
-        assert!(avg_life > 1.0);
-        assert!(avg_life < 6.0);
-    }
-
-    #[test]
     fn test_sinking_fund_schedule_options() {
         let schedule = SinkingFundSchedule::new()
             .with_payment(SinkingFundPayment::new(date(2025, 6, 15), 50.0))
@@ -1027,20 +869,6 @@ mod tests {
     }
 
     #[test]
-    fn test_sinking_fund_bond_average_life() {
-        let base = create_base_bond();
-        let schedule = create_sinking_schedule();
-        let sf_bond = SinkingFundBond::new(base, schedule);
-
-        let settlement = date(2024, 1, 1);
-        let avg_life = sf_bond.average_life(settlement);
-
-        // Should be between now and maturity
-        assert!(avg_life > 1.0);
-        assert!(avg_life < 6.0);
-    }
-
-    #[test]
     fn test_sinking_fund_accrued_interest() {
         let base = create_base_bond();
         let schedule = create_sinking_schedule();
@@ -1080,23 +908,6 @@ mod tests {
     }
 
     #[test]
-    fn test_sinking_fund_yield_to_average_life() {
-        let base = create_base_bond();
-        let schedule = create_sinking_schedule();
-        let sf_bond = SinkingFundBond::new(base, schedule);
-
-        let settlement = date(2024, 1, 15);
-        let ytal = sf_bond.yield_to_average_life(dec!(100), settlement);
-
-        // Should calculate a yield
-        assert!(ytal.is_ok());
-        let yield_val = ytal.unwrap();
-        // Yield should be reasonable (between 0 and 20%)
-        assert!(yield_val > Decimal::ZERO);
-        assert!(yield_val < dec!(0.20));
-    }
-
-    #[test]
     fn test_amortizing_bond_trait() {
         let base = create_base_bond();
         let schedule = create_sinking_schedule();
@@ -1110,9 +921,6 @@ mod tests {
 
         let outstanding = sf_bond.outstanding_principal(settlement);
         assert_eq!(outstanding, dec!(80));
-
-        let wal = sf_bond.weighted_average_life(settlement);
-        assert!(wal > 0.0);
 
         let next_principal = sf_bond.next_principal_date(settlement);
         assert_eq!(next_principal, Some(date(2026, 6, 15)));

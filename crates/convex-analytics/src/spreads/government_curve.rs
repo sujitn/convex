@@ -260,19 +260,33 @@ impl GovernmentCurve {
     }
 
     /// Checked interpolation of supplied securities at their actual remaining
-    /// ACT/365F maturities. Yields convert to semiannual compounding; endpoint
-    /// extrapolation is explicitly flat. Empty/ineligible benchmarks fail.
+    /// ACT/365F maturities, read at `maturity`. Yields convert to semiannual compounding;
+    /// endpoint extrapolation is explicitly flat. Empty/ineligible benchmarks fail.
     pub fn supplied_yield(
         &self,
         settlement: Date,
         maturity: Date,
+    ) -> crate::AnalyticsResult<Yield> {
+        self.supplied_yield_in_years(
+            settlement,
+            settlement.days_between(&maturity) as f64 / 365.0,
+        )
+    }
+
+    /// [`Self::supplied_yield`] read `time` years of 365 days after settlement.
+    pub(crate) fn supplied_yield_in_years(
+        &self,
+        settlement: Date,
+        time: f64,
     ) -> crate::AnalyticsResult<Yield> {
         use crate::AnalyticsError;
         use convex_core::types::Compounding;
         use rust_decimal::prelude::ToPrimitive;
         let invalid =
             || AnalyticsError::InvalidInput("invalid supplied government benchmark".into());
-        if self.reference_date > settlement || maturity <= settlement || self.benchmarks.len() > 128
+        if self.reference_date > settlement
+            || !(time.is_finite() && time > 0.0)
+            || self.benchmarks.len() > 128
         {
             return Err(invalid());
         }
@@ -303,7 +317,6 @@ impl GovernmentCurve {
         if points.windows(2).any(|w| w[0].0 == w[1].0) {
             return Err(invalid());
         }
-        let time = settlement.days_between(&maturity) as f64 / 365.0;
         let value = if points.len() == 1 {
             points[0].1
         } else {

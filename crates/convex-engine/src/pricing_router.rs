@@ -8,7 +8,9 @@ use crate::error::EngineError;
 use crate::ports::output::BondQuoteOutput;
 use crate::ports::reference_data::{BondReferenceData, BondType};
 use crate::ports::storage::BidAskSpreadConfig;
-use convex_analytics::bond_quote::{quote_fixed, quote_zero, BondCurves, BondQuote};
+use convex_analytics::bond_quote::{
+    quote_fixed, quote_zero, BenchmarkTenor, BondCurves, BondQuote, GSpreadBenchmark,
+};
 use convex_analytics::risk::STANDARD_KEY_RATE_TENORS;
 use convex_analytics::spreads::GovernmentCurve;
 #[cfg(test)]
@@ -410,7 +412,13 @@ impl PricingRouter {
                             .benchmark_curve
                             .as_ref()
                             .map(|c| c as &dyn convex_curves::RateCurveDyn),
-                        government: input.government_curve.as_ref(),
+                        government: input
+                            .government_curve
+                            .as_ref()
+                            .map(|curve| GSpreadBenchmark {
+                                curve,
+                                tenor: BenchmarkTenor::Maturity,
+                            }),
                     },
                     self.bump_bps,
                     STANDARD_KEY_RATE_TENORS,

@@ -3,6 +3,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use convex_bonds::{
+    contracts::AverageLife,
     instruments::ZeroCouponBond,
     traits::{Bond, FixedCouponBond},
 };
@@ -11,7 +12,7 @@ use convex_core::{
     types::{Compounding, Date, Frequency, Mark, Price, Yield},
 };
 use convex_curves::{CurveError, CurveResult, RateCurveDyn};
-use convex_math::portable;
+use convex_math::{decimal::BoundedDecimal, portable};
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 
 use crate::{
@@ -62,8 +63,67 @@ pub struct BondCurves<'a> {
     pub discount: Option<&'a dyn RateCurveDyn>,
     /// Swap benchmark for I-spread and the declared par-par ASW convention.
     pub swap: Option<&'a dyn RateCurveDyn>,
-    /// Actual government benchmark yields for G-spread.
-    pub government: Option<&'a GovernmentCurve>,
+    /// Actual government benchmark yields for G-spread, and the tenor it reads them at.
+    pub government: Option<GSpreadBenchmark<'a>>,
+}
+
+/// The tenor at which a G-spread reads the supplied government yields. It is the
+/// caller's to name; nothing infers it from the bond.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BenchmarkTenor {
+    /// The bond's contractual maturity date.
+    Maturity,
+    /// Its average life from the same settlement date, in the years of 365 days the
+    /// securities' maturities are interpolated on.
+    AverageLife(AverageLife),
+}
+
+/// The government securities a G-spread is over, read at one tenor, so a level priced
+/// from a G-spread and the G-spread quoted back read the same benchmark yield.
+#[derive(Clone, Copy)]
+pub struct GSpreadBenchmark<'a> {
+    /// The supplied securities.
+    pub curve: &'a GovernmentCurve,
+    /// Where along them the benchmark yield is read.
+    pub tenor: BenchmarkTenor,
+}
+
+impl GSpreadBenchmark<'_> {
+    /// The government yield a G-spread of `bond` settling at `settlement` is over:
+    /// semi-annual, interpolated at the tenor.
+    ///
+    /// # Errors
+    ///
+    /// A foreign currency; a bond with no maturity, for [`BenchmarkTenor::Maturity`]; an
+    /// average life measured from another settlement date; and the curve's own refusals.
+    pub fn benchmark_yield(&self, bond: &dyn Bond, settlement: Date) -> AnalyticsResult<Yield> {
+        if self.curve.sovereign().currency() != bond.currency() {
+            return Err(AnalyticsError::InvalidInput(
+                "government benchmark currency".into(),
+            ));
+        }
+        match self.tenor {
+            BenchmarkTenor::Maturity => self.curve.supplied_yield(
+                settlement,
+                bond.maturity().ok_or_else(|| missing("bond maturity"))?,
+            ),
+            BenchmarkTenor::AverageLife(life) => {
+                if life.settlement() != settlement {
+                    return Err(AnalyticsError::InvalidInput(
+                        "the average life is measured from another settlement date".into(),
+                    ));
+                }
+                // One correctly rounded conversion, so a bullet's average life reads the
+                // yield its maturity does.
+                let years = BoundedDecimal::decimal(life.years())
+                    .ratio_as_f64(&BoundedDecimal::decimal(Decimal::ONE))
+                    .map_err(|_| {
+                        AnalyticsError::InvalidInput("an average life beyond a binary64".into())
+                    })?;
+                self.curve.supplied_yield_in_years(settlement, years)
+            }
+        }
+    }
 }
 
 /// Supported maturity-equivalent analytics, plus individual unavailable measures.
@@ -214,7 +274,7 @@ pub fn yield_risk<B: Bond + FixedCouponBond>(
 /// The price a quoted level gives, under the definitions [`quote_fixed`] publishes: a
 /// price as given, a street yield at its own frequency, a Z-spread over the discount
 /// curve, an I-spread over the par swap rate at the bond's coupon frequency, or a G-spread
-/// over the yield of the supplied government securities at the bond's maturity, as a
+/// over the yield of the supplied government securities at the benchmark's tenor, as a
 /// semi-annual yield. A level priced here and quoted back through [`quote_fixed`] is the
 /// same level; `quote_fixed` publishes an I-spread in whole basis points.
 pub fn price_from_level<B: Bond + FixedCouponBond>(
@@ -229,16 +289,10 @@ pub fn price_from_level<B: Bond + FixedCouponBond>(
         Mark::Spread { value, .. }
             if value.spread_type() == convex_core::types::SpreadType::GSpread =>
         {
-            let curve = curves
+            let benchmark = curves
                 .government
-                .ok_or_else(|| missing("government benchmarks for G-spread mark"))?;
-            if curve.sovereign().currency() != bond.currency() {
-                return Err(AnalyticsError::InvalidInput("benchmark currency".into()));
-            }
-            let benchmark = curve.supplied_yield(
-                settlement,
-                bond.maturity().ok_or_else(|| missing("maturity"))?,
-            )?;
+                .ok_or_else(|| missing("government benchmarks for G-spread mark"))?
+                .benchmark_yield(bond, settlement)?;
             let value = benchmark
                 .value()
                 .checked_add(value.as_decimal()?)
@@ -324,18 +378,12 @@ pub fn quote_fixed<B: Bond + FixedCouponBond>(
         "g_spread",
         curves.government.is_some(),
         (|| {
-            let curve = curves
+            let government = curves
                 .government
                 .ok_or_else(|| missing("government benchmarks"))?;
-            if curve.sovereign().currency() != bond.currency() || curve.benchmark_count() > 128 {
-                return Err(AnalyticsError::InvalidInput(
-                    "government benchmark currency/count".into(),
-                ));
-            }
-            let maturity = bond.maturity().ok_or_else(|| missing("bond maturity"))?;
-            let benchmark = curve.supplied_yield(settlement, maturity)?;
+            let benchmark = government.benchmark_yield(bond, settlement)?;
             finite(
-                GSpreadCalculator::new(curve)
+                GSpreadCalculator::new(government.curve)
                     .with_benchmark(crate::spreads::BenchmarkSpec::ExplicitYield(benchmark))
                     .calculate(bond, y, settlement)?
                     .as_bps()

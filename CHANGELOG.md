@@ -182,8 +182,29 @@ the changes that matter when you upgrade.
     falls between; it is `Unsupported` then.
 - `CallableBond` refuses through `try_cash_flows` and `try_accrued_interest`, as
   its bond does, instead of panicking.
+- **Average life.** `BondContract::average_life(settlement)` gives an
+  `AverageLife` in years of 365 days. Each later change in outstanding principal
+  is weighted by the face it retires and timed at its contractual date. The
+  exact sum is rounded once to a `Decimal`. A sink priced above par retires the
+  same face as one at par. Settling with no principal outstanding (before issue,
+  at or after the final redemption) is refused.
+- **Breaking:** the `f64` average life is removed, with no compatibility layer:
+  `SinkingFundSchedule::average_life`, `AmortizingBond::weighted_average_life`
+  and `SinkingFundBond::yield_to_average_life`. That yield retired the bond at a
+  truncated average-life date and had no caller. `SinkingFundBond::average_life`
+  now returns `Result<AverageLife, BondContractError>` from its mandatory sinks.
 
 ### convex-analytics
+
+- **Breaking: a G-spread reads the government securities at a named tenor.**
+  `BondCurves.government` is a `GSpreadBenchmark`: the supplied
+  `GovernmentCurve` and a `BenchmarkTenor`, either `Maturity` (the reading
+  before this change) or `AverageLife(average_life)`. `price_from_level` and
+  `quote_fixed` both read the benchmark yield through
+  `GSpreadBenchmark::benchmark_yield`, so a level priced from a G-spread quotes
+  back as that G-spread. An average life is read on the ACT/365F axis the
+  securities' maturities are interpolated on, and one measured from another
+  settlement date is refused.
 
 - **Breaking:** `hedge_cost_bps` is removed, with its re-exports from `risk`,
   `risk::hedging` and the `convex` facade; use `HeuristicCostFeed.cost_bps`.
@@ -582,6 +603,8 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- The level stage and the pricing router name the maturity tenor for every
+  G-spread and benchmark spread. Results are unchanged.
 - **Book risk from the limit evaluation.** `limits::evaluate_book` evaluates a
   book's limits and gives its risk from the same market values and aggregates:
   market value, gross market value, DV01, CS01, modified duration and key-rate
