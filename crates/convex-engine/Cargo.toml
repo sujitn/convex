@@ -39,7 +39,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 chrono = "0.4"
-cron = "0.16"
+cron = "0.17"
 
 [dev-dependencies]
 convex-rates = { workspace = true }
