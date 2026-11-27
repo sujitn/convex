@@ -126,7 +126,7 @@ export function PricingSheet() {
   useEffect(() => {
     if (!hasRows) return
     return followValuations(token, instrumentIds, {
-      onValuation: (valuation) => {
+      onItem: (valuation) => {
         pending.current.push(valuation)
         if (frame.current === null) frame.current = requestAnimationFrame(flush)
       },

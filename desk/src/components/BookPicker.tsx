@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+import { failureNotice } from '../lib/failure'
 import type { FollowedBooks } from '../lib/followedBooks'
 
 /** What a screen follows: the books typed, or else every live book listed. */
-function following({ typed, listed, isListing }: FollowedBooks, most: number): string | null {
+function following({ most, typed, listed, isListing }: FollowedBooks): string | null {
   if (typed.length > most) return `the first ${most} of the books typed`
   if (typed.length > 0) return null
   if (isListing) return 'listing the books…'
@@ -11,12 +12,12 @@ function following({ typed, listed, isListing }: FollowedBooks, most: number): s
   return `every live book (${listed.length})`
 }
 
-/** The books followed: those typed, kept in the URL, or else every live book listed. */
-export function BookPicker({ books, most }: { books: FollowedBooks; most: number }) {
+/** The books followed: those typed, kept in the URL, or else every live book listed, and why none could be. */
+export function BookPicker({ books }: { books: FollowedBooks }) {
   const { typed, follow } = books
   const [draft, setDraft] = useState(typed.join(', '))
   useEffect(() => setDraft(typed.join(', ')), [typed])
-  const shown = following(books, most)
+  const shown = following(books)
   return (
     <form
       className="flex items-center gap-2"
@@ -35,6 +36,7 @@ export function BookPicker({ books, most }: { books: FollowedBooks; most: number
         Follow
       </button>
       {shown && <span>{shown}</span>}
+      {books.listingError && <span className="text-red-400">{failureNotice(books.listingError)}</span>}
     </form>
   )
 }

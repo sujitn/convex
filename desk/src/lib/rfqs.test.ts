@@ -1,7 +1,6 @@
 import { ApiFailure } from '@convex/api-client'
 import { describe, expect, it, vi } from 'vitest'
 import { roundToTick } from './decimal'
-import { bookList } from './followedBooks'
 import { formatQuoteValue } from './format'
 import {
   blotterOrder,
@@ -217,9 +216,6 @@ describe('the blotter’s cells', () => {
     expect(checkSummary(check)).toBe('breach 1 · warning 2 · within 1')
     expect(worstStatus({ kind: 'unavailable', reason: 'the book has no limits' })).toBeNull()
     expect(checkSummary({ kind: 'evaluated', statuses: {} })).toBe('no limits')
-  })
-  it('read a typed list of books once each', () => {
-    expect(bookList(' BOOK-IG, BOOK-HY BOOK-IG,,')).toEqual(['BOOK-IG', 'BOOK-HY'])
   })
 })
 

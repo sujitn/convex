@@ -1,22 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  bookSubscription,
-  boundsLabel,
-  closeTaken,
-  formatLimitValue,
-  limitCounts,
-  MAX_SUMMARY_BOOKS,
-  measureLabel,
-  noBookPnlText,
-  onBooks,
-  readBookMessage,
-  unknownReasonText,
-  withSummary,
-  type BookSummary,
-  type BookTopicHandlers,
-} from './books'
-import { countsSummary, worstCounted } from './limits'
-import type { StreamMessage } from './stream'
+import { bookSubscription, closeTaken, holdLater, MAX_SUMMARY_BOOKS, noBookPnlText, summariesOn, withSummaries, type BookSummary } from './books'
+import { bookList } from './followedBooks'
+import { codeWords, formatAmount, formatPercent, formatYears } from './format'
+import { boundsLabel, countStatuses, countsSummary, formatLimitValue, measureLabel, unknownReasonText, worstCounted } from './limits'
+import { readTopicMessage, type StreamMessage, type TopicHandlers } from './stream'
 
 const STARTED = '2026-11-27T09:00:00Z'
 
@@ -37,44 +24,44 @@ function summary(bookId: string, sequence: number, overrides: Partial<BookSummar
   }
 }
 
-function handlers(): BookTopicHandlers & { [K in keyof BookTopicHandlers]: ReturnType<typeof vi.fn> } {
-  return { onSummary: vi.fn(), onRefusal: vi.fn(), onStatus: vi.fn() }
-}
+const merged = (...arrived: BookSummary[]) => withSummaries(new Map(), arrived)
 
 describe('book summaries', () => {
   it('keep the higher sequence of one monitor, whatever order they arrive in', () => {
-    const later = withSummary(new Map(), summary('BOOK-IG', 7))
-    const kept = withSummary(later, summary('BOOK-IG', 5))
+    const later = merged(summary('BOOK-IG', 7))
+    const kept = withSummaries(later, [summary('BOOK-IG', 5)])
     expect(kept.get('BOOK-IG')?.sequence).toBe(7)
     expect(kept).toBe(later)
-    expect(withSummary(kept, summary('BOOK-IG', 8)).get('BOOK-IG')?.sequence).toBe(8)
+    expect(withSummaries(kept, [summary('BOOK-IG', 8)]).get('BOOK-IG')?.sequence).toBe(8)
+    expect(merged(summary('BOOK-IG', 9), summary('BOOK-IG', 4)).get('BOOK-IG')?.sequence).toBe(9)
   })
 
   it('take a later start of the monitor over a higher sequence of an earlier one', () => {
-    const held = withSummary(new Map(), summary('BOOK-IG', 900))
-    const restarted = withSummary(held, summary('BOOK-IG', 1, { monitor_started_at: '2026-11-27T10:00:00Z' }))
+    const restarted = withSummaries(merged(summary('BOOK-IG', 900)), [
+      summary('BOOK-IG', 1, { monitor_started_at: '2026-11-27T10:00:00Z' }),
+    ])
     expect(restarted.get('BOOK-IG')?.sequence).toBe(1)
-    const stale = withSummary(restarted, summary('BOOK-IG', 901))
-    expect(stale.get('BOOK-IG')?.sequence).toBe(1)
+    expect(withSummaries(restarted, [summary('BOOK-IG', 901)]).get('BOOK-IG')?.sequence).toBe(1)
+  })
+
+  it('are held at most one a book until merged', () => {
+    const held = new Map<string, BookSummary>()
+    for (const sequence of [3, 9, 4]) holdLater(held, summary('BOOK-IG', sequence))
+    holdLater(held, summary('BOOK-HY', 2))
+    expect([...held.values()].map((one) => [one.book_id, one.sequence])).toEqual([
+      ['BOOK-IG', 9],
+      ['BOOK-HY', 2],
+    ])
   })
 
   it('are kept by book, and dropped for a book no longer followed', () => {
-    const both = [summary('BOOK-IG', 1), summary('BOOK-HY', 1)].reduce(withSummary, new Map() as ReadonlyMap<string, BookSummary>)
+    const both = merged(summary('BOOK-IG', 1), summary('BOOK-HY', 1))
     expect([...both.keys()]).toEqual(['BOOK-IG', 'BOOK-HY'])
-    expect([...onBooks(both, ['BOOK-HY']).keys()]).toEqual(['BOOK-HY'])
+    expect([...summariesOn(both, ['BOOK-HY']).keys()]).toEqual(['BOOK-HY'])
   })
 
   it('count their limits by status, the worst first', () => {
-    const counted = limitCounts(
-      summary('BOOK-IG', 1, {
-        limits: [
-          { limit_id: 'DV01', status: 'within', value: '1200' },
-          { limit_id: 'CS01', status: 'unknown' },
-          { limit_id: 'MV', status: 'breach', value: '51000000', utilisation: '1.02' },
-          { limit_id: 'FACE', status: 'within', value: '5000000' },
-        ],
-      }),
-    )
+    const counted = countStatuses(['within', 'unknown', 'breach', 'within'])
     expect(worstCounted(counted)).toBe('breach')
     expect(countsSummary(counted)).toBe('breach 1 · unknown 1 · within 2')
     expect(countsSummary({})).toBe('no limits')
@@ -82,7 +69,7 @@ describe('book summaries', () => {
   })
 })
 
-describe('the book topic', () => {
+describe('a topic', () => {
   it('subscribes to at most a session of books', () => {
     expect(JSON.parse(bookSubscription(['BOOK-IG', 'BOOK-HY']))).toEqual({
       type: 'subscribe_books',
@@ -92,23 +79,30 @@ describe('the book topic', () => {
     expect(() => bookSubscription(many)).toThrow(/at most 64/)
   })
 
-  it('gives each summary, subscribes again after RESYNC_REQUIRED and reports any other error', () => {
-    const topic = handlers()
+  it('gives each item, subscribes again after RESYNC_REQUIRED and reports any other error', () => {
+    const handlers = { onItem: vi.fn(), onRefusal: vi.fn(), onStatus: vi.fn() } satisfies TopicHandlers<BookSummary>
     const send = vi.fn()
-    const read = (message: StreamMessage) => readBookMessage(message, send, ['BOOK-IG'], topic)
+    const subscription = [bookSubscription(['BOOK-IG'])]
+    const read = (message: StreamMessage) => readTopicMessage(message, send, subscription, 'book_summary', handlers)
     read({ ...summary('BOOK-IG', 3), type: 'book_summary' } as unknown as StreamMessage)
-    expect(topic.onSummary).toHaveBeenCalledWith(expect.objectContaining({ book_id: 'BOOK-IG', sequence: 3 }))
+    expect(handlers.onItem).toHaveBeenCalledWith(expect.objectContaining({ book_id: 'BOOK-IG', sequence: 3 }))
     read({ type: 'error', code: 'RESYNC_REQUIRED', message: 'fell behind' })
-    expect(send).toHaveBeenCalledWith(bookSubscription(['BOOK-IG']))
+    expect(send).toHaveBeenCalledWith(subscription[0])
     read({ type: 'error', code: 'FORBIDDEN', message: 'the summary of book BOOK-IG needs read access' })
-    expect(topic.onRefusal).toHaveBeenCalledWith('FORBIDDEN', 'the summary of book BOOK-IG needs read access')
+    expect(handlers.onRefusal).toHaveBeenCalledWith('FORBIDDEN', 'the summary of book BOOK-IG needs read access')
     read({ type: 'subscribed', subscription_type: 'books', count: 1 })
-    expect(topic.onSummary).toHaveBeenCalledTimes(1)
-    expect(topic.onRefusal).toHaveBeenCalledTimes(1)
+    expect(handlers.onItem).toHaveBeenCalledTimes(1)
+    expect(handlers.onRefusal).toHaveBeenCalledTimes(1)
   })
 })
 
-describe('limits as the screen words them', () => {
+describe('the books followed', () => {
+  it('are each book typed, once, in order', () => {
+    expect(bookList(' BOOK-IG, BOOK-HY BOOK-IG,,')).toEqual(['BOOK-IG', 'BOOK-HY'])
+  })
+})
+
+describe('limits as the desk words them', () => {
   it('name each measure and its member', () => {
     expect(measureLabel({ kind: 'face', instrument: 'each' })).toBe('Face · each')
     expect(measureLabel({ kind: 'face', instrument: { one: 'IG-1' } })).toBe('Face · IG-1')
@@ -119,9 +113,9 @@ describe('limits as the screen words them', () => {
 
   it('show bounds and values in the measure unit', () => {
     const share = { kind: 'group_share', by: 'sector', group: { one: 'Energy' } } as const
-    expect(boundsLabel({ limit_id: 'SHARE', measure: share, upper: '0.25' })).toBe('≤ 25.0%')
-    expect(boundsLabel({ limit_id: 'DV01', measure: { kind: 'dv01' }, lower: '-50000', upper: '50000' })).toBe('-50,000 to 50,000')
-    expect(boundsLabel({ limit_id: 'MV', measure: { kind: 'market_value' }, lower: '0' })).toBe('≥ 0')
+    expect(boundsLabel({ measure: share, upper: '0.25' })).toBe('≤ 25.0%')
+    expect(boundsLabel({ measure: { kind: 'dv01' }, lower: '-50000', upper: '50000' })).toBe('-50,000 to 50,000')
+    expect(boundsLabel({ measure: { kind: 'market_value' }, lower: '0' })).toBe('≥ 0')
     expect(formatLimitValue({ kind: 'modified_duration' }, '4.4567')).toBe('4.46')
     expect(formatLimitValue({ kind: 'market_value' }, '49870123.456')).toBe('49,870,123')
   })
@@ -147,5 +141,15 @@ describe('limits as the screen words them', () => {
       positions: [{ value: { status: 'valued' as const } }, { value: { status: 'unvalued' as const } }, { value: { status: 'valued' as const } }],
     }
     expect(closeTaken('BOOK-IG', close)).toBe('BOOK-IG closed for 2026-11-27 (version 2): 2 valued, 1 unvalued')
+  })
+})
+
+describe('book numbers', () => {
+  it('group amounts, keep two places of years and show fractions in percent', () => {
+    expect(formatAmount('-19338.77')).toBe('-19,339')
+    expect(formatAmount(5000000)).toBe('5,000,000')
+    expect(formatYears('6.1')).toBe('6.10')
+    expect(formatPercent('1.0526')).toBe('105.3%')
+    expect(codeWords('traded_away')).toBe('traded away')
   })
 })

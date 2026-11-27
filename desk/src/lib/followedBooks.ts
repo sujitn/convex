@@ -13,6 +13,8 @@ export function bookList(text: string): string[] {
 }
 
 export interface FollowedBooks {
+  /** The most books followed: the topic's bound on one subscription. */
+  most: number
   /** The books typed, all of them. */
   typed: string[]
   /** Every live book listed; null when the identity may not list books, undefined until read or when the read failed. */
@@ -44,6 +46,7 @@ export function useFollowedBooks(most: number): FollowedBooks {
     [setSearch],
   )
   return {
+    most,
     typed,
     listed: listed.data,
     isListing: listed.isPending && typed.length === 0,

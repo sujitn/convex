@@ -3,6 +3,7 @@ import { useSession } from '@convex/api-client'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { BookPicker } from '../components/BookPicker'
 import { StreamBadge } from '../components/StreamBadge'
+import { TableHead, type Column } from '../components/TableHead'
 import { serverNow, useServerNow } from '../lib/clock'
 import { isPositiveDecimal } from '../lib/decimal'
 import { failureNotice, failureStatus } from '../lib/failure'
@@ -250,7 +251,7 @@ export function RfqBlotter() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
-        <BookPicker books={books} most={MAX_RFQ_BOOKS} />
+        <BookPicker books={books} />
         <span>
           {ordered.filter((row) => isOpen(row.state)).length} open · stream <StreamBadge status={status} />
         </span>
@@ -260,7 +261,6 @@ export function RfqBlotter() {
             {withheldCount} withheld on {[...withheld.keys()].join(', ')}
           </span>
         )}
-        {books.listingError && <span className="text-red-400">{failureNotice(books.listingError)}</span>}
         {notice && <span className="text-amber-300">{notice}</span>}
       </div>
       <div className="flex gap-3">
@@ -271,15 +271,7 @@ export function RfqBlotter() {
           className="flex-1 overflow-auto rounded border border-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-700"
         >
           <table className="w-full border-collapse text-xs">
-            <thead className="sticky top-0 bg-slate-900 text-slate-400">
-              <tr>
-                {HEADINGS.map(([heading, isNumeric]) => (
-                  <th key={heading} className={`px-2 py-1 font-medium ${isNumeric ? 'text-right' : 'text-left'}`}>
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+            <TableHead columns={COLUMNS} />
             <tbody>
               {ordered.map((row) => (
                 <Row
@@ -314,21 +306,20 @@ export function RfqBlotter() {
   )
 }
 
-/** Each column's heading, and whether it holds numbers. */
-const HEADINGS: [string, boolean][] = [
-  ['Left', true],
-  ['Client', false],
-  ['Side', false],
-  ['Size', true],
-  ['Bond', false],
-  ['CUSIP', false],
-  ['Book', false],
-  ['Desk', false],
-  ['Level', true],
-  ['Price', true],
-  ['Limits', false],
-  ['State', false],
-  ['Quoted', true],
+const COLUMNS: Column[] = [
+  { heading: 'Left', isNumeric: true },
+  { heading: 'Client' },
+  { heading: 'Side' },
+  { heading: 'Size', isNumeric: true },
+  { heading: 'Bond' },
+  { heading: 'CUSIP' },
+  { heading: 'Book' },
+  { heading: 'Desk' },
+  { heading: 'Level', isNumeric: true },
+  { heading: 'Price', isNumeric: true },
+  { heading: 'Limits' },
+  { heading: 'State' },
+  { heading: 'Quoted', isNumeric: true },
 ]
 
 const STATE_TONE: Partial<Record<RfqState, string>> = {

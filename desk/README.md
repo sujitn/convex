@@ -8,7 +8,7 @@ server publishes it, from its `desk_ui_dir` setting, at `/desk`.
 |---|---|---|
 | Pricing sheet | `/api/v1/reference/masters/pricing_rule`, `/api/v1/bonds`, `/api/v1/market/levels`, the `/api/v1/ws` stream | `POST /api/v1/market/levels` |
 | RFQ blotter | `/api/v1/books`, `/api/v1/bonds/:instrument_id`, `/api/v1/rfqs/:rfq_key`, the `/api/v1/ws` stream | `POST /api/v1/rfqs/:rfq_key/quote`, `/pass` |
-| Books | `/api/v1/books`, the `/api/v1/ws` stream, `/api/v1/books/:book_id/limits`, `.../limits/status`, `.../pnl` | `POST /api/v1/books/:book_id/close` |
+| Books | `/api/v1/books`, the `/api/v1/ws` stream, `/api/v1/books/:book_id/limits/status`, `.../pnl` | `POST /api/v1/books/:book_id/close` |
 | Calculator | none | `POST /api/v1/bonds/:instrument_id/calculate` (read-only) |
 
 ## The pricing sheet
@@ -97,8 +97,10 @@ server publishes it, from its `desk_ui_dir` setting, at `/desk`.
   is in force with a close. Of two summaries of a book the later is kept: the later
   start of the server's monitor, then the higher sequence.
 - **The selected book** (↑ and ↓, or a click):
-  - each limit with its measure, bounds, value and use, and for one `unknown` the
-    reason the status route gives, read again when a limit's status changes;
+  - each limit's status, value and use of the moment, beside what the status route says
+    of it: its measure, the bounds it was judged against (an excess's while one
+    applies), the member that set its status and, for one `unknown`, why. The route is
+    read again when a limit's status changes;
   - its key-rate DV01 at each tenor its positions carry;
   - its P&L since the close by position: the face and dirty price at the close and now,
     the face held through, the entitled cash and the P&L, or why a position has none,

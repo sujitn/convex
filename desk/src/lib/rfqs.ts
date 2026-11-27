@@ -1,7 +1,7 @@
 import type { QuoteInput, QuoteValue } from '@convex/api-client'
 import { addDecimal, roundToTick } from './decimal'
-import { formatThirtySeconds } from './format'
-import { countsSummary, worstCounted, type LimitStatus, type StatusCounts } from './limits'
+import { codeWords, formatThirtySeconds } from './format'
+import { countsSummary, worstCounted, type LimitEvaluation, type LimitStatus, type StatusCounts } from './limits'
 import { isQuotedInThirtySeconds, type Bond } from './sheet'
 
 // The RFQ blotter's model: each request for quote on the followed books as the `rfq` topic
@@ -113,20 +113,8 @@ export type RecordedAutoPrice =
     }
   | { kind: 'unpriced'; reason: string }
 
-/** One limit as the check evaluated it with the trade done. */
-export interface CheckedLimit {
-  limit_id: string
-  measure: { kind: string }
-  status: LimitStatus
-  value?: string
-  member?: string
-  lower?: string
-  upper?: string
-  reason?: { code: string }
-}
-
 /** The check as its entry records it: each limit, or why it did not run. */
-export type RecordedCheck = { kind: 'evaluated'; status: { limits: CheckedLimit[] } } | { kind: 'unavailable'; reason: string }
+export type RecordedCheck = { kind: 'evaluated'; status: { limits: LimitEvaluation[] } } | { kind: 'unavailable'; reason: string }
 
 /** One entry of `GET /api/v1/rfqs/:rfq_key`: the state it moved the request to, who sent it, and what it carries. */
 export type RfqRecord = {
@@ -301,5 +289,5 @@ export function formatQuotedPrice(price: string, thirtySeconds: boolean): string
 
 /** A state as a cell reads it. */
 export function stateLabel(state: RfqState): string {
-  return state.replace('_', ' ')
+  return codeWords(state)
 }

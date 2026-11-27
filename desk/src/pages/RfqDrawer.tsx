@@ -3,12 +3,19 @@ import { useSession } from '@convex/api-client'
 import { memo, type ReactNode } from 'react'
 import { failureNotice } from '../lib/failure'
 import { formatMeasure, formatPrice, formatQuoteValue } from '../lib/format'
+import {
+  boundsLabel,
+  formatLimitValue,
+  LIMIT_TONE,
+  measureLabel,
+  unknownReasonText,
+  type LimitEvaluation,
+} from '../lib/limits'
 import { readRfqRecords } from '../lib/reads'
 import {
   formatFace,
   formatQuotedPrice,
   stateLabel,
-  type CheckedLimit,
   type RecordedAutoPrice,
   type RfqRecord,
   type RfqRow,
@@ -180,7 +187,7 @@ function Rule({ rule }: { rule: RuleRead }) {
 }
 
 /** Each limit as the check evaluated it with the trade done. */
-function Limits({ limits }: { limits: CheckedLimit[] }) {
+function Limits({ limits }: { limits: LimitEvaluation[] }) {
   return (
     <table className="mt-1 w-full text-left">
       <thead className="text-slate-500">
@@ -193,14 +200,14 @@ function Limits({ limits }: { limits: CheckedLimit[] }) {
       </thead>
       <tbody className="font-mono text-slate-300">
         {limits.map((limit) => (
-          <tr key={limit.limit_id} title={limit.reason?.code.replaceAll('_', ' ')}>
+          <tr key={limit.limit_id} title={limit.reason && unknownReasonText(limit.reason)}>
             <td>
-              {limit.limit_id} <span className="text-slate-500">{limit.measure.kind}</span>
+              {limit.limit_id} <span className="text-slate-500">{measureLabel(limit.measure)}</span>
               {limit.member && <span className="text-slate-500"> {limit.member}</span>}
             </td>
-            <td>{limit.status}</td>
-            <td className="text-right">{limit.value ?? ''}</td>
-            <td className="text-right">{[limit.lower, limit.upper].filter((bound) => bound !== undefined).join(' to ')}</td>
+            <td className={LIMIT_TONE[limit.status]}>{limit.status}</td>
+            <td className="text-right">{limit.value === undefined ? '' : formatLimitValue(limit.measure, limit.value)}</td>
+            <td className="text-right">{boundsLabel(limit)}</td>
           </tr>
         ))}
       </tbody>

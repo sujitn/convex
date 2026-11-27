@@ -106,7 +106,7 @@ the changes that matter when you upgrade.
   shows each limit with its measure, bounds, value, use and, when unknown, why; its
   key-rate DV01; its P&L by position, read again at most every 2 seconds while its
   summaries arrive; and a button that takes a close. The books followed are chosen as on
-  the RFQ blotter.
+  the RFQ blotter, and the blotter's check now words each limit the same way.
 - **The RFQ blotter** (`/desk/rfqs`): each request for quote on the followed books with
   a countdown on the server's clock, the auto level and price, and the check; `S` sends
   the auto price on the tick in the desk's favour, `A` a typed price, `P` passes, and

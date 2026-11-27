@@ -48,6 +48,31 @@ export function formatBasisPoints(value: WireNumber): string {
   return Number(value).toFixed(Math.min(2, Math.max(1, decimals)))
 }
 
+/** Whole units with thousands separators. */
+const WHOLE = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+/** Two places with thousands separators. */
+const TWO_PLACES = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+/** An amount in a book's currency, or a face, in whole units (`49,870,123`). */
+export function formatAmount(value: WireNumber): string {
+  return WHOLE.format(numeric(value))
+}
+
+/** Years, such as a modified duration, at two places. */
+export function formatYears(value: WireNumber): string {
+  return TWO_PLACES.format(numeric(value))
+}
+
+/** A fraction (0.8512) as percent at one place (85.1%). */
+export function formatPercent(value: WireNumber): string {
+  return `${(numeric(value) * 100).toFixed(1)}%`
+}
+
+/** A snake-case code (`traded_away`) in words (`traded away`). */
+export function codeWords(code: string): string {
+  return code.replace(/_/g, ' ')
+}
+
 /** A coupon rate held as a decimal (0.04125) as percent, trailing zeros trimmed (4.125). */
 export function formatCoupon(value: WireNumber | null | undefined): string {
   if (value === null || value === undefined) return '—'
