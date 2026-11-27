@@ -261,7 +261,7 @@ const SETTLEMENT: &str = "2026-10-06";
 /// ACT/ACT ICMA as Treasuries do.
 fn note(id: &str, maturity: &str, coupon: &str, cusip: &str) -> BondReferenceData {
     let mut bond = treasury(id);
-    bond.maturity_date = convex_core::Date::parse(maturity).unwrap();
+    bond.maturity_date = Some(convex_core::Date::parse(maturity).unwrap());
     bond.coupon_rate = Some(coupon.parse().unwrap());
     bond.cusip = Some(cusip.into());
     bond.day_count = "ACT/ACT ICMA".into();

@@ -9,7 +9,7 @@ use convex_bonds::{
 };
 use convex_core::{
     contracts::{ErrorCode, StructuredError},
-    types::{Compounding, Date, Frequency, Mark, Price, Yield},
+    types::{Compounding, Currency, Date, Frequency, Mark, Price, Spread, Yield},
 };
 use convex_curves::{CurveError, CurveResult, RateCurveDyn};
 use convex_math::{decimal::BoundedDecimal, portable};
@@ -20,7 +20,8 @@ use crate::{
     functions,
     pricing::{price_from_mark, PricingResult},
     spreads::{
-        GSpreadCalculator, GovernmentCurve, ISpreadCalculator, ParParAssetSwap, ZSpreadCalculator,
+        g_spread_over, GSpreadCalculator, GovernmentCurve, ISpreadCalculator, ParParAssetSwap,
+        ZSpreadCalculator,
     },
 };
 
@@ -100,11 +101,7 @@ impl GSpreadBenchmark<'_> {
     /// average life measured from another settlement date; a workout on or before
     /// settlement; and the curve's own refusals.
     pub fn benchmark_yield(&self, bond: &dyn Bond, settlement: Date) -> AnalyticsResult<Yield> {
-        if self.curve.sovereign().currency() != bond.currency() {
-            return Err(AnalyticsError::InvalidInput(
-                "government benchmark currency".into(),
-            ));
-        }
+        self.check_currency(bond.currency())?;
         match self.tenor {
             BenchmarkTenor::Maturity => self.curve.supplied_yield(
                 settlement,
@@ -125,15 +122,50 @@ impl GSpreadBenchmark<'_> {
                     })?;
                 self.curve.supplied_yield_in_years(settlement, years)
             }
-            BenchmarkTenor::Workout(date) => {
-                if date <= settlement {
-                    return Err(AnalyticsError::InvalidInput(
-                        "the workout is on or before settlement".into(),
-                    ));
-                }
-                self.curve.supplied_yield(settlement, date)
-            }
+            BenchmarkTenor::Workout(date) => self.benchmark_yield_at(date, settlement),
         }
+    }
+
+    /// The G-spread of `bond_yield`, a yield to this benchmark's workout of a bond in
+    /// `currency`, over the government yield at the workout, in whole basis points. It
+    /// quotes a bond with no maturity, such as a perpetual, to the call it is worked out to.
+    ///
+    /// # Errors
+    ///
+    /// A tenor other than a workout; a foreign currency; a workout on or before
+    /// settlement; and the curve's own refusals.
+    pub fn workout_spread(
+        &self,
+        currency: Currency,
+        settlement: Date,
+        bond_yield: Yield,
+    ) -> AnalyticsResult<Spread> {
+        let BenchmarkTenor::Workout(date) = self.tenor else {
+            return Err(AnalyticsError::InvalidInput(
+                "a yield to a workout is read against that workout's benchmark".into(),
+            ));
+        };
+        self.check_currency(currency)?;
+        let benchmark = self.benchmark_yield_at(date, settlement)?;
+        Ok(g_spread_over(bond_yield, benchmark))
+    }
+
+    fn check_currency(&self, currency: Currency) -> AnalyticsResult<()> {
+        if self.curve.sovereign().currency() != currency {
+            return Err(AnalyticsError::InvalidInput(
+                "government benchmark currency".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn benchmark_yield_at(&self, date: Date, settlement: Date) -> AnalyticsResult<Yield> {
+        if date <= settlement {
+            return Err(AnalyticsError::InvalidInput(
+                "the workout is on or before settlement".into(),
+            ));
+        }
+        self.curve.supplied_yield(settlement, date)
     }
 }
 

@@ -689,6 +689,123 @@ async fn a_sinkers_request_is_quoted_per_current_face_at_its_factor() {
     server.stop().await;
 }
 
+/// A perpetual is valued in Live on its workouts from its price. Its request is priced at
+/// that Live mid, mid only, as a callable's or floating rate note's is, and its book's
+/// limits are checked at its Live dirty price.
+#[tokio::test]
+async fn a_perpetuals_request_is_priced_at_its_live_mid() {
+    use convex_engine::{ports::configuration::InstrumentPin, RuntimePlan};
+    const PERPETUAL: &str = "PERP-001";
+    let (_dir, database, config, keys) = level_live_setup_from(2, Some(DESK)).await;
+    let mut perpetual = support::fixture::bond();
+    perpetual.instrument_id = convex_core::ids::InstrumentId::new(PERPETUAL);
+    perpetual.isin = Some("fixture-isin-perpetual".into());
+    perpetual.cusip = Some("fixture-cusip-perpetual".into());
+    let perpetual = products::perpetual(perpetual);
+    // Its own calendar and convention pack; the issuer is stored.
+    let resources = support::fixture::reference_terms::resources(&perpetual).split_off(1);
+    let storage = convex_ext_redb::open_redb_storage(&database)
+        .unwrap()
+        .storage;
+    storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("rfq-perpetual").unwrap(),
+                changes: vec![ReferenceChange::Create {
+                    bond: Box::new(perpetual.clone()),
+                }],
+                master_changes: resources,
+            },
+            support::fixture::time("2025-06-02T00:00:00Z"),
+        )
+        .await
+        .unwrap();
+    drop(storage);
+    let path = database.with_file_name("runtime.json");
+    let mut plan: RuntimePlan = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    plan.assembly.instruments.push(InstrumentPin {
+        instrument_id: convex_core::contracts::InstrumentId::new(PERPETUAL).unwrap(),
+        version: support::fixture::version(1),
+    });
+    let mut quote = plan
+        .assembly
+        .quotes
+        .iter()
+        .find(|quote| quote.key == keys.treasuries[0])
+        .unwrap()
+        .clone();
+    quote.key.instrument_id = perpetual.instrument_id.clone();
+    let perpetual_key = quote.key.clone();
+    plan.assembly.quotes.push(quote);
+    std::fs::write(&path, serde_json::to_vec(&plan).unwrap()).unwrap();
+    prepare(
+        &database,
+        json!([{"client_tier": "2", "width_factor": "1"}]),
+    )
+    .await;
+    let server = Running::start(config).await;
+    let mut prices = images(&keys.treasuries, 1, "99.25");
+    let mut price = image(1, "99.5");
+    price.key = perpetual_key;
+    prices.push(price);
+    assert_eq!(
+        server.post_quotes(prices).await.status(),
+        StatusCode::ACCEPTED
+    );
+    priced_in_live(&server, PERPETUAL).await;
+    server
+        .put(
+            &format!("/api/v1/books/{BOOK}"),
+            &json!({"currency": "USD", "positions": [
+                {"instrument_id": PERPETUAL, "quantity": "1000000"},
+            ]}),
+        )
+        .await;
+    server
+        .put(
+            &format!("/api/v1/books/{BOOK}/limits"),
+            &json!({"limits": [
+                {"limit_id": "net", "measure": {"kind": "market_value"}, "upper": "1000000000"},
+            ]}),
+        )
+        .await;
+    let mut request = rfq("RFQ-P", "sell", "2000000", "2", MINUTE);
+    request["instrument_id"] = json!(PERPETUAL);
+    let key = accepted(&server, request).await;
+    let rfq = priced(&server, &key).await;
+    let price = &rfq["auto_price"];
+    assert_eq!(price["kind"], "priced", "{price}");
+    assert_eq!(number(&price["clean_price"]), 99.5, "{price}");
+    assert_eq!(
+        price["mid_only"],
+        "a callable, floating rate note or perpetual is priced at its Live mid"
+    );
+    let (_, page) = server
+        .send(Method::GET, "/api/v1/runtime/results", None)
+        .await;
+    let live = page["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|record| record["result"]["provenance"]["subject"]["instrument_id"] == PERPETUAL)
+        .unwrap();
+    let results = &live["result"]["results"];
+    assert_eq!(
+        live["result"]["provenance"]["model_version"],
+        convex_engine::perpetual_valuation::PERPETUAL_SNAPSHOT_MODEL
+    );
+    let dirty = number(&results["dirty_price_mid"]["value"]["value"]);
+    assert!(dirty > 99.5, "{live}");
+    let check = &rfq["check"];
+    assert_eq!(check["kind"], "evaluated", "{rfq}");
+    assert!(
+        (number(&limit(check, "net")["value"]) - 3_000_000.0 * dirty / 100.0).abs() < 1e-6,
+        "{check}"
+    );
+    server.stop().await;
+}
+
 #[tokio::test]
 async fn a_deadline_expires_a_request_once_and_a_restart_expires_every_open_one() {
     let desk = desk().await;

@@ -73,6 +73,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     for r in &input.references {
         r.command.validate()?;
+        convex_engine::perpetual_valuation::admit_perpetuals(&r.command)?;
     }
     for c in &input.curves {
         c.validate()?;

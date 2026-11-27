@@ -24,10 +24,14 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use convex_analytics::workflow::PerpetualWorkout;
 use convex_core::contracts::{SourceId, UtcTimestamp};
 use convex_core::ids::InstrumentId;
 use convex_core::Date;
 use convex_engine::level_pricing::{BenchmarkYield, PricingRuleInForce, QuotedInput};
+use convex_engine::perpetual_valuation::{
+    calculate_perpetual, PerpetualPath, PERPETUAL_SNAPSHOT_MODEL,
+};
 use convex_engine::ports::{
     level_pricing::{
         is_router_valued, is_workout_callable, PricingMethod, NOT_A_WORKOUT_CALLABLE,
@@ -50,7 +54,7 @@ use crate::error::ApiError;
 use crate::handlers::{
     bond_quote_body, runtime_composed, value_stored, with_stored_quote_headers, AppState,
 };
-use crate::level_pricing::{benchmark_json, rule_head_json, rule_read_json};
+use crate::level_pricing::{benchmark_json, rule_head_json, rule_read_json, rule_with_set_json};
 
 /// The largest calculator request body, in bytes.
 pub(crate) const MAX_CALCULATOR_REQUEST_BYTES: usize = 64 * 1024;
@@ -122,11 +126,12 @@ async fn calculate(
     let is_by_runtime = is_floating
         || (bond.bond_type == BondType::FixedCallable && request.method == PricingMethod::Oas {});
     let is_on_workouts = is_workout_callable(bond);
-    if !is_by_runtime && !is_on_workouts && !is_router_valued(bond) {
-        // Only the bonds the router, the workout model, the HW1F model or the floating
+    let is_perpetual = bond.is_perpetual();
+    if !is_by_runtime && !is_on_workouts && !is_perpetual && !is_router_valued(bond) {
+        // Only the bonds the router, the workout models, the HW1F model or the floating
         // model values are calculated.
         return Err(ApiError::unsupported_product(format!(
-            "the calculator values fixed bullets and zeros with no embedded terms, sinking-fund bonds with mandatory sinks, floating rate notes, callables on their workouts, and callables by OAS: {NOT_A_WORKOUT_CALLABLE}"
+            "the calculator values fixed bullets and zeros with no embedded terms, sinking-fund bonds with mandatory sinks, floating rate notes, callables on their workouts, callables by OAS and perpetuals: {NOT_A_WORKOUT_CALLABLE}"
         )));
     }
     if is_by_runtime {
@@ -167,6 +172,8 @@ async fn calculate(
         .await?
     } else if is_on_workouts {
         calculate_callable(&request, &reference, bond, in_force.as_ref())?
+    } else if is_perpetual {
+        calculate_perpetual_quote(engine, &request, &reference, bond, in_force.as_ref())?
     } else {
         let bond = reference.record.bond.take().ok_or_else(not_found)?;
         calculate_by_router(engine, &mut context, &request, bond, in_force.as_ref()).await?
@@ -198,7 +205,9 @@ async fn calculate_by_router(
         request.settlement_date,
         Some(&curves.discount),
     )?;
-    let maturity_date = bond.maturity_date;
+    let maturity_date = bond
+        .maturity_date
+        .ok_or_else(|| ApiError::calculation("the router values dated bonds only"))?;
     let mut input = PricingInput::with_mid_price(
         bond,
         request.settlement_date,
@@ -258,6 +267,62 @@ fn calculate_callable(
     body["worst"] = row(&calculation.worst);
     body["worst"]["years"] = json!(calculation.valuation.years_to_worst);
     Ok(body)
+}
+
+/// A perpetual on its workouts, from a price or a yield to worst: its valuation, each call's
+/// yield through the horizon and the perpetuity's at its clean price, the worst, and the
+/// G-spread at the worst call over the set its rule names.
+fn calculate_perpetual_quote(
+    engine: &PricingEngine,
+    request: &CalculatorRequest,
+    reference: &ResolvedBondReference,
+    bond: &BondReferenceData,
+    in_force: Option<&PricingRuleInForce>,
+) -> Result<Value, ApiError> {
+    let calculation = calculate_perpetual(
+        reference,
+        &request.method,
+        request.level,
+        request.settlement_date,
+    )?;
+    let (g_spread, g_spread_refused) = match engine.perpetual_g_spread(
+        bond,
+        in_force,
+        &calculation.valuation,
+        request.settlement_date,
+    ) {
+        Some(Ok(spread)) => (Some(spread), None),
+        Some(Err(refused)) => (None, Some(refused.to_string())),
+        None => (None, None),
+    };
+    let mut quote = calculation.bond_quote(bond, request.settlement_date);
+    quote.g_spread_mid = g_spread;
+    let mut body = bond_quote_body(&quote)?;
+    body["input"] = input_json(request, None);
+    if let Some(in_force) = in_force {
+        body["pricing_rule"] = rule_with_set_json(
+            PERPETUAL_SNAPSHOT_MODEL,
+            in_force,
+            g_spread_refused.as_deref(),
+        );
+    }
+    let row = |path: &PerpetualPath| perpetual_path_json(path, calculation.call_price);
+    body["workouts"] = calculation.paths.iter().map(row).collect();
+    body["worst"] = row(&calculation.worst);
+    body["horizon"] = json!(calculation.horizon);
+    Ok(body)
+}
+
+/// One path of a perpetual: a call at its price, as a callable's, or the perpetuity, with
+/// the yield to it.
+fn perpetual_path_json(path: &PerpetualPath, call_price: Decimal) -> Value {
+    let decimal_yield = Decimal::from_f64_retain(path.decimal_yield);
+    match path.workout {
+        PerpetualWorkout::Call { date } => {
+            workout_json(Redemption::Call { call_price }, date, decimal_yield)
+        }
+        PerpetualWorkout::Perpetuity => json!({"kind": "perpetuity", "yield": decimal_yield}),
+    }
 }
 
 /// A floating rate note from a price or its rule's discount margin, or a callable from an

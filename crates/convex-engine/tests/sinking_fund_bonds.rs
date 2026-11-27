@@ -173,8 +173,9 @@ fn the_g_spread_reads_the_set_at_the_average_life() {
             .to_f64()
             .unwrap()
     };
-    let years =
-        |note: &BondReferenceData| settlement.days_between(&note.maturity_date) as f64 / 365.0;
+    let years = |note: &BondReferenceData| {
+        settlement.days_between(&note.maturity_date.unwrap()) as f64 / 365.0
+    };
     let (short, long) = (&notes[0].0, &notes[1].0);
     let at = |time: f64| {
         note_yield(short)

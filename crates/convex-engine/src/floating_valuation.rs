@@ -214,7 +214,7 @@ impl FloatingNote {
         };
         let (payment, index_table) = calendars(
             terms,
-            bond.maturity_date,
+            native.schedule.end_date,
             (bond_calendar, reference.calendar.version),
             (index_calendar, resolved.calendar.version),
             &native,

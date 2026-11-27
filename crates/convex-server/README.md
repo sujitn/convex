@@ -519,7 +519,7 @@ The initial adapters bound retained identities including tombstones to 100,000, 
 A bond is quoted by price unless it has a `pricing_rule` master resource (P19). A rule
 names the bond and its method:
 - `price`;
-- `yield`, a street yield to maturity; for a callable, its yield to worst;
+- `yield`, a street yield to maturity; for a callable or a perpetual, its yield to worst;
 - `benchmark_spread`, basis points over the yield of one security of a benchmark set,
   named by its tenor (`{"kind": "benchmark_spread", "tenor": "10Y"}`). Both yields are
   compounded semi-annually, so a Treasury's is its street yield;
@@ -540,7 +540,9 @@ itself is a quote, never part of the rule.
 securities on a 365-day axis:
 - `maturity` (the default, omitted when stored) reads it at the bond's maturity;
 - `average_life` reads it at the bond's average life from settlement, as a sinker is
-  usually read.
+  usually read;
+- `workout` reads a perpetual's at the call date of its yield to worst. A perpetual
+  naming a set takes this basis, and no other bond does.
 
 A basis other than `maturity` needs a set. A benchmark spread is to one named security
 and is the same at any tenor. A G-spread is published only when its read point falls
@@ -557,16 +559,18 @@ refused with 400 if:
 - a rule names a bond that is not stored;
 - a rule names a set that does not exist;
 - a rule quotes a bond other than a fixed bullet or a sinking-fund bond by `z_spread` or
-  `benchmark_spread`, or against a set;
+  `benchmark_spread`, or against a set (a perpetual may name a set, quoted by `price` or
+  `yield`);
 - a rule quotes a bond other than a floating rate note by `discount_margin`, or by `oas`
   a bond other than a callable with European or Bermudan fixed-price calls, none
   make-whole, and no other embedded terms;
-- a rule quotes by a yield a bond that is not a fixed bullet, a sinking-fund bond or a
-  callable valued on its workouts (below);
+- a rule quotes by a yield a bond that is not a fixed bullet, a sinking-fund bond, a
+  perpetual or a callable valued on its workouts (below);
 - a rule's `width` is not a valid schedule, or is in a unit its method does not quote;
-- a rule with a `width` names a callable, floating rate note or sinking-fund bond, which
-  are quoted mid only;
-- a rule's `tenor_basis` is `average_life` and it names no set;
+- a rule with a `width` names a callable, floating rate note, sinking-fund bond or
+  perpetual, which are quoted mid only;
+- a rule's `tenor_basis` is not `maturity` and it names no set, or a rule naming a set
+  reads a perpetual at a basis other than `workout`, or another bond at `workout`;
 - a set holds anything but a government fixed bullet in its currency;
 - a set is not in USD: spreads are quoted against Treasuries only.
 
@@ -616,6 +620,64 @@ Optional sinks, the delivery option and acceleration are not supported.
   that cash, and so is the calculator's one workout.
 - **Book close.** A close counts a sinker's sinks at their prices, and its coupons on
   the face outstanding, as cash owed between settlement dates.
+
+### Perpetuals
+
+A fixed-coupon callable perpetual is stored as `bond_type` `Perpetual`, with
+`is_callable: true`, no `maturity_date`, and its calls in
+`contractual_terms.perpetual`:
+```json
+"perpetual": {"first_call_date": "2030-01-15", "call_interval_months": 6,
+              "call_price": "100", "notice_days": 30}
+```
+It is callable on its first call date and every `call_interval_months` after it, at
+`call_price` per 100 face, on `notice_days` calendar days' notice; each call pays its
+price and accrued coupon on its date, rolled as the bond's payments are. Its coupon
+schedule is stated to the first call and recurs after it. A dated bond stores its
+`maturity_date` and no `perpetual` terms, as before, so its bytes and snapshot ids are
+unchanged.
+
+A commit is refused with 400 if:
+- a bond has both a `maturity_date` and `perpetual` terms, or neither, or `perpetual`
+  terms on any other bond type;
+- it has a call schedule, call terms, a put, sinks, or floating or inflation terms;
+- its coupon is not a positive fixed rate, or its redemption value is not its face;
+- the call interval is not a whole number of coupon periods up to 150 years, the call
+  price is not above 0 and at most 1,000, or the notice is over 366 days;
+- its day count is not 30/360 US or 30E/360;
+- the first call falls after the 28th (month end with `end_of_month`), or off the
+  coupon grid;
+- the library does not build it: each regular period after the first call must count
+  1/f year under its day count. A month-end grid reaching February does not.
+
+Write-down or conversion triggers, coupon cancellation, coupon resets, floating
+perpetuals, step-ups, and American or make-whole calls have no terms, and are refused.
+
+- **Model.** A perpetual is valued on its workouts under model
+  `convex-perpetual-workout-v1`, in Live and at request time, from a `price` or a
+  `yield` to worst, with no option model and no curve. It is quoted to each call whose
+  notice can still be given, through a horizon, and to perpetuity: the coupons to the
+  tail's start, then the coupon for ever in closed form. From a clean price it reports
+  the lowest yield; from a yield to worst, the lowest price. The yields are dated yields
+  under its 30/360 day count, compounded at its coupon frequency. The perpetuity is
+  priced and solved only at a yield of at least 1 bp.
+- **Horizon.** Calls are quoted through the 128th after settlement, or the last whose
+  cash the pinned calendar covers within the shared 150-year schedule bound. A
+  calendar ending before the next call fails the bond.
+- **Measures.** It publishes `clean_price_mid`, `dirty_price_mid`, `accrued_interest`
+  and `ytw_mid`, and no years to worst, since the worst may be the perpetuity. It has no
+  yield to maturity, no DV01, and is quoted mid only; an RFQ on it is priced at its Live
+  mid.
+- **G-spread.** A rule naming a set with `tenor_basis` `workout` publishes
+  `g_spread_mid` in Live and the calculator: the yield to worst less the set's yield
+  interpolated at the worst call date, in whole basis points. With the perpetuity worst,
+  or a call outside the set's maturities, it fails saying why. A request-time quote
+  carries none.
+- **Distressed prices.** Every path's yield must lie between -90% and 500%. A deeply
+  discounted perpetual within weeks of a call yields more to it, and is refused, as a
+  callable on its workouts is.
+- **Book close.** A close counts a perpetual's coupons between settlement dates, and no
+  principal.
 
 A callable whose rule quotes it by `price` or `yield` is valued on its workouts, as
 high-yield callables are quoted: model `convex-callable-workout-v1`, in Live and at
@@ -904,9 +966,14 @@ others" for a stored bond. It is read-only and stores nothing.
   500%. From a yield to worst that is checked at the price to worst, so a deeply
   distressed callable whose near call yields more is refused (422) here though the
   quote prices it.
+- **Perpetuals.** A perpetual is calculated from a `price` or a `yield` to worst,
+  whatever its rule quotes, with the perpetual model of `GET /api/v1/quotes/:id`. It
+  needs no runtime and reads no curve, and a spread method is refused. Its
+  `g_spread_mid` is over its rule's set at the worst call, and `pricing_rule` says why
+  when none is given.
 - **The reply** is the bond's model's measures at the level: the router's for a bullet
-  or zero, for a callable on its workouts its clean price, accrued, dirty price and
-  `ytw`, for a callable by OAS its HW1F measures (clean price, accrued, dirty price,
+  or zero, for a callable on its workouts or a perpetual its clean price, accrued, dirty
+  price and `ytw`, for a callable by OAS its HW1F measures (clean price, accrued, dirty price,
   `oas_mid`, effective duration and convexity, PV01), and for a note its clean price,
   accrued, dirty price and `discount_margin_mid`; a callable by OAS and a note come with
   the unpublished `snapshot` they were valued from, and a callable by OAS with its
@@ -925,6 +992,8 @@ others" for a stored bond. It is read-only and stores nothing.
       `call_price`, then maturity, in date order. Each yield is at the clean price, so
       from a yield to worst the worst's yield returns the level to the solver's
       tolerance. Its `worst` adds the `years` to it, under the bond's day count.
+    - A perpetual lists each call through its `horizon`, which the reply carries, then
+      `{"kind": "perpetuity"}` with no date.
   - The headers of `GET /api/v1/quotes/:id`: the reference, configuration, activation,
     curve, rule and set versions read, and the cutoff.
 - **Which bonds.**
@@ -933,6 +1002,7 @@ others" for a stored bond. It is read-only and stores nothing.
     embedded terms.
   - Floating rate notes, by price or by their rule's margin.
   - Callables by an OAS, whatever their rule, when the HW1F model values them.
+  - Perpetuals, by price or by yield to worst.
   - Any other bond, such as an American callable by price, is refused with 422
     `UNSUPPORTED_PRODUCT` before anything else is read.
 - **Access.** As `GET /api/v1/quotes/:id`, with the `calculate` action: the reply names
@@ -1558,8 +1628,8 @@ new position through `PUT /api/v1/books/:book_id`.
   client trades on: a client buy lifts the ask, a client sell hits the bid. A bond quoted
   by a level also gets that side's `level` with its unit, as a quote carries one
   (`{"value": "127", "unit": "spread_basis_points"}`, or `yield_decimal`). A bond whose
-  rule sets no width, a callable and a floating rate note are priced at the mid, with
-  `mid_only` saying why. A bond that cannot be priced (no rule, no usable Live level, a
+  rule sets no width, a callable, a floating rate note and a perpetual are priced at the
+  mid, with `mid_only` saying why. A bond that cannot be priced (no rule, no usable Live level, a
   benchmark unavailable, a size past the schedule) is `unpriced` with the reason, and the
   trader sets the price.
 - **The check.** The pre-trade check of the trade: its book's current limits evaluated

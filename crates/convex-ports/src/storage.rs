@@ -494,14 +494,14 @@ impl BondFilter {
             }
         }
 
-        // Maturity range match
+        // Maturity range match: a perpetual matures after every date.
         if let Some(from) = self.maturity_from {
-            if bond.maturity_date < from {
+            if bond.maturity_date.is_some_and(|maturity| maturity < from) {
                 return false;
             }
         }
         if let Some(to) = self.maturity_to {
-            if bond.maturity_date > to {
+            if bond.maturity_date.is_none_or(|maturity| maturity > to) {
                 return false;
             }
         }

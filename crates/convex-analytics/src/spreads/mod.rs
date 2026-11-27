@@ -37,7 +37,7 @@ pub mod asw;
 pub use benchmark::{BenchmarkSpec, SecurityId};
 pub use discount_margin::{simple_margin, z_discount_margin, DiscountMarginCalculator};
 pub use government_curve::{GovernmentBenchmark, GovernmentCurve};
-pub use gspread::{g_spread, g_spread_with_benchmark, GSpreadCalculator};
+pub use gspread::{g_spread, g_spread_over, g_spread_with_benchmark, GSpreadCalculator};
 pub use ispread::{i_spread, ISpreadCalculator};
 pub use oas::OASCalculator;
 pub use sovereign::{Sovereign, SupranationalIssuer};

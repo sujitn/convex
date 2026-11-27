@@ -398,7 +398,7 @@ fn example_bond() -> BondReferenceData {
         description: "Fictional startup label fixture".into(),
         currency: Currency::USD,
         issue_date: Date::from_ymd(2020, 1, 15).unwrap(),
-        maturity_date: Date::from_ymd(2030, 6, 15).unwrap(),
+        maturity_date: Some(Date::from_ymd(2030, 6, 15).unwrap()),
         coupon_rate: Some(dec!(0.05)),
         frequency: 2,
         day_count: "30/360".into(),
