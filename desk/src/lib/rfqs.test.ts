@@ -1,10 +1,10 @@
 import { ApiFailure } from '@convex/api-client'
 import { describe, expect, it, vi } from 'vitest'
 import { roundToTick } from './decimal'
+import { bookList } from './followedBooks'
 import { formatQuoteValue } from './format'
 import {
   blotterOrder,
-  bookList,
   checkSummary,
   formatCountdown,
   formatFace,

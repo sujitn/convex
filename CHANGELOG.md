@@ -101,6 +101,12 @@ the changes that matter when you upgrade.
 
 ### Web apps
 
+- **The book screen** (`/desk/books`): each followed book's market value, DV01, CS01,
+  duration, P&L since its close and limit statuses from the `book` topic. The selected book
+  shows each limit with its measure, bounds, value, use and, when unknown, why; its
+  key-rate DV01; its P&L by position, read again at most every 2 seconds while its
+  summaries arrive; and a button that takes a close. The books followed are chosen as on
+  the RFQ blotter.
 - **The RFQ blotter** (`/desk/rfqs`): each request for quote on the followed books with
   a countdown on the server's clock, the auto level and price, and the check; `S` sends
   the auto price on the tick in the desk's favour, `A` a typed price, `P` passes, and

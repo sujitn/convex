@@ -1,16 +1,17 @@
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { useQueries } from '@tanstack/react-query'
 import { useSession } from '@convex/api-client'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { BookPicker } from '../components/BookPicker'
 import { StreamBadge } from '../components/StreamBadge'
 import { serverNow, useServerNow } from '../lib/clock'
 import { isPositiveDecimal } from '../lib/decimal'
 import { failureNotice, failureStatus } from '../lib/failure'
 import { formatQuoteValue, formatThirtySeconds } from '../lib/format'
-import { readBond, readLiveBookIds, readRfqRecords } from '../lib/reads'
+import { useFollowedBooks } from '../lib/followedBooks'
+import { LIMIT_TONE } from '../lib/limits'
+import { readBond, readRfqRecords } from '../lib/reads'
 import {
   blotterOrder,
-  bookList,
   checkSummary,
   formatCountdown,
   formatFace,
@@ -29,7 +30,6 @@ import {
   withoutRows,
   withRows,
   worstStatus,
-  type LimitStatus,
   type RfqRow,
   type RfqState,
 } from '../lib/rfqs'
@@ -50,17 +50,8 @@ type BondRead = Bond | null | undefined
 
 export function RfqBlotter() {
   const { call, token } = useSession()
-  const [search, setSearch] = useSearchParams()
-  const typedBooks = useMemo(() => bookList(search.get('books') ?? ''), [search])
-  const listed = useQuery({
-    queryKey: ['live-books'],
-    queryFn: () => readLiveBookIds(call, MAX_RFQ_BOOKS),
-    enabled: typedBooks.length === 0,
-  })
-  const bookIds = useMemo(
-    () => (typedBooks.length > 0 ? typedBooks.slice(0, MAX_RFQ_BOOKS) : (listed.data ?? [])),
-    [typedBooks, listed.data],
-  )
+  const books = useFollowedBooks(MAX_RFQ_BOOKS)
+  const { bookIds } = books
 
   const [rows, setRows] = useState<Rows>(() => new Map())
   const [status, setStatus] = useState<StreamStatus | 'idle'>('idle')
@@ -259,12 +250,7 @@ export function RfqBlotter() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
-        <BookPicker
-          typed={typedBooks}
-          listed={listed.data}
-          isListing={listed.isPending}
-          onFollow={(text) => setSearch(text ? { books: bookList(text).join(',') } : {})}
-        />
+        <BookPicker books={books} most={MAX_RFQ_BOOKS} />
         <span>
           {ordered.filter((row) => isOpen(row.state)).length} open · stream <StreamBadge status={status} />
         </span>
@@ -274,7 +260,7 @@ export function RfqBlotter() {
             {withheldCount} withheld on {[...withheld.keys()].join(', ')}
           </span>
         )}
-        {listed.error && <span className="text-red-400">{failureNotice(listed.error)}</span>}
+        {books.listingError && <span className="text-red-400">{failureNotice(books.listingError)}</span>}
         {notice && <span className="text-amber-300">{notice}</span>}
       </div>
       <div className="flex gap-3">
@@ -344,60 +330,6 @@ const HEADINGS: [string, boolean][] = [
   ['State', false],
   ['Quoted', true],
 ]
-
-/** What the blotter follows: the books typed, or else every live book listed. */
-function following(typed: string[], listed: string[] | null | undefined, isListing: boolean): string | null {
-  if (typed.length > MAX_RFQ_BOOKS) return `the first ${MAX_RFQ_BOOKS} of the books typed`
-  if (typed.length > 0) return null
-  if (isListing) return 'listing the books…'
-  if (listed === null) return 'this identity may not list books: type the books to follow'
-  if (listed === undefined) return 'the books could not be listed: type the books to follow'
-  return `every live book (${listed.length})`
-}
-
-/** The books followed: those typed, kept in the URL, or else every live book listed. */
-function BookPicker({
-  typed,
-  listed,
-  isListing,
-  onFollow,
-}: {
-  typed: string[]
-  listed: string[] | null | undefined
-  isListing: boolean
-  onFollow: (text: string) => void
-}) {
-  const [draft, setDraft] = useState(typed.join(', '))
-  useEffect(() => setDraft(typed.join(', ')), [typed])
-  const shown = following(typed, listed, isListing)
-  return (
-    <form
-      className="flex items-center gap-2"
-      onSubmit={(event) => {
-        event.preventDefault()
-        onFollow(draft)
-      }}
-    >
-      <input
-        value={draft}
-        placeholder="Books, e.g. BOOK-IG, BOOK-HY"
-        onChange={(event) => setDraft(event.target.value)}
-        className="w-64 rounded border border-slate-700 bg-slate-950 px-2 py-0.5 font-mono text-xs text-slate-100"
-      />
-      <button type="submit" className="rounded bg-slate-800 px-2 py-0.5 text-slate-200">
-        Follow
-      </button>
-      {shown && <span>{shown}</span>}
-    </form>
-  )
-}
-
-const LIMIT_TONE: Record<LimitStatus, string> = {
-  within: 'text-emerald-400',
-  warning: 'text-amber-300',
-  unknown: 'text-amber-300',
-  breach: 'text-red-400',
-}
 
 const STATE_TONE: Partial<Record<RfqState, string>> = {
   priced: 'text-sky-300',

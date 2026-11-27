@@ -1,6 +1,7 @@
 import type { QuoteInput, QuoteValue } from '@convex/api-client'
 import { addDecimal, roundToTick } from './decimal'
 import { formatThirtySeconds } from './format'
+import { countsSummary, worstCounted, type LimitStatus, type StatusCounts } from './limits'
 import { isQuotedInThirtySeconds, type Bond } from './sheet'
 
 // The RFQ blotter's model: each request for quote on the followed books as the `rfq` topic
@@ -17,10 +18,6 @@ export type RfqState =
   | 'passed'
   | 'expired'
   | 'cancelled'
-
-/** A limit's status, from the least severe to the most, as the server orders them. */
-const LIMIT_STATUSES = ['within', 'warning', 'unknown', 'breach'] as const
-export type LimitStatus = (typeof LIMIT_STATUSES)[number]
 
 /** A request as its source sent it. */
 export interface RfqRequest {
@@ -54,7 +51,7 @@ export type AutoPrice =
 
 /** The pre-trade check: how many of the book's limits it put in each status, or why it did not run. */
 export type LimitCheck =
-  | { kind: 'evaluated'; statuses: Partial<Record<LimitStatus, number>> }
+  | { kind: 'evaluated'; statuses: StatusCounts }
   | { kind: 'unavailable'; reason: string }
 
 export interface SentQuote {
@@ -216,22 +213,12 @@ export function rowFromRecords(row: RfqRow, records: readonly RfqRecord[]): RfqR
 
 /** The check's most severe status; none when it did not run or evaluated no limit. */
 export function worstStatus(check: LimitCheck): LimitStatus | null {
-  if (check.kind !== 'evaluated') return null
-  for (let index = LIMIT_STATUSES.length - 1; index >= 0; index -= 1) {
-    const status = LIMIT_STATUSES[index]!
-    if ((check.statuses[status] ?? 0) > 0) return status
-  }
-  return null
+  return check.kind === 'evaluated' ? worstCounted(check.statuses) : null
 }
 
 /** The check as a cell reads it: each status with its count, the most severe first, or why there is none. */
 export function checkSummary(check: LimitCheck): string {
-  if (check.kind !== 'evaluated') return 'no check'
-  const counted = [...LIMIT_STATUSES]
-    .reverse()
-    .filter((status) => (check.statuses[status] ?? 0) > 0)
-    .map((status) => `${status} ${check.statuses[status]}`)
-  return counted.length > 0 ? counted.join(' · ') : 'no limits'
+  return check.kind === 'evaluated' ? countsSummary(check.statuses) : 'no check'
 }
 
 /** A thousandth of a point, a corporate bond's tick. */
@@ -315,9 +302,4 @@ export function formatQuotedPrice(price: string, thirtySeconds: boolean): string
 /** A state as a cell reads it. */
 export function stateLabel(state: RfqState): string {
   return state.replace('_', ' ')
-}
-
-/** The book ids a typed list names, once each, in order: separated by commas or spaces. */
-export function bookList(text: string): string[] {
-  return [...new Set(text.split(/[\s,]+/).filter((id) => id.length > 0))]
 }

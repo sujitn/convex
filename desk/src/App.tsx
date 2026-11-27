@@ -1,6 +1,7 @@
 import { useSession } from '@convex/api-client'
 import { useState } from 'react'
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { BookMonitor } from './pages/BookMonitor'
 import { Calculator } from './pages/Calculator'
 import { PricingSheet } from './pages/PricingSheet'
 import { RfqBlotter } from './pages/RfqBlotter'
@@ -8,6 +9,7 @@ import { RfqBlotter } from './pages/RfqBlotter'
 const SCREENS = [
   { path: 'sheet', label: 'Pricing sheet', element: <PricingSheet /> },
   { path: 'rfqs', label: 'RFQ blotter', element: <RfqBlotter /> },
+  { path: 'books', label: 'Books', element: <BookMonitor /> },
   { path: 'calculator', label: 'Calculator', element: <Calculator /> },
 ]
 
