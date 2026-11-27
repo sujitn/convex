@@ -27,8 +27,8 @@ use convex_curves::contracts::{discount_from_rate, year_fraction};
 use rust_decimal::Decimal;
 use serde::Serialize;
 
-/// The lowest yield a perpetuity is solved at. Its price grows without bound as the yield
-/// falls to zero, and the tail diverges at zero and below.
+/// The lowest yield a perpetuity is priced or solved at. Its price grows without bound as
+/// the yield falls to zero, and the tail diverges at zero and below.
 pub const MIN_PERPETUITY_YIELD: f64 = 1e-4;
 
 /// The benchmark a reset perpetual's coupon resets to.
@@ -190,7 +190,8 @@ pub struct PerpetualPriceToWorst {
     pub convention: DatedYieldConvention,
     /// The annualized decimal yield every path is priced at.
     pub decimal_yield: f64,
-    /// Each call in date order, then the perpetuity when the yield is above zero.
+    /// Each call in date order, then the perpetuity when the yield is at least
+    /// [`MIN_PERPETUITY_YIELD`].
     pub quotes: Vec<PerpetualPrice>,
     /// The lowest price.
     pub selected_index: usize,
@@ -269,8 +270,8 @@ pub fn quote_perpetual_worst(
 }
 
 /// Every call date up to the horizon and the perpetuity, each priced at one yield; the
-/// worst is the lowest price. The perpetuity is priced only at a yield above zero. A
-/// notice already given forces its call alone.
+/// worst is the lowest price. The perpetuity is priced only at a yield of at least
+/// [`MIN_PERPETUITY_YIELD`]. A notice already given forces its call alone.
 pub fn quote_perpetual_price_to_worst(
     input: &PerpetualInputs<'_>,
     convention: DatedYieldConvention,
@@ -292,7 +293,7 @@ pub fn quote_perpetual_price_to_worst(
         let value = path.cash.price_yield(decimal_yield, convention)?;
         push(PerpetualWorkout::Call { date }, path.exercise, value);
     }
-    if !prepared.composition.forced_by_notice && decimal_yield > 0.0 {
+    if !prepared.composition.forced_by_notice && decimal_yield >= MIN_PERPETUITY_YIELD {
         let value = prepared.perpetuity_value(decimal_yield, convention)?;
         push(PerpetualWorkout::Perpetuity, None, value);
     }
@@ -525,9 +526,9 @@ impl PreparedPerpetual {
         decimal_yield: f64,
         convention: DatedYieldConvention,
     ) -> WorkflowResult<BondValue> {
-        if decimal_yield <= 0.0 {
+        if decimal_yield < MIN_PERPETUITY_YIELD {
             return Err(WorkflowError::NotApplicable(
-                "a perpetuity has a price only at a yield above zero",
+                "a perpetuity has a price only at a yield of at least 1bp",
             ));
         }
         let mut value = self.perpetuity.price_yield(decimal_yield, convention)?;

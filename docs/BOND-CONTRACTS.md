@@ -252,8 +252,9 @@ payment date, then the coupon in force for ever: with `d` one period's
 discount at the yield, the tail is `C·d/(1−d)` at the tail start. The tail
 starts at the first regular coupon date on or after the first call that ends
 settlement's period, and at the first reset fixed after the valuation date or
-later. It has no price at
-a yield of zero or below and is then left out. Reset fixings are read from a
+later. It is priced and solved only at a yield of at least
+`MIN_PERPETUITY_YIELD` (1bp): a lower yield leaves it out of the price to
+worst, and a price above its 1bp price has no yield. Reset fixings are read from a
 `FixingSeries` as a floating coupon's are, as of the quote's information
 date, and a missing published fixing is refused. Every later reset holds the
 benchmark level you pass, and the result carries that level, each reset's

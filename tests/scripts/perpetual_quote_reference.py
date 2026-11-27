@@ -17,8 +17,8 @@ compounded semi-annually: a payment `t` years after settlement is discounted by
 - the accrued per 100 face and the eligible call dates up to the horizon;
 - the yield of each workout from a clean price (each call, and the perpetuity), and the
   worst of them;
-- the price of each workout at a yield, and the worst (lowest) of them. A yield of zero or
-  below has no perpetuity.
+- the price of each workout at a yield, and the worst (lowest) of them. A yield below 1bp
+  has no perpetuity.
 
 The perpetuity pays every coupon to its tail start on its payment date, then the coupon
 in force for ever, each on its unadjusted date. The tail is summed term by term, each
@@ -49,6 +49,8 @@ MARGIN = D("0.0412")
 BENCHMARK_ID = "USD.SWAP.5Y"
 TAIL_PRECISION = D("1e-45")
 YIELD_PRECISION = D("1e-30")
+# The lowest yield the perpetuity is priced at: short of zero, where it has no price.
+MIN_PERPETUITY_YIELD = D("0.0001")
 
 # One coupon period: its accrual dates, payment date, cash, rate, and whether that rate
 # holds the benchmark's current level.
@@ -333,7 +335,7 @@ def case_record(case, clean_prices, yields):
             }
         )
     for y in yields:
-        workouts = [w for w in case.workouts() if w != "perpetuity" or y > 0]
+        workouts = [w for w in case.workouts() if w != "perpetuity" or y >= MIN_PERPETUITY_YIELD]
         prices = [(w, case.dirty(w, y)) for w in workouts]
         worst = min(prices, key=lambda p: p[1])[0]
         record["price_to_worst"].append(

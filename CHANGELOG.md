@@ -212,7 +212,8 @@ the changes that matter when you upgrade.
   after settlement up to a horizon, and the perpetuity, from one price; the
   worst is the lowest yield. `quote_perpetual_price_to_worst` prices each at one
   yield; the worst is the lowest price. The perpetuity is its coupons to the
-  tail start and then a closed-form tail. A reset reads its published fixing as
+  tail start and then a closed-form tail, priced and solved only at a yield of
+  at least `MIN_PERPETUITY_YIELD` (1bp). A reset reads its published fixing as
   of the quote's information date, and every later reset holds the benchmark
   level you pass. The result carries the calls, each reset's rate and origin,
   the held level and the tail.

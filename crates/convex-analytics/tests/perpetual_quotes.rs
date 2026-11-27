@@ -557,6 +557,30 @@ fn settled_ex_coupon_before_the_tail_the_perpetuity_is_its_tail_alone() {
 }
 
 #[test]
+fn a_perpetuity_is_priced_and_solved_at_the_yield_floor_and_left_out_below_it() {
+    let contract = contract_of(0);
+    let mut supplied = Case::new(&contract, &reference()["bonds"][0]["cases"][0]);
+    supplied.horizon = Date::from_ymd(2028, 1, 15).unwrap();
+    let inputs = supplied.inputs(&contract);
+    assert!(matches!(
+        quote_perpetual_price_to_worst(&inputs, CONVENTION, MIN_PERPETUITY_YIELD / 2.0),
+        Err(WorkflowError::Invalid {
+            field: "perpetual.selection",
+            ..
+        })
+    ));
+    let priced = quote_perpetual_price_to_worst(&inputs, CONVENTION, MIN_PERPETUITY_YIELD).unwrap();
+    let solved = quote_perpetual_worst(
+        &inputs,
+        CONVENTION,
+        BondPriceTarget::Dirty(priced.quotes[0].dirty_per100),
+        SETTINGS,
+    )
+    .unwrap();
+    assert_eq!(solved.quotes[0].decimal_yield, MIN_PERPETUITY_YIELD);
+}
+
+#[test]
 fn fixings_read_on_another_date_than_the_quote_are_refused() {
     let reference = reference();
     let bond = &reference["bonds"][1];
