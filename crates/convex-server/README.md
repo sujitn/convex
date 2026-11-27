@@ -545,8 +545,10 @@ securities on a 365-day axis:
   naming a set takes this basis, and no other bond does.
 
 A basis other than `maturity` needs a set. A benchmark spread is to one named security
-and is the same at any tenor. A G-spread is published only when its read point falls
-within the set's maturities, and otherwise the rule's report says why.
+and is the same at any tenor. At `maturity` or `average_life`, a G-spread is published
+only when its read point falls within the set's maturities, and otherwise the rule's
+report says why. At `workout` it always is: a call outside the set reads the nearest
+end, and the perpetuity the longest security (see Perpetuals below).
 
 A `benchmark_set` holds a currency and 1 to 32 securities. Each security has a
 `tenor` (`6M`, `2Y`, `10Y`, up to `50Y`) and pins one stored bond version. Tenors and

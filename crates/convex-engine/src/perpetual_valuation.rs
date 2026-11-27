@@ -432,8 +432,9 @@ impl StoredPerpetual {
 }
 
 /// The cash a stored perpetual pays a holder between two settlement dates, per 100 face:
-/// its coupons. No call is taken, so it pays no principal: the dated composition ends
-/// after `to`.
+/// its coupons. No call is taken, so it pays no principal: the dated composition ends a
+/// whole period past the coupon date after `to`, so its redemption pays after `to`
+/// however its payment date rolls.
 pub(crate) fn perpetual_entitled_cash(
     bond: &BondReferenceData,
     from: Date,
@@ -441,7 +442,8 @@ pub(crate) fn perpetual_entitled_cash(
 ) -> Result<Decimal, Failure> {
     let contract = perpetual_contract(bond)?;
     let calendar = payment_calendar(contract.terms())?;
-    let end = contract.coupon_date_after(to).map_err(library)?;
+    let next = contract.coupon_date_after(to).map_err(library)?;
+    let end = contract.coupon_date_after(next).map_err(library)?;
     contract
         .dated_through(
             end,
@@ -754,6 +756,19 @@ mod tests {
         assert_eq!(
             cash("2031-06-01", "2032-06-01").unwrap(),
             Decimal::new(650, 2)
+        );
+        // Rolled back, a Sunday coupon on 15 January 2034 pays on Friday the 13th: a holder
+        // through the 13th is paid it, and still no principal.
+        let mut preceding = perpetual();
+        preceding
+            .contractual_terms
+            .as_mut()
+            .unwrap()
+            .settings
+            .business_day_convention = convex_core::calendars::BusinessDayConvention::Preceding;
+        assert_eq!(
+            perpetual_entitled_cash(&preceding, date("2033-12-01"), date("2034-01-13")).unwrap(),
+            Decimal::new(325, 2)
         );
         // Sold for settlement on a coupon date, the holder is still paid that coupon, and
         // no principal is due.
