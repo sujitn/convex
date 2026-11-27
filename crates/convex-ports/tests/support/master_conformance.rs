@@ -287,7 +287,7 @@ pub async fn ambiguity_and_missing_terms_fail_closed(repository: Arc<dyn Referen
             4 => invalid.issuer_id = "DIFFERENT".into(),
             _ => {
                 invalid.contractual_terms.as_mut().unwrap().dated_date =
-                    BusinessDate::try_from(invalid.maturity_date).unwrap()
+                    BusinessDate::try_from(invalid.maturity_date.unwrap()).unwrap()
             }
         }
         let request = command(

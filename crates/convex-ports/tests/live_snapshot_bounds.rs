@@ -250,7 +250,7 @@ fn largest_callable(n: usize) -> ResolvedBondReference {
     bond.is_callable = true;
     bond.call_schedule = (0..1024)
         .map(|_| convex_ports::reference_data::CallScheduleEntry {
-            call_date: bond.maturity_date,
+            call_date: bond.maturity_date.unwrap(),
             call_price: price,
             is_make_whole: false,
         })

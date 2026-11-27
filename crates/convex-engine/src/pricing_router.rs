@@ -270,6 +270,16 @@ impl PricingRouter {
         &self,
         ref_data: &BondReferenceData,
     ) -> Result<FixedRateBond, EngineError> {
+        self.fixed_rate_bond_ending(ref_data, dated_maturity(ref_data)?)
+    }
+
+    /// The fixed-rate bond whose stated schedule ends on `end`: a dated bond's maturity,
+    /// or a perpetual's first call.
+    pub(crate) fn fixed_rate_bond_ending(
+        &self,
+        ref_data: &BondReferenceData,
+        end: Date,
+    ) -> Result<FixedRateBond, EngineError> {
         let coupon_rate = ref_data
             .coupon_rate
             .ok_or_else(|| EngineError::PricingError("Missing coupon rate".to_string()))?;
@@ -290,7 +300,7 @@ impl PricingRouter {
             )
             .issue_date(ref_data.issue_date)
             .dated_date(terms.dated_date.date())
-            .maturity(ref_data.maturity_date)
+            .maturity(end)
             .coupon_rate(coupon_rate)
             .face_value(ref_data.face_value)
             .frequency(frequency)
@@ -410,7 +420,7 @@ impl PricingRouter {
         convex_bonds::instruments::ZeroCouponBond::builder()
             .cusip_unchecked(ref_data.instrument_id.as_str())
             .issue_date(ref_data.issue_date)
-            .maturity(ref_data.maturity_date)
+            .maturity(dated_maturity(ref_data)?)
             .currency(ref_data.currency)
             .day_count(self.parse_day_count(&ref_data.day_count)?)
             .compounding(compounding)
@@ -779,6 +789,13 @@ fn pricing_error(error: impl std::fmt::Display) -> EngineError {
     EngineError::PricingError(error.to_string())
 }
 
+/// A dated bond's maturity; a perpetual has none, and no dated bond is built for it.
+fn dated_maturity(bond: &BondReferenceData) -> Result<Date, EngineError> {
+    bond.maturity_date.ok_or_else(|| {
+        EngineError::PricingError("a perpetual has no maturity to build a dated bond to".into())
+    })
+}
+
 /// The native calendar of a pinned calendar dispatch.
 pub(crate) fn calendar_id(
     code: crate::ports::reference_master::BondCalendar,
@@ -826,7 +843,7 @@ mod tests {
             description: "US Treasury 2.5% 2030".to_string(),
             currency: convex_core::Currency::USD,
             issue_date: Date::from_ymd(2020, 5, 15).unwrap(),
-            maturity_date: Date::from_ymd(2030, 5, 15).unwrap(),
+            maturity_date: Some(Date::from_ymd(2030, 5, 15).unwrap()),
             coupon_rate: Some(dec!(0.025)),
             frequency: 2,
             day_count: "30/360".to_string(),
@@ -1285,7 +1302,7 @@ mod tests {
             description: "Test Callable Bond 5% 2030".to_string(),
             currency: convex_core::Currency::USD,
             issue_date: Date::from_ymd(2020, 6, 15).unwrap(),
-            maturity_date: Date::from_ymd(2030, 6, 15).unwrap(),
+            maturity_date: Some(Date::from_ymd(2030, 6, 15).unwrap()),
             coupon_rate: Some(dec!(0.05)),
             frequency: 2,
             day_count: "30/360".to_string(),
@@ -1372,7 +1389,7 @@ mod tests {
             description: "Test FRN SOFR+50bps 2027".to_string(),
             currency: convex_core::Currency::USD,
             issue_date: Date::from_ymd(2025, 1, 15).unwrap(),
-            maturity_date: Date::from_ymd(2027, 1, 15).unwrap(),
+            maturity_date: Some(Date::from_ymd(2027, 1, 15).unwrap()),
             coupon_rate: None, // FRNs don't have fixed coupon
             frequency: 4,      // Quarterly
             day_count: "ACT/360".to_string(),
@@ -1940,7 +1957,7 @@ mod tests {
                     ),
                     currency: convex_core::Currency::USD,
                     issue_date: Date::from_ymd(2020, 1, 15).unwrap(),
-                    maturity_date: Date::from_ymd(maturities[maturity_idx], 6, 15).unwrap(),
+                    maturity_date: Some(Date::from_ymd(maturities[maturity_idx], 6, 15).unwrap()),
                     coupon_rate: Some(Decimal::from_f64_retain(coupons[coupon_idx]).unwrap()),
                     frequency: 2,
                     day_count: "30/360".to_string(),

@@ -15,7 +15,7 @@ use convex_analytics::workflow::{
     WorkoutPriceToWorst, WorkoutSelection, WorkoutSolveSettings, WorkoutWorstQuotation,
     MAX_WORKOUT_CASH_EVALUATIONS,
 };
-use convex_bonds::contracts::BondContract;
+use convex_bonds::contracts::{BondContract, BondTerms};
 use convex_core::{
     calendars::Calendar,
     cashflows::{latest_trade_date, PaymentDateEntitlement},
@@ -53,7 +53,7 @@ pub const WORKOUT_MEASURES: [&str; 5] = [
 
 // Every path's yield lies in this closed domain: a premium bond's yield to a near call can
 // be far below zero, and a distressed bond's far above. At most one examined date a call.
-const WORST_SOLVE: WorkoutSolveSettings = WorkoutSolveSettings {
+pub(crate) const WORST_SOLVE: WorkoutSolveSettings = WorkoutSolveSettings {
     inverse: BondInverseSettings {
         lower: -0.9,
         upper: 5.0,
@@ -65,8 +65,8 @@ const WORST_SOLVE: WorkoutSolveSettings = WorkoutSolveSettings {
     max_cash_evaluations: MAX_WORKOUT_CASH_EVALUATIONS,
 };
 
-/// What a callable on its workouts is quoted by.
-#[derive(Debug, Clone, Copy)]
+/// What a callable or perpetual on its workouts is quoted by.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum WorkoutQuote {
     /// A clean price per 100 face.
     CleanPrice(Decimal),
@@ -88,7 +88,7 @@ impl WorkoutQuote {
             | PricingMethod::BenchmarkSpread { .. }
             | PricingMethod::DiscountMargin {}
             | PricingMethod::Oas {} => Err(LevelError::Refused(format!(
-                "a callable is valued on its workouts from a price or a yield to worst, not a {}",
+                "a callable or perpetual is valued on its workouts from a price or a yield to worst, not a {}",
                 method.name()
             ))),
         }
@@ -148,18 +148,54 @@ impl WorkoutCalculation {
     /// The calculation as a quote of `bond` at `settlement`: the clean price, accrued and
     /// yield to worst, as a request-time quote reads them from the workout model.
     pub fn bond_quote(&self, bond: &BondReferenceData, settlement: Date) -> BondQuoteOutput {
-        let valuation = &self.valuation;
+        self.valuation
+            .to_worst()
+            .bond_quote(bond, settlement, WORKOUT_SNAPSHOT_MODEL)
+    }
+}
+
+impl WorkoutValuation {
+    /// What every valuation to worst gives.
+    pub(crate) fn to_worst(&self) -> ValuedToWorst {
+        ValuedToWorst {
+            clean_price: self.clean_price,
+            dirty_price: self.dirty_price,
+            accrued: self.accrued,
+            yield_to_worst: self.yield_to_worst,
+        }
+    }
+}
+
+/// What every valuation to worst gives, a callable's or a perpetual's: the clean price, the
+/// dirty price and accrued on the worst path, and the yield to worst.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ValuedToWorst {
+    pub clean_price: Decimal,
+    pub dirty_price: f64,
+    pub accrued: f64,
+    pub yield_to_worst: f64,
+}
+
+impl ValuedToWorst {
+    /// As a quote of `bond` at `settlement` under `model`: the clean price, accrued and
+    /// yield to worst, as a request-time quote reads them.
+    pub(crate) fn bond_quote(
+        &self,
+        bond: &BondReferenceData,
+        settlement: Date,
+        model: &str,
+    ) -> BondQuoteOutput {
         BondQuoteOutput {
             isin: bond.isin.clone(),
-            clean_price_mid: Some(valuation.clean_price),
-            accrued_interest: Decimal::from_f64_retain(valuation.accrued),
-            ytw: Decimal::from_f64_retain(valuation.yield_to_worst),
+            clean_price_mid: Some(self.clean_price),
+            accrued_interest: Decimal::from_f64_retain(self.accrued),
+            ytw: Decimal::from_f64_retain(self.yield_to_worst),
             ..BondQuoteOutput::without_measures(
                 bond.instrument_id.clone(),
                 bond.currency,
                 settlement,
                 chrono::Utc::now().timestamp_millis(),
-                WORKOUT_SNAPSHOT_MODEL.into(),
+                model.into(),
                 "convex-library".into(),
             )
         }
@@ -176,6 +212,25 @@ pub fn calculate_on_workouts(
     level: Decimal,
     settlement: Date,
 ) -> Result<WorkoutCalculation, LevelError> {
+    calculate_stored(reference, method, level, settlement, calculate)
+}
+
+/// `calculate` the stored bond `reference` resolves, on its pinned calendar, from `level`
+/// quoted by `method`: a refusal for a deleted reference, another calendar resource, or
+/// invalid input; unsupported for conventions the model does not value; an analytics
+/// failure otherwise.
+pub(crate) fn calculate_stored<T>(
+    reference: &ResolvedBondReference,
+    method: &PricingMethod,
+    level: Decimal,
+    settlement: Date,
+    calculate: impl FnOnce(
+        &BondReferenceData,
+        &CalendarDefinition,
+        Date,
+        WorkoutQuote,
+    ) -> Result<T, Failure>,
+) -> Result<T, LevelError> {
     let quote = WorkoutQuote::quoted_by(method, level)?;
     let refused = |reason: &str| LevelError::Refused(reason.into());
     let bond = reference
@@ -284,36 +339,9 @@ impl StoredWorkouts {
             .build()
             .map_err(|e| invalid(e.to_string()))?;
         let source = contract.terms();
-        let calendar = source
-            .calendars
-            .payment
-            .try_to_calendar()
-            .map_err(|e| invalid(e.to_string()))?;
-        let trade = latest_trade_date(
-            settlement,
-            source.settlement_lag,
-            source.settlement_adjustment,
-            calendar.as_ref(),
-        )
-        .map_err(|e| invalid(e.to_string()))?
-        .ok_or_else(|| {
-            invalid(format!(
-                "no trade settles on {settlement} under the bond's settlement lag and calendar"
-            ))
-        })?;
-        let context = WorkoutContext {
-            reference_date: trade,
-            trade_date: trade,
-            settlement,
-            on_payment: PaymentDateEntitlement::Exclude,
-            notice: WorkoutNotice::Unnotified {
-                earliest_notice: trade,
-            },
-        };
-        let convention = DatedYieldConvention {
-            day_count: source.day_count,
-            compounding: Compounding::from(source.schedule.frequency),
-        };
+        let calendar = payment_calendar(source)?;
+        let context = unnotified_context(source, calendar.as_ref(), settlement)?;
+        let convention = street_convention(source);
         Ok(Self {
             contract,
             calendar,
@@ -427,11 +455,60 @@ impl StoredWorkouts {
     }
 }
 
-fn invalid(reason: String) -> Failure {
+/// The calendar a stored bond is built on, for payment, reset, observation and exercise.
+pub(crate) fn payment_calendar(terms: &BondTerms) -> Result<Box<dyn Calendar>, Failure> {
+    terms
+        .calendars
+        .payment
+        .try_to_calendar()
+        .map_err(|e| invalid(e.to_string()))
+}
+
+/// A purchase settling on `settlement`, traded on the latest date that settles then, with
+/// every call whose notice can still be given on or after that trade: no notice is stored,
+/// so no call is taken as already noticed.
+pub(crate) fn unnotified_context(
+    terms: &BondTerms,
+    calendar: &dyn Calendar,
+    settlement: Date,
+) -> Result<WorkoutContext, Failure> {
+    let trade = latest_trade_date(
+        settlement,
+        terms.settlement_lag,
+        terms.settlement_adjustment,
+        calendar,
+    )
+    .map_err(|e| invalid(e.to_string()))?
+    .ok_or_else(|| {
+        invalid(format!(
+            "no trade settles on {settlement} under the bond's settlement lag and calendar"
+        ))
+    })?;
+    Ok(WorkoutContext {
+        reference_date: trade,
+        trade_date: trade,
+        settlement,
+        on_payment: PaymentDateEntitlement::Exclude,
+        notice: WorkoutNotice::Unnotified {
+            earliest_notice: trade,
+        },
+    })
+}
+
+/// The bond's street yield: dated, under its own day count, compounded at its coupon
+/// frequency.
+pub(crate) fn street_convention(terms: &BondTerms) -> DatedYieldConvention {
+    DatedYieldConvention {
+        day_count: terms.day_count,
+        compounding: Compounding::from(terms.schedule.frequency),
+    }
+}
+
+pub(crate) fn invalid(reason: String) -> Failure {
     failure(ErrorCode::InvalidInput, reason)
 }
 
-fn workflow_failure(error: WorkflowError) -> Failure {
+pub(crate) fn workflow_failure(error: WorkflowError) -> Failure {
     library_failure(error.into())
 }
 
@@ -586,7 +663,7 @@ mod tests {
                 },
             },
             date: match path.selection {
-                WorkoutSelection::Maturity {} => bond.maturity_date,
+                WorkoutSelection::Maturity {} => bond.maturity_date.unwrap(),
                 WorkoutSelection::Exercise { date, .. } => date,
             },
             decimal_yield: path.decimal_yield,

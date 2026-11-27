@@ -6,6 +6,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use crate::level_pricing::{check_level, LevelError};
+use crate::perpetual_valuation::{PERPETUAL_MEASURES, PERPETUAL_SNAPSHOT_MODEL};
 use crate::ports::{
     level_pricing::PricingMethod,
     reference_data::{BondReferenceData, BondType},
@@ -84,29 +85,33 @@ const RISK: o::RiskSettings = o::RiskSettings {
 /// ±100 bp parallel discount shift; a 1 bp shift is below the tree's rate resolution.
 const RISK_BUMP: f64 = 0.01;
 /// Holiday tables cover the bond's life plus this margin on each side.
-const CALENDAR_MARGIN_DAYS: i64 = 31;
+pub(crate) const CALENDAR_MARGIN_DAYS: i64 = 31;
 
-/// Whether the runtime, not the router, values `bond` at request time: a callable or a
-/// floating rate note, whatever its rule. A rule chooses only among runtime models.
+/// Whether the runtime, not the router, values `bond` at request time: a callable, a
+/// floating rate note or a perpetual, whatever its rule. A rule chooses only among runtime
+/// models.
 pub fn is_runtime_product(bond: &BondReferenceData) -> bool {
     matches!(
         bond.bond_type,
-        BondType::FixedCallable | BondType::FloatingRate
+        BondType::FixedCallable | BondType::FloatingRate | BondType::Perpetual
     )
 }
 /// Every model a runtime plan's instruments are valued under.
-pub const PRODUCT_MODELS: [&str; 5] = [
+pub const PRODUCT_MODELS: [&str; 6] = [
     crate::snapshot::BOND_SNAPSHOT_MODEL,
     crate::snapshot::SINKING_FUND_SNAPSHOT_MODEL,
     OPTIONAL_SNAPSHOT_MODEL,
     WORKOUT_SNAPSHOT_MODEL,
     crate::floating_valuation::FLOATING_SNAPSHOT_MODEL,
+    PERPETUAL_SNAPSHOT_MODEL,
 ];
 /// The model a pinned bond is valued under, quoted by `method` when it has a pricing rule:
 /// a callable quoted by price or yield to worst on its workouts, any other callable on
-/// HW1F trees; a sinking-fund bond on its sinking cash.
+/// HW1F trees; a sinking-fund bond on its sinking cash; a perpetual on its workouts and
+/// its perpetuity.
 pub fn product_model(bond: &BondReferenceData, method: Option<&PricingMethod>) -> &'static str {
     match bond.bond_type {
+        BondType::Perpetual => PERPETUAL_SNAPSHOT_MODEL,
         BondType::FixedCallable
             if matches!(
                 method,
@@ -122,10 +127,11 @@ pub fn product_model(bond: &BondReferenceData, method: Option<&PricingMethod>) -
     }
 }
 /// Whether `model` values a bond's level itself, as well as a price, so the level stage
-/// does not price it first: a callable's yield to worst on its workouts or its OAS on
-/// HW1F trees, and a floating rate note's discount margin.
+/// does not price it first: a callable's or perpetual's yield to worst on its workouts, a
+/// callable's OAS on HW1F trees, and a floating rate note's discount margin.
 pub fn values_own_level(model: &str) -> bool {
     model == WORKOUT_SNAPSHOT_MODEL
+        || model == PERPETUAL_SNAPSHOT_MODEL
         || model == OPTIONAL_SNAPSHOT_MODEL
         || model == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL
 }
@@ -134,6 +140,7 @@ pub fn product_measures(model: &str) -> &'static [&'static str] {
     match model {
         OPTIONAL_SNAPSHOT_MODEL => &OPTIONAL_MEASURES,
         WORKOUT_SNAPSHOT_MODEL => &WORKOUT_MEASURES,
+        PERPETUAL_SNAPSHOT_MODEL => &PERPETUAL_MEASURES,
         crate::floating_valuation::FLOATING_SNAPSHOT_MODEL => {
             &crate::floating_valuation::FLOATING_MEASURES
         }
@@ -556,8 +563,14 @@ pub(crate) fn calendar_window(
     terms: &BondContractTerms,
     calendar: &CalendarDefinition,
 ) -> Result<(Date, Date), Failure> {
+    let maturity = bond.maturity_date.ok_or_else(|| {
+        failure(
+            ErrorCode::UnsupportedConvention,
+            "a perpetual has no maturity for the calendar to cover",
+        )
+    })?;
     let start = terms.dated_date.date().add_days(-CALENDAR_MARGIN_DAYS);
-    let end = bond.maturity_date.add_days(CALENDAR_MARGIN_DAYS);
+    let end = maturity.add_days(CALENDAR_MARGIN_DAYS);
     if start < calendar.coverage_from.date() || end > calendar.coverage_until.date() {
         return Err(failure(
             ErrorCode::UnsupportedConvention,

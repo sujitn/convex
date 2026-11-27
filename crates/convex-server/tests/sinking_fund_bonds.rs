@@ -81,7 +81,7 @@ fn note(id: &str, maturity: &str, coupon: &str, cusip: &str) -> BondReferenceDat
     bond.isin = None;
     bond.cusip = Some(cusip.into());
     bond.issuer_type = IssuerType::Sovereign;
-    bond.maturity_date = convex_core::Date::parse(maturity).unwrap();
+    bond.maturity_date = Some(convex_core::Date::parse(maturity).unwrap());
     bond.coupon_rate = Some(coupon.parse().unwrap());
     bond.day_count = "ACT/ACT ICMA".into();
     bond.contractual_terms = Some(fixture::reference_terms::terms(&bond));

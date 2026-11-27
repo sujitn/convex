@@ -80,13 +80,7 @@ impl<'a> GSpreadCalculator<'a> {
         }
 
         let benchmark_yield = self.get_benchmark_yield(settlement, maturity)?;
-        // Align compounding before subtracting; mismatched conventions leak
-        // ~5 bp on a 10Y bond.
-        let bond_yield = bond_yield.convert_to(benchmark_yield.compounding());
-
-        let spread_bps =
-            ((bond_yield.value() - benchmark_yield.value()) * Decimal::from(10_000)).round();
-        Ok(Spread::new(spread_bps, SpreadType::GSpread))
+        Ok(g_spread_over(bond_yield, benchmark_yield))
     }
 
     /// Gets the benchmark yield based on the specification.
@@ -124,6 +118,17 @@ impl<'a> GSpreadCalculator<'a> {
     pub fn benchmark_yield(&self, settlement: Date, maturity: Date) -> AnalyticsResult<Yield> {
         self.get_benchmark_yield(settlement, maturity)
     }
+}
+
+/// The G-spread of `bond_yield` over `benchmark_yield`, in whole basis points. The bond's
+/// yield is converted to the benchmark's compounding first: mismatched conventions leak
+/// about 5 bp on a ten-year bond.
+#[must_use]
+pub fn g_spread_over(bond_yield: Yield, benchmark_yield: Yield) -> Spread {
+    let bond_yield = bond_yield.convert_to(benchmark_yield.compounding());
+    let spread_bps =
+        ((bond_yield.value() - benchmark_yield.value()) * Decimal::from(10_000)).round();
+    Spread::new(spread_bps, SpreadType::GSpread)
 }
 
 /// Convenience function to calculate G-spread with interpolated benchmark.

@@ -909,7 +909,8 @@ def inventory_paths(root: Path) -> set[str]:
                   'crates/convex-ext-redb/src/reference_repository.rs'])
     paths.update(['crates/convex-ports/src/limits.rs', 'crates/convex-engine/src/limits.rs'])
     paths.update(['crates/convex-ports/src/level_pricing.rs', 'crates/convex-engine/src/level_pricing.rs',
-                  'crates/convex-engine/src/workout_valuation.rs'])
+                  'crates/convex-engine/src/workout_valuation.rs',
+                  'crates/convex-engine/src/perpetual_valuation.rs'])
     paths.update(f'crates/convex-analytics/src/risk/hedging/{name}.rs'
                  for name in ('types', 'strategies', 'compare', 'narrate'))
     paths.update(['crates/convex-core/src/calendars/checked.rs', 'crates/convex-core/src/fixings.rs', 'crates/convex-core/src/daycounts/thirty360.rs', 'crates/convex-bonds/src/cashflows/schedule.rs', 'crates/convex-bonds/src/instruments/fixed_rate.rs', 'crates/convex-bonds/src/arrc.rs'])

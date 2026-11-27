@@ -122,16 +122,18 @@ impl PricingMethod {
 
     /// Whether a rule quoting this way, against a benchmark set when `names_benchmark_set`,
     /// applies to `bond`: a fixed bullet or a sinking-fund bond ([`is_level_priced`]) by
-    /// every method but a discount margin or an OAS; any other bond by price with no set; a
-    /// callable valued on its workouts by its yield to worst too; a floating rate note by
-    /// its discount margin, and a callable the HW1F model values ([`is_oas_callable`]) by
-    /// its OAS, each with no set.
+    /// every method but a discount margin or an OAS; a perpetual by price or yield to worst,
+    /// its G-spread over a set; any other bond by price with no set; a callable valued on
+    /// its workouts by its yield to worst too; a floating rate note by its discount margin,
+    /// and a callable the HW1F model values ([`is_oas_callable`]) by its OAS, each with no
+    /// set.
     pub fn applies_to(&self, names_benchmark_set: bool, bond: &BondReferenceData) -> bool {
-        let level_priced = is_level_priced(bond);
         match self {
-            Self::Price {} => level_priced || !names_benchmark_set,
-            Self::Yield {} => level_priced || (!names_benchmark_set && is_workout_callable(bond)),
-            Self::BenchmarkSpread { .. } | Self::ZSpread {} => level_priced,
+            Self::Price {} => !names_benchmark_set || is_quoted_against_set(bond),
+            Self::Yield {} => {
+                is_quoted_against_set(bond) || (!names_benchmark_set && is_workout_callable(bond))
+            }
+            Self::BenchmarkSpread { .. } | Self::ZSpread {} => is_level_priced(bond),
             Self::DiscountMargin {} => {
                 !names_benchmark_set && bond.bond_type == BondType::FloatingRate
             }
@@ -184,12 +186,21 @@ pub enum TenorBasis {
     Maturity,
     /// At the bond's average life from settlement, as a sinking-fund bond is usually read.
     AverageLife,
+    /// At the call date a perpetual's yield to worst is quoted to.
+    Workout,
 }
 
 impl TenorBasis {
     /// Whether this is the default, the bond's maturity, which a rule omits.
     pub fn is_maturity(&self) -> bool {
         *self == Self::Maturity
+    }
+
+    /// Whether a G-spread over a set at this basis reads a date `bond` has: a perpetual's
+    /// at its workout, any other bond's at its maturity or average life. With no set, the
+    /// basis is maturity and places nothing.
+    fn applies_to(self, names_benchmark_set: bool, bond: &BondReferenceData) -> bool {
+        !names_benchmark_set || (self == Self::Workout) == bond.is_perpetual()
     }
 
     /// Refuse a basis other than maturity on a rule that names no benchmark set: it places
@@ -217,8 +228,8 @@ pub struct PricingRuleDefinition {
     /// Named by id: the version in force at a valuation's cutoff is read and recorded.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub benchmark_set_id: Option<ReferenceDataId>,
-    /// Where the G-spread over the set reads its yield: at maturity, when omitted, or at
-    /// the bond's average life.
+    /// Where the G-spread over the set reads its yield: at maturity, when omitted, at the
+    /// bond's average life, or at a perpetual's workout.
     #[serde(default, skip_serializing_if = "TenorBasis::is_maturity")]
     pub tenor_basis: TenorBasis,
     /// The two-way width by trade size, in the unit the method quotes: price points or
@@ -235,10 +246,16 @@ pub struct PricingRuleDefinition {
 }
 
 impl PricingRuleDefinition {
-    /// Whether the rule applies to `bond` ([`PricingMethod::applies_to`]).
+    /// Whether the rule applies to `bond`: its method does
+    /// ([`PricingMethod::applies_to`]), and a G-spread over its set reads a date the bond
+    /// has.
     pub fn applies_to(&self, bond: &BondReferenceData) -> bool {
-        self.method
-            .applies_to(self.benchmark_set_id.is_some(), bond)
+        rule_applies(
+            &self.method,
+            self.benchmark_set_id.as_ref(),
+            self.tenor_basis,
+            bond,
+        )
     }
 
     /// Validate the rule on its own: a benchmark spread names its set and a well-formed
@@ -391,10 +408,16 @@ fn rule_definition(record: &MasterRecord) -> Result<&PricingRuleDefinition, Refe
 }
 
 impl ResolvedPricingRule {
-    /// Whether the rule applies to `bond` ([`PricingMethod::applies_to`]).
+    /// Whether the rule applies to `bond`: its method does
+    /// ([`PricingMethod::applies_to`]), and a G-spread over its set reads a date the bond
+    /// has.
     pub fn applies_to(&self, bond: &BondReferenceData) -> bool {
-        self.method
-            .applies_to(self.benchmark_set_id.is_some(), bond)
+        rule_applies(
+            &self.method,
+            self.benchmark_set_id.as_ref(),
+            self.tenor_basis,
+            bond,
+        )
     }
 
     /// Check the rule on its own and against `known_at`, the cutoff it was resolved by.
@@ -522,7 +545,27 @@ pub(crate) fn validate_level_pricing_links(
 }
 
 /// Why a rule does not apply to a bond ([`PricingMethod::applies_to`]).
-pub const RULE_DOES_NOT_APPLY: &str = "only a fixed bullet or a sinking-fund bond is quoted by a spread or against a benchmark set, by a yield only those or a callable valued on its workouts, by a discount margin only a floating rate note, and by an OAS only a callable with European or Bermudan fixed-price calls and no other embedded terms";
+pub const RULE_DOES_NOT_APPLY: &str = "only a fixed bullet or a sinking-fund bond is quoted by a spread, against a benchmark set only those or a perpetual by price or yield, by a yield only those or a callable valued on its workouts, by a discount margin only a floating rate note, and by an OAS only a callable with European or Bermudan fixed-price calls and no other embedded terms; a G-spread reads a perpetual at its workout and any other bond at its maturity or average life";
+
+/// Whether a rule quoting by `method`, against `benchmark_set_id` when it names one, with
+/// its G-spread at `tenor_basis`, applies to `bond`: the method applies
+/// ([`PricingMethod::applies_to`]), and a G-spread over the set reads a date the bond has.
+fn rule_applies(
+    method: &PricingMethod,
+    benchmark_set_id: Option<&ReferenceDataId>,
+    tenor_basis: TenorBasis,
+    bond: &BondReferenceData,
+) -> bool {
+    let names_benchmark_set = benchmark_set_id.is_some();
+    method.applies_to(names_benchmark_set, bond)
+        && tenor_basis.applies_to(names_benchmark_set, bond)
+}
+
+/// A bond a rule may quote against a benchmark set, its G-spread over it: a level-priced
+/// bond ([`is_level_priced`]), or a perpetual.
+pub fn is_quoted_against_set(bond: &BondReferenceData) -> bool {
+    is_level_priced(bond) || bond.is_perpetual()
+}
 
 /// Why a callable is not valued on its workouts ([`is_workout_callable`]).
 pub const NOT_A_WORKOUT_CALLABLE: &str = "a callable is valued on its workouts only with European or Bermudan fixed-price calls, at most 128, and no other embedded terms";

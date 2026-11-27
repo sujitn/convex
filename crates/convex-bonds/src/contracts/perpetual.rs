@@ -384,6 +384,16 @@ impl PerpetualContract {
         self.regular_date(self.periods_to(date)?)
     }
 
+    /// The first regular coupon date after `date` and after the first call: where a dated
+    /// composition holding every date through `date` ends ([`Self::dated_through`]).
+    pub fn coupon_date_after(&self, date: Date) -> Result<Date, BondContractError> {
+        let next = date
+            .max(self.first_call())
+            .checked_add_days(1)
+            .map_err(|e| invalid("perpetual date", e.to_string()))?;
+        self.coupon_date_on_or_after(next)
+    }
+
     /// Call dates after `after`, through `through`.
     pub fn call_dates(&self, after: Date, through: Date) -> Result<Vec<Date>, BondContractError> {
         let before = through

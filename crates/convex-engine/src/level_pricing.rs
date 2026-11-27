@@ -46,6 +46,7 @@ use std::ops::RangeInclusive;
 use std::sync::{Arc, Mutex};
 
 use crate::curve_builder::BuiltCurve;
+use crate::perpetual_valuation::PerpetualValuation;
 use crate::ports::{
     level_pricing::{
         is_level_priced, is_quoted_two_way, tenor_months, BenchmarkSecurity, PricingMethod,
@@ -62,6 +63,7 @@ use crate::pricing_router::{
     with_fixed_cash, FixedCashBond, GSpreadSet, PricingInput, PricingRouter,
 };
 use crate::runtime::accepted;
+use convex_analytics::workflow::PerpetualWorkout;
 
 /// Why a rule that quotes a level or names a benchmark set does not price a bond.
 const NOT_LEVEL_PRICED: &str =
@@ -626,20 +628,7 @@ pub fn price_in_snapshot(
     };
     let benchmarks = match &rule.benchmark_set_id {
         None => None,
-        Some(id) => {
-            let securities = snapshot.benchmark_securities(rule).ok_or_else(|| {
-                refused(format!(
-                    "benchmark set {} is not in force at the cutoff",
-                    id.as_str()
-                ))
-            })?;
-            Some(
-                securities
-                    .iter()
-                    .map(|security| snapshot_benchmark(snapshot, security))
-                    .collect::<Result<Vec<_>, _>>()?,
-            )
-        }
+        Some(id) => Some(snapshot_benchmarks(snapshot, rule, id)?),
     };
     // Live publishes mid measures only, so no width is read or applied.
     price_with_rule(
@@ -653,6 +642,26 @@ pub fn price_in_snapshot(
         discount,
         yields,
     )
+}
+
+/// Each security of the set `id` that `rule` names, as `snapshot` holds it. A set the
+/// snapshot does not hold is refused by its id.
+fn snapshot_benchmarks<'a>(
+    snapshot: &'a MarketSnapshot,
+    rule: &ResolvedPricingRule,
+    id: &ReferenceDataId,
+) -> Result<Vec<BenchmarkInput<'a>>, LevelError> {
+    snapshot
+        .benchmark_securities(rule)
+        .ok_or_else(|| {
+            refused(format!(
+                "benchmark set {} is not in force at the cutoff",
+                id.as_str()
+            ))
+        })?
+        .iter()
+        .map(|security| snapshot_benchmark(snapshot, security))
+        .collect()
 }
 
 /// A benchmark security's terms as `snapshot` holds them, at the version its set pins.
@@ -781,20 +790,9 @@ fn price_with_rule(
     let (g_spread_set, g_spread_refused) = match benchmarks {
         Some(all) => {
             let read = g_spread_read(bond, tenor_basis, settlement)?;
-            if reads_within(
-                read.days,
-                settlement,
-                all.iter().map(|b| b.government_benchmark.maturity),
-            ) {
-                let curve = benchmark_curve(
-                    all.into_iter().map(|b| b.government_benchmark).collect(),
-                    settlement,
-                    bond.currency,
-                )?;
-                let tenor = read.tenor;
-                (Some(GSpreadSet { curve, tenor }), None)
-            } else {
-                (None, Some(outside_set_reason(tenor_basis)))
+            match g_spread_set(all, read, tenor_basis, settlement, bond.currency)? {
+                Ok(set) => (Some(set), None),
+                Err(reason) => (None, Some(reason)),
             }
         }
         None => (None, None),
@@ -1023,10 +1021,15 @@ fn g_spread_read(
     settlement: Date,
 ) -> Result<GSpreadRead, LevelError> {
     match basis {
-        TenorBasis::Maturity => Ok(GSpreadRead {
-            tenor: BenchmarkTenor::Maturity,
-            days: Decimal::from(settlement.days_between(&bond.maturity_date)),
-        }),
+        TenorBasis::Maturity => {
+            let maturity = bond
+                .maturity_date
+                .ok_or_else(|| refused("a perpetual has no maturity to read a G-spread at"))?;
+            Ok(GSpreadRead {
+                tenor: BenchmarkTenor::Maturity,
+                days: Decimal::from(settlement.days_between(&maturity)),
+            })
+        }
         TenorBasis::AverageLife => {
             let average_life = fixed_cash_bond(bond)?
                 .average_life(settlement)
@@ -1039,13 +1042,44 @@ fn g_spread_read(
                     .ok_or_else(|| refused("the average life overflows"))?,
             })
         }
+        TenorBasis::Workout => Err(refused(
+            "a G-spread at a workout reads a perpetual's worst call, which its model values",
+        )),
     }
+}
+
+/// The set's curve and where a G-spread at `basis` reads it, `read`; why none is published
+/// when it reads outside the set's maturities, so that it never extrapolates.
+fn g_spread_set(
+    priced: Vec<PricedBenchmark<'_>>,
+    read: GSpreadRead,
+    basis: TenorBasis,
+    settlement: Date,
+    currency: Currency,
+) -> Result<Result<GSpreadSet, &'static str>, LevelError> {
+    if !reads_within(
+        read.days,
+        settlement,
+        priced.iter().map(|b| b.government_benchmark.maturity),
+    ) {
+        return Ok(Err(outside_set_reason(basis)));
+    }
+    let curve = benchmark_curve(
+        priced.into_iter().map(|b| b.government_benchmark).collect(),
+        settlement,
+        currency,
+    )?;
+    Ok(Ok(GSpreadSet {
+        curve,
+        tenor: read.tenor,
+    }))
 }
 
 /// Why no G-spread is published: it reads outside the set's maturities.
 fn outside_set_reason(basis: TenorBasis) -> &'static str {
     match basis {
         TenorBasis::Maturity => "the bond matures outside its benchmark set's maturities",
+        TenorBasis::Workout => "a G-spread at a workout reads the nearest end of its set",
         TenorBasis::AverageLife => {
             "the bond's average life ends outside its benchmark set's maturities"
         }
@@ -1129,7 +1163,12 @@ fn price_benchmarks<'a>(
                     Sovereign::UST,
                     Tenor::Custom(months),
                     security_id,
-                    bond.maturity_date,
+                    bond.maturity_date.ok_or_else(|| {
+                        refused(format!(
+                            "the {} benchmark has no maturity",
+                            input.security.tenor
+                        ))
+                    })?,
                     bond.coupon_rate.unwrap_or(Decimal::ZERO),
                     street_yield,
                 )
@@ -1169,9 +1208,10 @@ fn reads_within(
 }
 
 /// Whether a valuation of the bond `reference` resolves in `snapshot`, settling on
-/// `settlement`, publishes a G-spread: it is a fixed bullet or a sinking-fund bond whose
-/// rule names a set the snapshot holds, with every security at its pinned version, and its
-/// G-spread reads within their maturities at the rule's tenor basis. Otherwise
+/// `settlement`, publishes a G-spread: its rule applies to it and names a set the snapshot
+/// holds, with every security at its pinned version (a fixed bullet, a sinking-fund bond or
+/// a perpetual). At maturity or average life the G-spread also reads within their
+/// maturities; at a perpetual's workout, the valuation reads its worst call. Otherwise
 /// `g_spread_mid` is not asked of it, so its result stays complete.
 pub fn is_g_spread_published(
     snapshot: &MarketSnapshot,
@@ -1181,21 +1221,111 @@ pub fn is_g_spread_published(
     let (Some(bond), Some(rule)) = (&reference.record.bond, &reference.pricing_rule) else {
         return false;
     };
-    if !is_level_priced(bond) || rule.benchmark_set_id.is_none() {
+    if rule.benchmark_set_id.is_none() || !rule.applies_to(bond) {
         return false;
     }
     let maturities = snapshot.benchmark_securities(rule).and_then(|securities| {
         securities
             .iter()
-            .map(|security| held_benchmark(snapshot, security).map(|held| held.maturity_date))
-            .try_fold(Vec::new(), |mut maturities, maturity| {
-                maturities.push(maturity?);
-                Some(maturities)
-            })
+            .map(|security| held_benchmark(snapshot, security).and_then(|held| held.maturity_date))
+            .collect::<Option<Vec<_>>>()
     });
     // The set is looked up before the bond is built for an average life.
+    // A workout's read point is the valuation's worst call, which only the valuation gives.
     maturities.is_some_and(|maturities| {
-        g_spread_read(bond, rule.tenor_basis, settlement)
-            .is_ok_and(|read| reads_within(read.days, settlement, maturities.into_iter()))
+        rule.tenor_basis == TenorBasis::Workout
+            || g_spread_read(bond, rule.tenor_basis, settlement)
+                .is_ok_and(|read| reads_within(read.days, settlement, maturities.into_iter()))
     })
+}
+
+/// A perpetual's G-spread in `snapshot`, over the set its rule names there, each
+/// security at its quote's mid price ([`perpetual_g_spread`]).
+pub(crate) fn perpetual_g_spread_in_snapshot(
+    snapshot: &MarketSnapshot,
+    reference: &ResolvedBondReference,
+    valuation: &PerpetualValuation,
+    settlement: Date,
+    yields: &BenchmarkYieldCache,
+) -> Result<Decimal, LevelError> {
+    let bond = reference
+        .record
+        .bond
+        .as_ref()
+        .ok_or_else(|| refused("the bond's reference is a tombstone"))?;
+    let (rule, id) = reference
+        .pricing_rule
+        .as_ref()
+        .and_then(|rule| Some((rule, rule.benchmark_set_id.as_ref()?)))
+        .ok_or_else(|| refused(NO_BENCHMARK_SET))?;
+    let benchmarks = snapshot_benchmarks(snapshot, rule, id)?;
+    perpetual_g_spread(&benchmarks, bond, valuation, settlement, yields)
+}
+
+/// A perpetual's G-spread over the set its rule `in_force` names, as read, for the
+/// calculator: its yield to worst over the set read where the worst is, in whole basis
+/// points (the nearest end of the set for a call outside it, the longest security for the
+/// perpetuity); none when the rule names no set.
+pub fn perpetual_g_spread_under_rule(
+    bond: &BondReferenceData,
+    in_force: Option<&PricingRuleInForce>,
+    valuation: &PerpetualValuation,
+    settlement: Date,
+    yields: &BenchmarkYieldCache,
+) -> Option<Result<Decimal, LevelError>> {
+    let set = in_force.and_then(|in_force| in_force.benchmark_set.as_deref())?;
+    Some(perpetual_g_spread(
+        &benchmark_inputs(set),
+        bond,
+        valuation,
+        settlement,
+        yields,
+    ))
+}
+
+/// Why a perpetual has no G-spread: its rule names no set the valuation holds.
+const NO_BENCHMARK_SET: &str = "a perpetual's G-spread is over its rule's benchmark set";
+
+/// A perpetual's G-spread, in whole basis points: its yield to worst over the set's yield
+/// read where the worst is ([`BenchmarkTenor::Workout`]). A call inside the set's
+/// maturities reads there, and one outside them reads the nearest end. The perpetuity
+/// reads the longest security: its spread over the long bond. So a perpetual whose rule
+/// names a set always has one.
+fn perpetual_g_spread(
+    benchmarks: &[BenchmarkInput<'_>],
+    bond: &BondReferenceData,
+    valuation: &PerpetualValuation,
+    settlement: Date,
+    yields: &BenchmarkYieldCache,
+) -> Result<Decimal, LevelError> {
+    let priced = price_benchmarks(benchmarks, settlement, yields)?;
+    // Outside the set's maturities the curve reads its nearest end, flat.
+    let read_at = match valuation.worst {
+        PerpetualWorkout::Call { date } => date,
+        PerpetualWorkout::Perpetuity => priced
+            .iter()
+            .map(|b| b.government_benchmark.maturity)
+            .max()
+            .ok_or_else(|| refused("the benchmark set holds no security"))?,
+    };
+    let curve = benchmark_curve(
+        priced.into_iter().map(|b| b.government_benchmark).collect(),
+        settlement,
+        bond.currency,
+    )?;
+    let compounding = Compounding::try_from_periods_per_year(bond.frequency)
+        .ok_or_else(|| refused("unsupported coupon frequency"))?;
+    let yield_to_worst = Decimal::from_f64_retain(valuation.yield_to_worst)
+        .ok_or_else(|| refused("the yield to worst is not finite"))?;
+    let spread = GSpreadBenchmark {
+        curve: &curve,
+        tenor: BenchmarkTenor::Workout(read_at),
+    }
+    .workout_spread(
+        bond.currency,
+        settlement,
+        Yield::new(yield_to_worst, compounding),
+    )
+    .map_err(analytics_error)?;
+    Ok(spread.as_bps())
 }

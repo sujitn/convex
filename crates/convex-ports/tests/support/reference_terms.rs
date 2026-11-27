@@ -27,7 +27,7 @@ pub fn complete(mut bond: BondReferenceData) -> BondReferenceData {
     // This keeps the maturity-anchored cash-flow dates of the original fixtures.
     if bond.first_coupon_date.is_none() && [1, 2, 4, 12].contains(&bond.frequency) {
         let months = (12 / bond.frequency) as i32;
-        let mut date = bond.maturity_date;
+        let mut date = bond.maturity_date.unwrap();
         let mut first = date;
         for _ in 0..1200 {
             let previous = date.add_months(-months).unwrap();

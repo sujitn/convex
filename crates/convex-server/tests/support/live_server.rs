@@ -391,7 +391,7 @@ pub async fn level_live_setup_from(
             let mut note = fixture::bond();
             note.instrument_id = convex_core::ids::InstrumentId::new(*id);
             note.issuer_type = IssuerType::Sovereign;
-            note.maturity_date = convex_core::Date::parse(maturity).unwrap();
+            note.maturity_date = Some(convex_core::Date::parse(maturity).unwrap());
             note.coupon_rate = Some(coupon.parse().unwrap());
             note.cusip = Some((*cusip).into());
             note.isin = None;

@@ -47,7 +47,7 @@ pub fn corporate(id: &str, maturity: &str, coupon: &str) -> BondReferenceData {
     ))
     .unwrap();
     bond.instrument_id = convex_core::ids::InstrumentId::new(id);
-    bond.maturity_date = Date::parse(maturity).unwrap();
+    bond.maturity_date = Some(Date::parse(maturity).unwrap());
     bond.coupon_rate = Some(coupon.parse().unwrap());
     bond
 }

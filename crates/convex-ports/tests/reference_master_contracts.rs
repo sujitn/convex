@@ -92,12 +92,12 @@ fn effective_boundaries_and_unsupported_terms_are_explicit() {
         .unwrap()
         .penultimate_coupon_date = None;
     bond.contractual_terms.as_mut().unwrap().stub = BondStub::None;
-    bond.maturity_date = convex_core::Date::parse("2030-02-15").unwrap();
+    bond.maturity_date = Some(convex_core::Date::parse("2030-02-15").unwrap());
     assert!(matches!(
         validate_bond_reference(&bond),
         Err(ReferenceError::InvalidInput(_))
     ));
-    bond.maturity_date = convex_core::Date::parse("2030-01-15").unwrap();
+    bond.maturity_date = Some(convex_core::Date::parse("2030-01-15").unwrap());
     bond.contractual_terms.as_mut().unwrap().payment_lag = 1;
     assert!(matches!(
         validate_bond_reference(&bond),
@@ -162,7 +162,7 @@ fn call_terms_are_optional_bytes_and_belong_only_to_a_dated_priced_callable() {
         |b| b.is_callable = false,
         |b| b.call_schedule.clear(),
         |b| b.call_schedule.swap(0, 1),
-        |b| b.call_schedule[1].call_date = b.maturity_date.add_days(1),
+        |b| b.call_schedule[1].call_date = b.maturity_date.unwrap().add_days(1),
         |b| b.call_schedule[0].call_price = rust_decimal::Decimal::ZERO,
         |b| {
             b.contractual_terms

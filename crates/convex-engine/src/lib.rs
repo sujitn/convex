@@ -65,6 +65,7 @@ pub mod level_pricing;
 pub mod limits;
 pub mod market_ingestion;
 pub mod optional_valuation;
+pub mod perpetual_valuation;
 pub mod portfolio_analytics;
 pub mod pricing_router;
 pub mod request_valuation;
@@ -838,6 +839,25 @@ impl PricingEngine {
         )
     }
 
+    /// A perpetual's G-spread at its worst call over the set its rule `in_force` names, as
+    /// [`Self::rule_in_force`] read it, sharing each benchmark's solved yield as
+    /// [`Self::price_in_force`] does; none when the rule names no set.
+    pub fn perpetual_g_spread(
+        &self,
+        bond: &ports::reference_data::BondReferenceData,
+        in_force: Option<&level_pricing::PricingRuleInForce>,
+        valuation: &perpetual_valuation::PerpetualValuation,
+        settlement: convex_core::Date,
+    ) -> Option<Result<rust_decimal::Decimal, level_pricing::LevelError>> {
+        level_pricing::perpetual_g_spread_under_rule(
+            bond,
+            in_force,
+            valuation,
+            settlement,
+            &self.benchmark_yield_cache,
+        )
+    }
+
     /// The benchmark set `id` in force at `lookup`, each security's pinned terms and its
     /// Live clean price mid. A set not in force, a security not stored at its pinned
     /// version by the cutoff, or one without a usable Live price refuses by name.
@@ -930,7 +950,7 @@ impl PricingEngine {
 
     /// Commit a reference use case through the authoritative repository, then notify
     /// [`Self::subscribe_reference_commits`] of the master keys it wrote. A retried command
-    /// notifies again.
+    /// notifies again. A perpetual it writes must also build as the library's perpetual.
     pub async fn commit_reference(
         &self,
         command: &ports::reference_repository::ReferenceCommand,
@@ -939,6 +959,7 @@ impl PricingEngine {
         ports::reference_repository::ReferenceCommit,
         ports::reference_repository::ReferenceError,
     > {
+        perpetual_valuation::admit_perpetuals(command)?;
         let receipt = self.storage.bonds.commit(command, recorded_at).await?;
         if !receipt.master_records.is_empty() {
             let keys: ReferenceCommitNotice = receipt

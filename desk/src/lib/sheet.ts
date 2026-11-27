@@ -33,7 +33,8 @@ export interface Bond {
   bond_type: string
   currency: string
   coupon_rate: number | string | null
-  maturity_date: string
+  /** Absent for a perpetual. */
+  maturity_date?: string
   cusip: string | null
   isin: string | null
 }

@@ -7,7 +7,7 @@ fn supplied_quote_fixture(case: &Value) -> (Arc<convex_engine::PricingEngine>, B
     let id = case["id"].as_str().unwrap();
     let mut bond = production_readiness_bond(id);
     bond.issue_date = Date::parse(case["issue"].as_str().unwrap()).unwrap();
-    bond.maturity_date = Date::parse(case["maturity"].as_str().unwrap()).unwrap();
+    bond.maturity_date = Some(Date::parse(case["maturity"].as_str().unwrap()).unwrap());
     bond.first_coupon_date = case["terms"]["first_coupon_date"]
         .as_str()
         .map(|s| Date::parse(s).unwrap());
@@ -153,7 +153,7 @@ async fn cvx017_rest_curve_roles_currency_policy_and_missing_inputs_are_explicit
         .cusip_unchecked("REST-SAME-TERMS")
         .issue_date(bond.issue_date)
         .dated_date(bond.issue_date)
-        .maturity(bond.maturity_date)
+        .maturity(bond.maturity_date.unwrap())
         .coupon_rate(dec!(0.05))
         .frequency(Frequency::SemiAnnual)
         .day_count(convex_core::daycounts::DayCountConvention::Thirty360US)
@@ -247,7 +247,7 @@ async fn cvx017_rest_curve_roles_currency_policy_and_missing_inputs_are_explicit
         Sovereign::UST,
         Tenor::Y5,
         "SUPPLIED-REST-017",
-        bond.maturity_date,
+        bond.maturity_date.unwrap(),
         dec!(0.04),
         convex_core::types::Yield::new(dec!(0.04), convex_core::types::Compounding::SemiAnnual),
     );
@@ -295,7 +295,7 @@ async fn cvx017_rest_zero_consumes_explicit_day_count_compounding_and_redemption
     let native = ZeroCouponBond::builder()
         .cusip_unchecked("REST-ZERO")
         .issue_date(bond.issue_date)
-        .maturity(bond.maturity_date)
+        .maturity(bond.maturity_date.unwrap())
         .currency(Currency::EUR)
         .day_count(convex_core::daycounts::DayCountConvention::Act360)
         .face_value(dec!(1000))

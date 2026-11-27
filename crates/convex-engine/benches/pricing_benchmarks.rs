@@ -64,7 +64,7 @@ fn create_test_bond(id: usize) -> BondReferenceData {
         description: format!("Test Bond {}", id),
         currency: Currency::USD,
         issue_date: Date::from_ymd(2020, 1, 15).unwrap(),
-        maturity_date: Date::from_ymd(maturities[maturity_idx], 6, 15).unwrap(),
+        maturity_date: Some(Date::from_ymd(maturities[maturity_idx], 6, 15).unwrap()),
         coupon_rate: Some(Decimal::from_f64_retain(coupons[coupon_idx]).unwrap()),
         frequency: 2,
         day_count: "30/360".to_string(),

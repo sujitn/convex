@@ -1033,6 +1033,8 @@ pub struct SnapshotValuator {
     cache: ValuationCache,
     /// Benchmark yields shared by the bonds quoted to them.
     benchmark_yield_cache: crate::level_pricing::BenchmarkYieldCache,
+    /// Perpetuals' valuations, so a benchmark tick revalues only their G-spreads.
+    perpetual_valuations: crate::perpetual_valuation::PerpetualValuationCache,
 }
 impl SnapshotValuator {
     /// Composition root supplies actual build identity and an explicit bounded cache.
@@ -1041,6 +1043,7 @@ impl SnapshotValuator {
             build_id,
             cache: ValuationCache::new(cache_capacity)?,
             benchmark_yield_cache: Default::default(),
+            perpetual_valuations: Default::default(),
         })
     }
     /// Explicit administrative cache release; published snapshots/results remain unchanged.
@@ -1258,6 +1261,8 @@ impl SnapshotValuator {
             )?
         } else if model == crate::workout_valuation::WORKOUT_SNAPSHOT_MODEL {
             workout_measures(spec, reference, read_by, mark, quality)?
+        } else if model == crate::perpetual_valuation::PERPETUAL_SNAPSHOT_MODEL {
+            perpetual_measures(snapshot, spec, reference, read_by, mark, quality, self)?
         } else if model == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL {
             floating_measures(
                 snapshot,
@@ -1543,8 +1548,94 @@ fn workout_measures(
     mark: Option<rust_decimal::Decimal>,
     quality: DataQuality,
 ) -> Result<Measures, TraitError> {
+    use crate::optional_valuation::Failure;
+    let valued = valued_on_workouts(
+        spec,
+        reference,
+        method,
+        mark,
+        crate::workout_valuation::value_on_workouts,
+    )?;
+    model_measures(spec, quality, |measure| {
+        let valued = valued.as_ref().map_err(Failure::clone)?;
+        if let Some(value) = to_worst_measure(measure, valued.to_worst()) {
+            return value;
+        }
+        match measure {
+            "years_to_worst_mid" => Ok(MeasureValue::ModelYears(ModelYears::new(finite_to_worst(
+                valued.years_to_worst,
+            )?))),
+            _ => Err(outside_valuation_slice()),
+        }
+    })
+}
+
+/// A perpetual's measures on its workouts, from its `mark` quoted by `method`: a clean
+/// price, or a yield to worst, each valuation solved once through `valuator`'s cache. Its
+/// G-spread, asked only when its rule names a set the snapshot holds, reads that set at
+/// the worst call, each security's yield solved once through the valuator's yields.
+fn perpetual_measures(
+    snapshot: &MarketSnapshot,
+    spec: &ValuationContextSpec,
+    reference: &ResolvedBondReference,
+    method: &PricingMethod,
+    mark: Option<rust_decimal::Decimal>,
+    quality: DataQuality,
+    valuator: &SnapshotValuator,
+) -> Result<Measures, TraitError> {
     use crate::optional_valuation::{failure, level_failure, Failure};
-    use crate::workout_valuation::{value_on_workouts, WorkoutQuote};
+    let valued = valued_on_workouts(
+        spec,
+        reference,
+        method,
+        mark,
+        |_, calendar, settlement, quote| {
+            valuator
+                .perpetual_valuations
+                .value(&reference.record, calendar, settlement, quote)
+        },
+    )?;
+    model_measures(spec, quality, |measure| {
+        let valued = valued.as_ref().map_err(Failure::clone)?;
+        if let Some(value) = to_worst_measure(measure, valued.to_worst()) {
+            return value;
+        }
+        match measure {
+            G_SPREAD_MEASURE => {
+                let spread = crate::level_pricing::perpetual_g_spread_in_snapshot(
+                    snapshot,
+                    reference,
+                    valued,
+                    spec.settlement_date.date(),
+                    &valuator.benchmark_yield_cache,
+                )
+                .map_err(level_failure)?;
+                let spread = ExactDecimal::new(spread)
+                    .to_model()
+                    .map_err(|error| failure(ErrorCode::InvalidInput, error.to_string()))?;
+                Ok(MeasureValue::ModelBps(ModelBasisPoints::new(spread)))
+            }
+            _ => Err(outside_valuation_slice()),
+        }
+    })
+}
+
+/// A bond on its workouts valued by `value` from its `mark` quoted by `method`, at the
+/// context's settlement: a missing mark, or a level its method does not quote it by, fails
+/// each measure.
+fn valued_on_workouts<V>(
+    spec: &ValuationContextSpec,
+    reference: &ResolvedBondReference,
+    method: &PricingMethod,
+    mark: Option<rust_decimal::Decimal>,
+    value: impl FnOnce(
+        &convex_ports::reference_data::BondReferenceData,
+        &convex_ports::reference_master::CalendarDefinition,
+        convex_core::Date,
+        crate::workout_valuation::WorkoutQuote,
+    ) -> Result<V, crate::optional_valuation::Failure>,
+) -> Result<Result<V, crate::optional_valuation::Failure>, TraitError> {
+    use crate::optional_valuation::{failure, level_failure};
     let bond = reference
         .record
         .bond
@@ -1553,7 +1644,7 @@ fn workout_measures(
     let calendar = reference
         .calendar_definition()
         .ok_or(TraitError::InvalidInput("wrong calendar resource"))?;
-    let valued = mark
+    Ok(mark
         .ok_or_else(|| {
             failure(
                 ErrorCode::MissingMarketData,
@@ -1561,39 +1652,44 @@ fn workout_measures(
             )
         })
         .and_then(|mark| {
-            let quote = WorkoutQuote::quoted_by(method, mark).map_err(level_failure)?;
-            value_on_workouts(bond, calendar, spec.settlement_date.date(), quote)
-        });
-    let finite = |value: f64| {
-        FiniteF64::new(value)
-            .map_err(|_| failure(ErrorCode::InvalidInput, "nonfinite workout measure"))
+            let quote = crate::workout_valuation::WorkoutQuote::quoted_by(method, mark)
+                .map_err(level_failure)?;
+            value(bond, calendar, spec.settlement_date.date(), quote)
+        }))
+}
+
+/// The measures every valuation to worst publishes: the clean and dirty prices, accrued and
+/// the yield to worst. None for another measure.
+fn to_worst_measure(
+    measure: &str,
+    valued: crate::workout_valuation::ValuedToWorst,
+) -> Option<Result<MeasureValue, crate::optional_valuation::Failure>> {
+    let value = match measure {
+        "clean_price_mid" => Ok(MeasureValue::Price(PricePer100::new(ExactDecimal::new(
+            valued.clean_price,
+        )))),
+        "dirty_price_mid" => finite_to_worst(valued.dirty_price)
+            .map(|price| MeasureValue::ModelPrice(ModelPricePer100::new(price))),
+        "accrued_interest" => finite_to_worst(valued.accrued)
+            .map(|price| MeasureValue::ModelPrice(ModelPricePer100::new(price))),
+        "ytw_mid" => finite_to_worst(valued.yield_to_worst)
+            .map(|rate| MeasureValue::ModelRate(ModelDecimalRate::new(rate))),
+        _ => return None,
     };
-    model_measures(spec, quality, |measure| {
-        let valued = valued.as_ref().map_err(Failure::clone)?;
-        Ok(match measure {
-            "clean_price_mid" => {
-                MeasureValue::Price(PricePer100::new(ExactDecimal::new(valued.clean_price)))
-            }
-            "dirty_price_mid" => {
-                MeasureValue::ModelPrice(ModelPricePer100::new(finite(valued.dirty_price)?))
-            }
-            "accrued_interest" => {
-                MeasureValue::ModelPrice(ModelPricePer100::new(finite(valued.accrued)?))
-            }
-            "ytw_mid" => {
-                MeasureValue::ModelRate(ModelDecimalRate::new(finite(valued.yield_to_worst)?))
-            }
-            "years_to_worst_mid" => {
-                MeasureValue::ModelYears(ModelYears::new(finite(valued.years_to_worst)?))
-            }
-            _ => {
-                return Err(failure(
-                    ErrorCode::InvalidInput,
-                    "Requested measure is outside this snapshot valuation slice",
-                ))
-            }
-        })
+    Some(value)
+}
+
+fn finite_to_worst(value: f64) -> Result<FiniteF64, crate::optional_valuation::Failure> {
+    FiniteF64::new(value).map_err(|_| {
+        crate::optional_valuation::failure(ErrorCode::InvalidInput, "nonfinite measure to worst")
     })
+}
+
+fn outside_valuation_slice() -> crate::optional_valuation::Failure {
+    crate::optional_valuation::failure(
+        ErrorCode::InvalidInput,
+        "Requested measure is outside this snapshot valuation slice",
+    )
 }
 
 /// The plan's explicit fixings plus each floating rate note's observations that are due by

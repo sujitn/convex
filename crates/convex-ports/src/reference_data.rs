@@ -32,6 +32,9 @@ pub enum BondType {
     Amortizing,
     /// Convertible bond
     Convertible,
+    /// Fixed-coupon perpetual, callable on its first call date and at a fixed interval
+    /// after it, with no maturity
+    Perpetual,
 }
 
 /// Issuer type classification.
@@ -105,8 +108,9 @@ pub struct BondReferenceData {
     pub currency: Currency,
     /// Issue date
     pub issue_date: Date,
-    /// Maturity date
-    pub maturity_date: Date,
+    /// Maturity date; a perpetual has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub maturity_date: Option<Date>,
     /// Coupon rate (for fixed rate bonds, as decimal)
     #[serde(default, with = "optional_exact_decimal")]
     pub coupon_rate: Option<Decimal>,
@@ -205,8 +209,8 @@ pub struct BondReferenceBoundary {
     pub instrument_id: convex_core::contracts::InstrumentId,
     /// Explicit issue date.
     pub issue: convex_core::contracts::BusinessDate,
-    /// Explicit maturity date.
-    pub maturity: convex_core::contracts::BusinessDate,
+    /// Explicit maturity date; absent for a perpetual.
+    pub maturity: Option<convex_core::contracts::BusinessDate>,
     /// Exact positive quoted face.
     pub face: convex_core::contracts::FaceAmount,
     /// Existing decimal coupon, or absent.
@@ -233,6 +237,22 @@ impl BondReferenceData {
             || self.has_deflation_floor
     }
 
+    /// Whether the bond is a perpetual: no maturity, and calls that recur for ever.
+    pub fn is_perpetual(&self) -> bool {
+        self.bond_type == BondType::Perpetual
+    }
+
+    /// The end of the stated coupon schedule: the maturity, or a perpetual's first call,
+    /// after which its coupons and calls recur.
+    pub fn schedule_end(&self) -> Option<Date> {
+        self.maturity_date.or_else(|| {
+            self.contractual_terms
+                .as_ref()
+                .and_then(|terms| terms.perpetual.as_ref())
+                .map(|perpetual| perpetual.first_call_date.date())
+        })
+    }
+
     /// Whether the bond has a call, a put, or floating or inflation terms: anything beyond a
     /// fixed bond's cash flows and its sinks.
     pub fn has_terms_beyond_sinks(&self) -> bool {
@@ -253,7 +273,11 @@ impl BondReferenceData {
         use convex_core::contracts::{
             BasisPoints, BusinessDate, ContractError, DecimalRate, ExactDecimal, FaceAmount,
         };
-        if self.issue_date >= self.maturity_date || self.face_value <= Decimal::ZERO {
+        if self
+            .maturity_date
+            .is_some_and(|maturity| self.issue_date >= maturity)
+            || self.face_value <= Decimal::ZERO
+        {
             return Err(ContractError {
                 field: "bond_reference",
                 reason: "maturity must follow issue and face must be positive",
@@ -262,7 +286,7 @@ impl BondReferenceData {
         Ok(BondReferenceBoundary {
             instrument_id: self.instrument_id.clone().try_into()?,
             issue: BusinessDate::try_from(self.issue_date)?,
-            maturity: BusinessDate::try_from(self.maturity_date)?,
+            maturity: self.maturity_date.map(BusinessDate::try_from).transpose()?,
             face: FaceAmount::new(ExactDecimal::new(self.face_value))?,
             coupon: self
                 .coupon_rate

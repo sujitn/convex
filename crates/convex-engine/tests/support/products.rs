@@ -1,5 +1,6 @@
-//! Fictional callable, floating rate note and sinking-fund terms built on a supplied fixture
-//! bond, with the resources, published fixings and projection recipe a floating note needs.
+//! Fictional callable, floating rate note, sinking-fund and perpetual terms built on a
+//! supplied fixture bond, with the resources, published fixings and projection recipe a
+//! floating note needs.
 #![allow(dead_code)] // Suites use different subsets of these constructors.
 use convex_core::{
     calendars::{Calendar, SIFMACalendar},
@@ -13,7 +14,8 @@ use convex_ports::{
     reference_data::{BondReferenceData, BondType, CallScheduleEntry, FloatingRateTerms},
     reference_master::{
         CallStyle, CallTerms, ConventionDefinition, FloatingConventions, FloatingMechanics,
-        MasterChange, MasterDefinition, RateIndexDefinition, RateIndexKind, ReferencePin,
+        MasterChange, MasterDefinition, PerpetualTerms, RateIndexDefinition, RateIndexKind,
+        ReferencePin,
     },
     snapshot::QuoteRequirement,
 };
@@ -141,7 +143,7 @@ pub fn sinker(mut bond: BondReferenceData) -> BondReferenceData {
     bond.bond_type = BondType::Amortizing;
     bond.is_sinkable = true;
     bond.issue_date = Date::parse(text("issue_date")).unwrap();
-    bond.maturity_date = Date::parse(text("maturity_date")).unwrap();
+    bond.maturity_date = Some(Date::parse(text("maturity_date")).unwrap());
     bond.coupon_rate = Some(text("coupon_rate").parse().unwrap());
     bond.day_count = text("day_count").into();
     bond.face_value = text("face_value").parse().unwrap();
@@ -156,6 +158,59 @@ pub fn sinker(mut bond: BondReferenceData) -> BondReferenceData {
     terms.settings.end_of_month = false;
     terms.convention.id = ReferenceDataId::new("fixture-convention-sinker").unwrap();
     terms.sinking_schedule = serde_json::from_value(stated["sinking_schedule"].clone()).unwrap();
+    bond
+}
+
+/// `bond` as the fixed perpetual of the independent reference
+/// `tests/scripts/perpetual_quote_reference.py`: 6.5% semiannual 30/360 US from 15 January
+/// 2025, payments rolled to the following business day on a weekends-only calendar,
+/// callable at par every coupon date from 15 January 2030 on 30 days' notice, under a
+/// convention pack and calendar of its own ([`convention`]).
+pub fn perpetual(mut bond: BondReferenceData) -> BondReferenceData {
+    let pack: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../convex-analytics/tests/fixtures/perpetual-quotes.json"
+    ))
+    .unwrap();
+    let stated = &pack["bonds"][0]["terms"];
+    let date = |value: &serde_json::Value| Date::parse(value.as_str().unwrap()).unwrap();
+    let decimal = |value: &serde_json::Value| Decimal::from_str(value.as_str().unwrap()).unwrap();
+    let call = &stated["redemption"]["call"];
+    bond.bond_type = BondType::Perpetual;
+    bond.is_callable = true;
+    bond.issue_date = date(&stated["issue_date"]);
+    bond.maturity_date = None;
+    bond.coupon_rate = Some(decimal(&stated["profiles"]["coupon"][0]["value"]));
+    bond.day_count = "30/360 US".into();
+    bond.first_coupon_date = None;
+    let terms = bond.contractual_terms.as_mut().unwrap();
+    terms.dated_date = BusinessDate::try_from(date(&stated["schedule"]["start_date"])).unwrap();
+    terms.stub = convex_ports::reference_master::BondStub::None;
+    terms.settings.day_count = convex_core::daycounts::DayCountConvention::Thirty360US;
+    terms.settings.business_day_convention =
+        convex_core::calendars::BusinessDayConvention::Following;
+    terms.settings.end_of_month = false;
+    terms.calendar.id = ReferenceDataId::new("fixture-calendar-weekends").unwrap();
+    terms.calendar_code = convex_ports::reference_master::BondCalendar::WeekendsOnly;
+    terms.convention.id = ReferenceDataId::new("fixture-convention-perpetual").unwrap();
+    terms.perpetual = Some(PerpetualTerms {
+        first_call_date: BusinessDate::try_from(date(&stated["schedule"]["end_date"])).unwrap(),
+        call_interval_months: call["interval_months"].as_u64().unwrap() as u32,
+        call_price: ExactDecimal::new(decimal(&call["price_per_100"])),
+        notice_days: 30,
+    });
+    bond
+}
+
+/// [`perpetual`] rolled on month end from 31 August 2025, first callable on 31 August
+/// 2030. Its semiannual 30/360 US grid reaches February, whose last day counts short, so
+/// the stored-terms checks admit it and the library does not.
+pub fn month_end_perpetual(bond: BondReferenceData) -> BondReferenceData {
+    let mut bond = perpetual(bond);
+    bond.issue_date = Date::parse("2025-08-31").unwrap();
+    let terms = bond.contractual_terms.as_mut().unwrap();
+    terms.dated_date = BusinessDate::parse("2025-08-31").unwrap();
+    terms.settings.end_of_month = true;
+    terms.perpetual.as_mut().unwrap().first_call_date = BusinessDate::parse("2030-08-31").unwrap();
     bond
 }
 

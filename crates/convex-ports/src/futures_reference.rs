@@ -96,7 +96,9 @@ pub(crate) fn validate_futures_links(
                     let bond = exact_bond(commit, &entry.instrument, bond_version)?;
                     if bond.currency != v.basket.currency
                         || bond.issue_date > delivery.first_delivery.date()
-                        || bond.maturity_date <= delivery.last_delivery.date()
+                        || bond
+                            .maturity_date
+                            .is_none_or(|maturity| maturity <= delivery.last_delivery.date())
                         || bond.bond_type != crate::reference_data::BondType::FixedBullet
                         || bond.is_callable
                         || bond.is_putable
@@ -115,7 +117,9 @@ pub(crate) fn validate_futures_links(
                     let bond = exact_bond(commit, &candidate.instrument, bond_version)?;
                     if bond.currency != candidate.currency
                         || bond.issue_date > candidate.settlement.date()
-                        || bond.maturity_date <= candidate.settlement.date()
+                        || bond
+                            .maturity_date
+                            .is_none_or(|maturity| maturity <= candidate.settlement.date())
                     {
                         return Err(ReferenceError::InvalidInput(
                             "cash hedge security currency/dates conflict",

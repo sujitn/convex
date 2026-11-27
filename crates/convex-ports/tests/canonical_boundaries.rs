@@ -46,7 +46,7 @@ fn supplier_symbol_remap_preserves_internal_identity_and_decimal_coupon() {
     source_value.face_value = Decimal::ZERO;
     assert!(source_value.canonical_boundary().is_err());
     source_value = reference();
-    source_value.issue_date = source_value.maturity_date;
+    source_value.issue_date = source_value.maturity_date.unwrap();
     assert!(source_value.canonical_boundary().is_err());
 }
 

@@ -51,7 +51,7 @@ fn command_requires_typed_versions_and_bounded_identity() {
 #[test]
 fn planning_rejects_invalid_reference_without_clock_or_io() {
     let mut bond: BondReferenceData = serde_json::from_value(fixture()).unwrap();
-    bond.issue_date = bond.maturity_date;
+    bond.issue_date = bond.maturity_date.unwrap();
     let command = ReferenceCommand {
         master_changes: Vec::new(),
         idempotency_key: RequestId::new("invalid").unwrap(),

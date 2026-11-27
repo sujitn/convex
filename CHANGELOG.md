@@ -193,6 +193,9 @@ the changes that matter when you upgrade.
   and `SinkingFundBond::yield_to_average_life`. That yield retired the bond at a
   truncated average-life date and had no caller. `SinkingFundBond::average_life`
   now returns `Result<AverageLife, BondContractError>` from its mandatory sinks.
+- **`PerpetualContract::coupon_date_after(date)`**: the first regular coupon date
+  after a date and after the first call, where a dated composition through that date
+  ends. The perpetual quotes' preparation uses it.
 - **Perpetuals.** `BondTerms` version 2 adds `redemption`: `dated` (omitted, so
   version 1 documents read and write unchanged; a dated bond stays version 1) or
   `perpetual`, which needs version 2. A perpetual carries its call interval and
@@ -220,6 +223,10 @@ the changes that matter when you upgrade.
 - **A G-spread read at a workout.** `BenchmarkTenor::Workout(date)` reads the
   supplied government yields at the call date a yield is quoted to.
   `price_from_level` and `quote_fixed` quote a yield to maturity and refuse it.
+  `GSpreadBenchmark::workout_spread(currency, settlement, yield)` gives a yield to
+  that workout's G-spread, in whole basis points, for a bond with no maturity such
+  as a perpetual. `spreads::g_spread_over` is the subtraction both G-spreads share:
+  the bond's yield converted to the benchmark's compounding, then rounded.
 - **Breaking: a G-spread reads the government securities at a named tenor.**
   `BondCurves.government` is a `GSpreadBenchmark`: the supplied
   `GovernmentCurve` and a `BenchmarkTenor`, either `Maturity` (the reading
@@ -284,6 +291,17 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **Perpetuals.** A fixed-coupon callable perpetual is stored with its perpetual
+  terms and no maturity date, and valued in Live, at request time, in the
+  calculator and in RFQs, by price or by yield to worst.
+  - It is quoted to each call through the model's horizon and to perpetuity, mid
+    only. An RFQ is priced at its Live mid.
+  - The calculator lists each call through its `horizon`, then the perpetuity,
+    and the worst. Its `g_spread_mid` is over the rule's set where the worst is,
+    the longest security for the perpetuity.
+  - A commit is refused with 400 when the library does not build the perpetual,
+    when a bond has both a maturity date and perpetual terms or neither, and for
+    any term a fixed-coupon perpetual does not carry.
 - **Sinking-fund bonds.** A bond stored with mandatory sinks is valued in Live,
   at request time, in the calculator and in RFQs.
   - A price is quoted per 100 current face. `market_price`, the calculator's
@@ -646,6 +664,31 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **Perpetuals** are valued on their workouts under the new model
+  `convex-perpetual-workout-v1` (`perpetual_valuation`), from a price or a yield to
+  worst, with no option model and no curve.
+  - The stored terms become the library's `PerpetualContract`: the router's
+    fixed-coupon schedule to the first call, and the calls at their interval and
+    price on calendar days' notice, settling as the bond's payments roll.
+  - Calls are quoted through the 128th after settlement, or the last whose cash
+    the pinned calendar covers within the shared 150-year bound.
+  - It publishes `clean_price_mid`, `dirty_price_mid`, `accrued_interest` and
+    `ytw_mid`, and `g_spread_mid` when its rule names a set: read at the worst call
+    inside the set, at the nearest end for a call outside it, and at the longest
+    security for the perpetuity (`level_pricing::is_g_spread_published` now admits a
+    perpetual).
+  - `calculate_perpetual` gives each path's yield, the worst and the horizon for
+    the calculator; `PricingEngine::perpetual_g_spread` its G-spread.
+  - `perpetual_valuation::admit_perpetuals` refuses a perpetual the library does
+    not build (`PERPETUAL_NOT_ADMITTED`, its reason logged). `commit_reference`
+    and the core-inputs import run it.
+  - The snapshot valuator keeps each perpetual's valuation by version, settlement
+    and quote, so a benchmark tick recomputes only its G-spread.
+  - Measured (release): 20.7–20.9 ms from a price, 3.4 ms from a yield, for 128
+    calls and the perpetuity. The contract builds in about 7 µs; each call's
+    projection of the whole composition is the cost.
+  - `PricingEngine::entitled_cash` counts a perpetual's coupons, and no principal.
+  - `PricingRouter` builds no dated bond for a perpetual.
 - **Sinking-fund bonds** are valued by the router on their mandatory sinking cash,
   under the new model `convex-sinking-fund-router-v1`.
   - It publishes the router's 26 measures and `factor`: the fraction of original
@@ -813,6 +856,26 @@ the changes that matter when you upgrade.
 
 ### convex-ports
 
+- **Perpetuals.** `BondType::Perpetual`, and `BondContractTerms::perpetual`, a
+  `PerpetualTerms`: the first call date, the call interval in months, the call
+  price and the notice days. It is omitted when absent.
+  - **Breaking:** `BondReferenceData::maturity_date` is an `Option<Date>`, omitted
+    when absent, so a dated bond's bytes and snapshot ids are unchanged. A
+    perpetual has none; `schedule_end` gives a maturity, or a perpetual's first
+    call. `BondReferenceBoundary::maturity` is optional too.
+  - A bond has a maturity date or perpetual terms, exactly one, and perpetual
+    terms only as a `Perpetual`. Admission takes a positive fixed coupon under
+    30/360 US or 30E/360, redemption at face, calls at whole coupon periods up to
+    150 years at a price above 0 and at most 1,000 on at most 366 days' notice,
+    and a first call on a day every month has (or month end with
+    `end_of_month`) on the coupon grid. It refuses a call schedule, call terms, a
+    put, sinks, and floating or inflation terms. Each refusal is `InvalidInput`.
+  - Service valuation admits a perpetual. A rule quotes it by `price` or `yield`,
+    against a set too, and `TenorBasis::Workout` reads its G-spread at the worst
+    call. A rule naming a set reads a perpetual only at `workout`, and no other
+    bond there.
+  - A perpetual is not a futures deliverable or a cash hedge candidate, and a
+    maturity-range query treats it as maturing after every date.
 - **Sinking-fund bonds.** `BondContractTerms::sinking_schedule` holds a bond's
   mandatory sinks: each `ScheduledSink` has a date, the face retired per 100 of
   original face, and a price (par by default). There are at most 1,024

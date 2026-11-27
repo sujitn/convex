@@ -358,10 +358,7 @@ fn prepare(
     let mut tail_start = contract
         .coupon_date_on_or_after(next_day(c.settlement, "perpetual.settlement")?.max(first_call))?;
     // The dated composition runs past every call quoted.
-    let mut end = contract.coupon_date_on_or_after(next_day(
-        input.horizon.max(first_call),
-        "perpetual.horizon",
-    )?)?;
+    let mut end = contract.coupon_date_after(input.horizon)?;
     let (resets, held_level) = match (&contract.perpetual().reset, &input.reset_market) {
         (None, None) => (vec![], None),
         (Some(_), Some(market)) => {

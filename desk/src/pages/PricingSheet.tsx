@@ -295,7 +295,7 @@ const Row = memo(function Row({
       <td className="px-2 py-0.5 text-slate-200">{row.bond?.description ?? row.instrumentId}</td>
       <td className="px-2 py-0.5 font-mono text-slate-400">{row.bond?.cusip ?? row.bond?.isin ?? ''}</td>
       <td className="px-2 py-0.5 font-mono tabular-nums">{formatCoupon(row.bond?.coupon_rate)}</td>
-      <td className="px-2 py-0.5 font-mono tabular-nums text-slate-400">{row.bond?.maturity_date ?? ''}</td>
+      <td className="px-2 py-0.5 font-mono tabular-nums text-slate-400">{row.bond ? (row.bond.maturity_date ?? 'Perpetual') : ''}</td>
       <td className="px-2 py-0.5 text-slate-400">{methodLabel(row.rule.method)}</td>
       <td className={`px-2 py-0.5 text-right font-mono tabular-nums ${row.deskField ? 'text-sky-300' : ''}`}>
         {editing ? (

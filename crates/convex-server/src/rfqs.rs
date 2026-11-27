@@ -626,8 +626,8 @@ impl Intake<'_> {
 
 /// Why a price is the mid: the bond's rule sets no two-way width for it.
 const NO_RULE_WIDTH: &str = "the bond's rule sets no two-way width";
-/// Why a callable's or floating rate note's price is the mid.
-const NO_TWO_WAY: &str = "a callable or floating rate note is priced at its Live mid";
+/// Why a callable's, floating rate note's or perpetual's price is the mid.
+const NO_TWO_WAY: &str = "a callable, floating rate note or perpetual is priced at its Live mid";
 
 /// `POST /api/v1/rfqs/:rfq_key/quote` body.
 #[derive(Deserialize)]

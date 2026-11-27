@@ -158,7 +158,7 @@ impl RequestValuer {
             Some(QuotedInput::Level(level) | QuotedInput::Oas(level)) => {
                 let method = method.filter(|_| values_own_level(model)).ok_or(
                     TraitError::InvalidInput(
-                        "a level is valued at request time only as a callable's yield to worst or OAS, or a floating rate note's discount margin",
+                        "a level is valued at request time only as a callable's or perpetual's yield to worst, a callable's OAS, or a floating rate note's discount margin",
                     ),
                 )?;
                 check_level(method, level)?;

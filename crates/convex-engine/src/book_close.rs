@@ -185,7 +185,8 @@ impl crate::PricingEngine {
     ///
     /// A fixed bullet or callable reads its bullet schedule, a sinking-fund bond its sinks
     /// and its coupons on the face outstanding, and a zero its redemption, as the router
-    /// builds them, so the cash comes from the schedule its accrued reads. A
+    /// builds them, so the cash comes from the schedule its accrued reads. A perpetual
+    /// reads its coupons, and no principal, from the contract its valuation builds. A
     /// valued floating rate note reads its contract, built with its pinned calendars and
     /// rate index as its valuation builds it: its cash is not projected when a coupon
     /// falls between the two dates. Any other bond is not projected. Nothing is read or
@@ -271,6 +272,11 @@ fn cash_between(
             from,
             to,
         )),
+        BondType::Perpetual => crate::perpetual_valuation::perpetual_entitled_cash(bond, from, to)
+            .map(Some)
+            .map_err(|failure| {
+                EngineError::PricingError(format!("entitled cash: {}", failure.message))
+            }),
         BondType::FloatingRate => match floating.map(|note| note.entitled_cash(from, to)) {
             Some(Ok(cash)) => Ok(Some(cash)),
             Some(Err(convex_bonds::contracts::BondContractError::Unsupported { .. })) | None => {
@@ -575,5 +581,18 @@ mod tests {
                 "{case}: {cash}"
             );
         }
+    }
+
+    #[test]
+    fn a_perpetuals_entitled_cash_is_its_coupons_through_its_calls() {
+        let perpetual = crate::products::perpetual(bond());
+        let cash = |from: &str, to: &str| {
+            cash_between(&perpetual, None, date(from), date(to))
+                .unwrap()
+                .unwrap()
+        };
+        // Its 6.5% coupon on the first call and the next, and no principal.
+        assert_eq!(cash("2030-01-01", "2030-08-01"), dec!(6.5));
+        assert_eq!(cash("2030-08-01", "2030-12-01"), Decimal::ZERO);
     }
 }

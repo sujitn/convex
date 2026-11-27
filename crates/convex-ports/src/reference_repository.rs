@@ -466,6 +466,7 @@ pub fn validate_bond_reference(bond: &BondReferenceData) -> Result<(), Reference
         | crate::reference_data::BondType::FixedCallable
         | crate::reference_data::BondType::FixedPutable
         | crate::reference_data::BondType::Amortizing
+        | crate::reference_data::BondType::Perpetual
             if bond.coupon_rate.is_none() =>
         {
             return Err(ReferenceError::InvalidInput(

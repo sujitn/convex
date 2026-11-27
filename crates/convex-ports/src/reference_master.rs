@@ -184,6 +184,10 @@ pub struct BondContractTerms {
     /// A bond is sinkable exactly when it has some.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sinking_schedule: Vec<ScheduledSink>,
+    /// A perpetual's recurring calls; absent for every dated bond. A bond has these
+    /// exactly when it has no maturity date.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub perpetual: Option<PerpetualTerms>,
 }
 
 /// The most sinks a sinking-fund schedule holds.
@@ -204,6 +208,21 @@ pub struct ScheduledSink {
 
 fn par() -> ExactDecimal {
     ExactDecimal::new(rust_decimal::Decimal::ONE_HUNDRED)
+}
+
+/// A perpetual's issuer calls: on its first call date and at every interval after it, each
+/// at one price and on notice. Its fixed coupon is paid for ever until a call.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PerpetualTerms {
+    /// The first call date, on which the stated coupon schedule ends.
+    pub first_call_date: BusinessDate,
+    /// Months between call dates, a whole number of coupon periods.
+    pub call_interval_months: u32,
+    /// The price of every call, per 100 face.
+    pub call_price: ExactDecimal,
+    /// Calendar days of notice before each call, at most 366.
+    pub notice_days: u32,
 }
 
 /// How a scheduled call may be exercised.
@@ -1144,15 +1163,16 @@ pub fn validate_valuation_terms(bond: &BondReferenceData) -> Result<(), Referenc
         ));
     }
     bounded_text(&terms.provenance.evidence_reference, 512)?;
-    if terms.dated_date.date() >= bond.maturity_date
+    let end = stated_schedule_end(bond, terms)?;
+    if terms.dated_date.date() >= end
         || terms.redemption_value.decimal() <= rust_decimal::Decimal::ZERO
         || terms.issuer.entity_id.as_str() != bond.issuer_id
         || terms
             .penultimate_coupon_date
-            .is_some_and(|d| d.date() <= terms.dated_date.date() || d.date() >= bond.maturity_date)
+            .is_some_and(|d| d.date() <= terms.dated_date.date() || d.date() >= end)
         || bond
             .first_coupon_date
-            .is_some_and(|d| d <= terms.dated_date.date() || d > bond.maturity_date)
+            .is_some_and(|d| d <= terms.dated_date.date() || d > end)
         || (bond
             .first_coupon_date
             .zip(terms.penultimate_coupon_date)
@@ -1174,12 +1194,15 @@ pub fn validate_valuation_terms(bond: &BondReferenceData) -> Result<(), Referenc
             "unsupported reference pricing frequency",
         ));
     }
-    validate_sinking_schedule(bond, terms)?;
-    if bond.bond_type == BondType::FixedBullet || bond.is_sinkable {
-        validate_bullet_boundaries(bond, terms)?;
+    validate_sinking_schedule(bond, terms, end)?;
+    if let Some(perpetual) = &terms.perpetual {
+        validate_perpetual(bond, terms, perpetual)?;
+    }
+    if bond.bond_type == BondType::FixedBullet || bond.is_sinkable || bond.is_perpetual() {
+        validate_bullet_boundaries(bond, terms, end)?;
     }
     if let Some(call) = &terms.call_terms {
-        validate_call_terms(bond, terms, call)?;
+        validate_call_terms(bond, terms, call, end)?;
     }
     if let Some(mechanics) = &terms.floating_mechanics {
         if bond.bond_type != BondType::FloatingRate || bond.floating_terms.is_none() {
@@ -1192,11 +1215,93 @@ pub fn validate_valuation_terms(bond: &BondReferenceData) -> Result<(), Referenc
     Ok(())
 }
 
+/// The end of the stated coupon schedule: a dated bond's maturity, or a perpetual's first
+/// call. A bond has a maturity date or perpetual terms, exactly one, and perpetual terms
+/// only as a perpetual.
+fn stated_schedule_end(
+    bond: &BondReferenceData,
+    terms: &BondContractTerms,
+) -> Result<convex_core::Date, ReferenceError> {
+    let is_one_redemption = bond.maturity_date.is_some() != terms.perpetual.is_some()
+        && bond.is_perpetual() == terms.perpetual.is_some();
+    bond.schedule_end()
+        .filter(|_| is_one_redemption)
+        .ok_or(ReferenceError::InvalidInput(
+            "a dated bond has a maturity date, and a perpetual has perpetual terms and none",
+        ))
+}
+
+/// A perpetual the service values: a positive fixed coupon under 30/360 US or 30E/360,
+/// redeemed only by its calls, each at a price above 0 and at most 1,000 on at most 366
+/// days' notice, every whole number of coupon periods up to 150 years. Its first call falls
+/// on a day every month has, or on month end with `end_of_month`, so dates rolled from it
+/// never clamp. It has no call schedule or call terms, and no put, sinks, floating or
+/// inflation terms. The library's own admission, run when the bond is committed, also
+/// holds each regular period to 1/f year.
+fn validate_perpetual(
+    bond: &BondReferenceData,
+    terms: &BondContractTerms,
+    perpetual: &PerpetualTerms,
+) -> Result<(), ReferenceError> {
+    use rust_decimal::Decimal;
+    if !bond.is_callable
+        || !bond.call_schedule.is_empty()
+        || terms.call_terms.is_some()
+        || bond.has_terms_beyond_calls()
+    {
+        return Err(ReferenceError::InvalidInput(
+            "a perpetual is callable through its perpetual terms only, with no call schedule or call terms, and no put, sinks, floating or inflation terms",
+        ));
+    }
+    if !matches!(
+        terms.settings.day_count,
+        DayCountConvention::Thirty360US | DayCountConvention::Thirty360E
+    ) {
+        return Err(ReferenceError::InvalidInput(
+            "a perpetual's day count is 30/360 US or 30E/360",
+        ));
+    }
+    if bond.coupon_rate.is_none_or(|rate| rate <= Decimal::ZERO)
+        || terms.redemption_value.decimal() != bond.face_value
+    {
+        return Err(ReferenceError::InvalidInput(
+            "a perpetual pays a positive fixed coupon, and its redemption value is its face",
+        ));
+    }
+    let period = 12 / bond.frequency;
+    let interval = perpetual.call_interval_months;
+    let price = perpetual.call_price.decimal();
+    if interval == 0
+        || !interval.is_multiple_of(period)
+        || interval > 150 * 12
+        || price <= Decimal::ZERO
+        || price > Decimal::ONE_THOUSAND
+        || perpetual.notice_days > 366
+    {
+        return Err(ReferenceError::InvalidInput(
+            "a perpetual's calls recur every whole number of coupon periods up to 150 years, each at a price above 0 and at most 1,000 on at most 366 days' notice",
+        ));
+    }
+    let first_call = perpetual.first_call_date.date();
+    let is_regular_roll = if terms.settings.end_of_month {
+        first_call.is_end_of_month() || first_call.day() <= 27
+    } else {
+        first_call.day() <= 28
+    };
+    if !is_regular_roll {
+        return Err(ReferenceError::InvalidInput(
+            "a perpetual's first call falls on a day every month has, or on month end with end_of_month",
+        ));
+    }
+    Ok(())
+}
+
 /// Explicit call mechanics belong only to a callable with a dated, priced schedule.
 fn validate_call_terms(
     bond: &BondReferenceData,
     terms: &BondContractTerms,
     call: &CallTerms,
+    end: convex_core::Date,
 ) -> Result<(), ReferenceError> {
     if bond.bond_type != BondType::FixedCallable || !bond.is_callable {
         return Err(ReferenceError::InvalidInput(
@@ -1216,7 +1321,7 @@ fn validate_call_terms(
             .any(|pair| pair[0].call_date >= pair[1].call_date)
         || bond.call_schedule.iter().any(|entry| {
             entry.call_date <= terms.dated_date.date()
-                || entry.call_date > bond.maturity_date
+                || entry.call_date > end
                 || entry.call_price <= rust_decimal::Decimal::ZERO
         })
     {
@@ -1236,6 +1341,7 @@ fn validate_call_terms(
 fn validate_sinking_schedule(
     bond: &BondReferenceData,
     terms: &BondContractTerms,
+    end: convex_core::Date,
 ) -> Result<(), ReferenceError> {
     use rust_decimal::Decimal;
     let sinks = &terms.sinking_schedule;
@@ -1262,7 +1368,7 @@ fn validate_sinking_schedule(
     for sink in sinks {
         let (amount, price) = (sink.amount.decimal(), sink.price.decimal());
         if sink.date.date() <= previous
-            || sink.date.date() > bond.maturity_date
+            || sink.date.date() > end
             || amount <= Decimal::ZERO
             || price <= Decimal::ZERO
             || price > Decimal::ONE_THOUSAND
@@ -1278,9 +1384,7 @@ fn validate_sinking_schedule(
             .ok_or(ReferenceError::InvalidInput("sink amounts overflow"))?;
         previous = sink.date.date();
     }
-    if retired > Decimal::ONE_HUNDRED
-        || (retired == Decimal::ONE_HUNDRED && previous != bond.maturity_date)
-    {
+    if retired > Decimal::ONE_HUNDRED || (retired == Decimal::ONE_HUNDRED && previous != end) {
         return Err(ReferenceError::InvalidInput(
             "the sinks retire at most the original face, and all of it only with a sink on maturity",
         ));
@@ -1310,9 +1414,12 @@ pub fn is_mandatory_sinker(bond: &BondReferenceData) -> bool {
         && !bond.has_terms_beyond_sinks()
 }
 
+/// The coupon boundaries step regularly from the first coupon date to `end`, the stated
+/// schedule's: a maturity, or a perpetual's first call.
 fn validate_bullet_boundaries(
     bond: &BondReferenceData,
     terms: &BondContractTerms,
+    end: convex_core::Date,
 ) -> Result<(), ReferenceError> {
     let months = (12 / bond.frequency) as i32;
     let first = bond.first_coupon_date.unwrap_or(terms.dated_date.date());
@@ -1333,13 +1440,13 @@ fn validate_bullet_boundaries(
     }
     let mut date = first;
     for step in 0..=1200 {
-        if date == bond.maturity_date {
+        if date == end {
             return Ok(());
         }
         if step == 1200 {
             return Err(ReferenceError::CapacityExceeded);
         }
-        if date > bond.maturity_date {
+        if date > end {
             return Err(ReferenceError::InvalidInput(
                 "coupon boundaries imply an undeclared stub",
             ));
@@ -1542,16 +1649,18 @@ pub fn validate_service_resources(
         .ok_or(ReferenceError::InvalidInput("missing terms"))?;
     // Expanded families require their complete contractual models in subsequent tasks.
     // A fixed callable is admitted only with its explicit call mechanics, a floating rate
-    // note only with its rate index and no cap or floor, which need an option model, and a
-    // sinking-fund bond only with mandatory sinks.
+    // note only with its rate index and no cap or floor, which need an option model, a
+    // sinking-fund bond only with mandatory sinks, and a perpetual only with its terms.
     let callable = bond.bond_type == BondType::FixedCallable && terms.call_terms.is_some();
     let floating = is_valued_floating(bond);
     let sinker = is_mandatory_sinker(bond);
+    let perpetual = bond.is_perpetual();
     if !(callable
         || floating
         || sinker
+        || perpetual
         || matches!(bond.bond_type, BondType::FixedBullet | BondType::ZeroCoupon))
-        || (!callable && (bond.is_callable || !bond.call_schedule.is_empty()))
+        || (!callable && !perpetual && (bond.is_callable || !bond.call_schedule.is_empty()))
         || bond.is_putable
         || (!sinker && bond.is_sinkable)
         || (!floating && bond.floating_terms.is_some())
@@ -1560,7 +1669,7 @@ pub fn validate_service_resources(
         || bond.has_deflation_floor
     {
         return Err(ReferenceError::Unsupported(
-            "service reference valuation supports nominal fixed bullets, zeros, callables with explicit call terms, uncapped floating rate notes with a rate index and sinking-fund bonds with mandatory sinks",
+            "service reference valuation supports nominal fixed bullets, zeros, callables with explicit call terms, uncapped floating rate notes with a rate index, sinking-fund bonds with mandatory sinks and fixed-coupon callable perpetuals",
         ));
     }
     if !terms.effective.contains(lookup.as_of) {
@@ -1885,7 +1994,9 @@ fn validate_resource_pins(
             && calendar.version == terms.calendar.version
             && cal.code == terms.calendar_code
             && cal.coverage_from <= terms.dated_date
-            && cal.coverage_until.date() >= bond.maturity_date
+            && bond
+                .schedule_end()
+                .is_some_and(|end| cal.coverage_until.date() >= end)
             && conv.convention_id == terms.convention.id
             && convention.version == terms.convention.version
             && conv.settings == terms.settings =>

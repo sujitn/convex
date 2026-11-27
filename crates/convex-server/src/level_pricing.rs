@@ -98,7 +98,17 @@ pub(crate) fn rule_head_json(model: &str, in_force: &PricingRuleInForce) -> Valu
 /// The rule as read: the stage's model, the rule's version and method, the set it names
 /// with each security's Live price, and why no G-spread is published when it is not.
 pub(crate) fn rule_read_json(in_force: &PricingRuleInForce, pricing: &RulePricing) -> Value {
-    let mut body = rule_head_json(LEVEL_PRICE_MODEL, in_force);
+    rule_with_set_json(LEVEL_PRICE_MODEL, in_force, pricing.g_spread_refused)
+}
+
+/// The rule as `model` read it: its version and method, the set it names with each
+/// security's Live price, and why no G-spread is published when it is not.
+pub(crate) fn rule_with_set_json(
+    model: &str,
+    in_force: &PricingRuleInForce,
+    g_spread_refused: Option<&str>,
+) -> Value {
+    let mut body = rule_head_json(model, in_force);
     if let Some(set) = &in_force.benchmark_set {
         body["benchmark_set"] = json!({
             "benchmark_set_id": set.benchmark_set_id,
@@ -112,7 +122,7 @@ pub(crate) fn rule_read_json(in_force: &PricingRuleInForce, pricing: &RulePricin
             })).collect::<Vec<_>>(),
         });
     }
-    if let Some(reason) = pricing.g_spread_refused {
+    if let Some(reason) = g_spread_refused {
         body["g_spread_refused"] = json!(reason);
     }
     body
