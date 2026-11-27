@@ -1079,7 +1079,7 @@ fn g_spread_set(
 fn outside_set_reason(basis: TenorBasis) -> &'static str {
     match basis {
         TenorBasis::Maturity => "the bond matures outside its benchmark set's maturities",
-        TenorBasis::Workout => "the worst call falls outside the benchmark set's maturities",
+        TenorBasis::Workout => "a G-spread at a workout reads the nearest end of its set",
         TenorBasis::AverageLife => {
             "the bond's average life ends outside its benchmark set's maturities"
         }
@@ -1263,9 +1263,9 @@ pub(crate) fn perpetual_g_spread_in_snapshot(
 }
 
 /// A perpetual's G-spread over the set its rule `in_force` names, as read, for the
-/// calculator: its yield to worst over the set read at the worst call date, in whole basis
-/// points, refused with the perpetuity worst or a call outside the set's maturities; none
-/// when the rule names no set.
+/// calculator: its yield to worst over the set read where the worst is, in whole basis
+/// points (the nearest end of the set for a call outside it, the longest security for the
+/// perpetuity); none when the rule names no set.
 pub fn perpetual_g_spread_under_rule(
     bond: &BondReferenceData,
     in_force: Option<&PricingRuleInForce>,
@@ -1287,8 +1287,10 @@ pub fn perpetual_g_spread_under_rule(
 const NO_BENCHMARK_SET: &str = "a perpetual's G-spread is over its rule's benchmark set";
 
 /// A perpetual's G-spread, in whole basis points: its yield to worst over the set's yield
-/// read at the worst call date ([`BenchmarkTenor::Workout`]). Refused when the worst is the
-/// perpetuity, which has no date, or its call falls outside the set's maturities.
+/// read where the worst is ([`BenchmarkTenor::Workout`]). A call inside the set's
+/// maturities reads there, and one outside them reads the nearest end. The perpetuity
+/// reads the longest security: its spread over the long bond. So a perpetual whose rule
+/// names a set always has one.
 fn perpetual_g_spread(
     benchmarks: &[BenchmarkInput<'_>],
     bond: &BondReferenceData,
@@ -1296,25 +1298,28 @@ fn perpetual_g_spread(
     settlement: Date,
     yields: &BenchmarkYieldCache,
 ) -> Result<Decimal, LevelError> {
-    let PerpetualWorkout::Call { date } = valuation.worst else {
-        return Err(refused(
-            "the worst is the perpetuity, which has no date to read a benchmark at",
-        ));
-    };
-    let read = GSpreadRead {
-        tenor: BenchmarkTenor::Workout(date),
-        days: Decimal::from(settlement.days_between(&date)),
-    };
     let priced = price_benchmarks(benchmarks, settlement, yields)?;
-    let set = g_spread_set(priced, read, TenorBasis::Workout, settlement, bond.currency)?
-        .map_err(refused)?;
+    // Outside the set's maturities the curve reads its nearest end, flat.
+    let read_at = match valuation.worst {
+        PerpetualWorkout::Call { date } => date,
+        PerpetualWorkout::Perpetuity => priced
+            .iter()
+            .map(|b| b.government_benchmark.maturity)
+            .max()
+            .ok_or_else(|| refused("the benchmark set holds no security"))?,
+    };
+    let curve = benchmark_curve(
+        priced.into_iter().map(|b| b.government_benchmark).collect(),
+        settlement,
+        bond.currency,
+    )?;
     let compounding = Compounding::try_from_periods_per_year(bond.frequency)
         .ok_or_else(|| refused("unsupported coupon frequency"))?;
     let yield_to_worst = Decimal::from_f64_retain(valuation.yield_to_worst)
         .ok_or_else(|| refused("the yield to worst is not finite"))?;
     let spread = GSpreadBenchmark {
-        curve: &set.curve,
-        tenor: set.tenor,
+        curve: &curve,
+        tenor: BenchmarkTenor::Workout(read_at),
     }
     .workout_spread(
         bond.currency,

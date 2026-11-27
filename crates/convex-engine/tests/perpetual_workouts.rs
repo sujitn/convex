@@ -224,8 +224,8 @@ async fn a_perpetual_the_library_refuses_is_not_committed() {
 }
 
 /// The G-spread at the worst call is the yield to worst over the set's yield interpolated
-/// at the call date, in whole basis points as the library reports it. With no call worst,
-/// or a call beyond the set's maturities, it is refused, saying why.
+/// at the call date, in whole basis points as the library reports it. A call outside the
+/// set reads its nearest end, and the perpetuity its longest security.
 #[test]
 fn the_g_spread_reads_the_set_at_the_worst_call() {
     let bond = products::perpetual(fixture::bond());
@@ -284,16 +284,25 @@ fn the_g_spread_reads_the_set_at_the_worst_call() {
     let spread = g_spread(PerpetualWorkout::Call { date: first_call }).unwrap();
     let expected = ((0.0526 - at(years(first_call))) * 10_000.0).round();
     assert_eq!(spread.to_f64().unwrap(), expected);
-    let perpetuity = g_spread(PerpetualWorkout::Perpetuity).unwrap_err();
-    assert!(
-        perpetuity.to_string().contains("perpetuity"),
-        "{perpetuity}"
-    );
+    // The perpetuity, and a call beyond the 10-year, read the 10-year: the spread over the
+    // long bond. A call before the 2-year reads the 2-year.
+    let over = |benchmark: f64| ((0.0526 - benchmark) * 10_000.0).round();
     let beyond = PerpetualWorkout::Call {
         date: convex_core::Date::parse("2036-01-15").unwrap(),
     };
-    let outside = g_spread(beyond).unwrap_err();
-    assert!(outside.to_string().contains("outside"), "{outside}");
+    for worst in [PerpetualWorkout::Perpetuity, beyond] {
+        let spread = g_spread(worst).unwrap();
+        assert_eq!(
+            spread.to_f64().unwrap(),
+            over(note_yield(long)),
+            "{worst:?}"
+        );
+    }
+    let before = PerpetualWorkout::Call {
+        date: convex_core::Date::parse("2027-07-15").unwrap(),
+    };
+    let spread = g_spread(before).unwrap();
+    assert_eq!(spread.to_f64().unwrap(), over(note_yield(short)));
     // A rule naming no set publishes none.
     in_force.benchmark_set = None;
     assert!(perpetual_g_spread_under_rule(

@@ -669,10 +669,11 @@ perpetuals, step-ups, and American or make-whole calls have no terms, and are re
   yield to maturity, no DV01, and is quoted mid only; an RFQ on it is priced at its Live
   mid.
 - **G-spread.** A rule naming a set with `tenor_basis` `workout` publishes
-  `g_spread_mid` in Live and the calculator: the yield to worst less the set's yield
-  interpolated at the worst call date, in whole basis points. With the perpetuity worst,
-  or a call outside the set's maturities, it fails saying why. A request-time quote
-  carries none.
+  `g_spread_mid` in Live and the calculator: the yield to worst less the set's yield at
+  the worst, in whole basis points. A call inside the set's maturities reads there, and
+  one outside them reads the nearest end. The perpetuity reads the longest security: its
+  spread over the long bond. So the record stays complete, as a book reads it. A
+  request-time quote carries none.
 - **Distressed prices.** Every path's yield must lie between -90% and 500%. A deeply
   discounted perpetual within weeks of a call yields more to it, and is refused, as a
   callable on its workouts is.

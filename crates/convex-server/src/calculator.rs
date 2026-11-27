@@ -9,7 +9,8 @@
 //! The router then values that price under the approved context at `known_at`, mid only,
 //! with the G-spread over the set the bond's rule names. A callable is calculated on its
 //! workouts, from a price or a yield to worst, with each workout's yield; it reads no
-//! curve. A floating rate note from a price or the discount margin its rule quotes, and a
+//! curve. A perpetual is too, to each call through its horizon and to perpetuity, with its
+//! G-spread at the worst call. A floating rate note from a price or the discount margin its rule quotes, and a
 //! callable the HW1F model values from an OAS whatever its rule, are valued as
 //! `GET /quotes/:instrument_id` values them: by the runtime's request valuation, a
 //! callable's OAS on HW1F trees. The

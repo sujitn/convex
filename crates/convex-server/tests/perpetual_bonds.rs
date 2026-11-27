@@ -112,10 +112,10 @@ fn perpetual_rule(method: Value, tenor_basis: &str) -> MasterChange {
 }
 
 /// The runtime fixture with the perpetual and a 2- and 10-year Treasury, each valued in
-/// Live from its price: the perpetual at 104.25, the notes at 99.50 and 98.25. The
+/// Live from its price: the perpetual at `price`, the notes at 99.50 and 98.25. The
 /// `UST-OTR` set holds the notes, and the perpetual's rule quotes it by price with its
 /// G-spread at the worst call. The configuration is activated.
-async fn desk() -> (Setup, Arc<PricingEngine>, String) {
+async fn desk(price: &str) -> (Setup, Arc<PricingEngine>, String) {
     let mut setup = setup().await;
     let (bond, mut master_changes) = perpetual();
     let notes = [
@@ -174,7 +174,7 @@ async fn desk() -> (Setup, Arc<PricingEngine>, String) {
         .unwrap();
     let plan = &mut setup.plan;
     for (id, price) in [
-        (PERPETUAL, PRICE),
+        (PERPETUAL, price),
         ("UST-2Y", "99.50"),
         ("UST-10Y", "98.25"),
     ] {
@@ -273,7 +273,7 @@ fn measure(results: &Value, name: &str) -> f64 {
 /// perpetuity and the worst; from the yield to worst it prices back.
 #[tokio::test]
 async fn a_perpetual_is_stored_valued_in_live_and_calculated_on_its_workouts() {
-    let (_setup, engine, cutoff) = desk().await;
+    let (_setup, engine, cutoff) = desk(PRICE).await;
     let app = router(engine.clone());
 
     let (status, stored) = call(&app, "GET", &format!("/api/v1/bonds/{PERPETUAL}"), None).await;
@@ -350,15 +350,17 @@ async fn a_perpetual_is_stored_valued_in_live_and_calculated_on_its_workouts() {
         "{by_yield}"
     );
     assert_eq!(by_yield["worst"]["date"], "2030-01-15");
-    // Below par the worst is the perpetuity, which has no date to read a G-spread at.
+    // Below par the worst is the perpetuity: its G-spread is over the long bond.
     let (status, at_discount) = calculate(json!({"kind": "price"}), "92.5".into()).await;
     assert_eq!(status, StatusCode::OK, "{at_discount}");
     assert_eq!(at_discount["worst"]["kind"], "perpetuity");
-    assert!(at_discount["g_spread_mid"].is_null());
-    assert!(at_discount["pricing_rule"]["g_spread_refused"]
-        .as_str()
-        .unwrap()
-        .contains("perpetuity"));
+    assert_eq!(
+        number(&at_discount["g_spread_mid"]),
+        ((number(&at_discount["ytw"]) - y10) * 10_000.0).round()
+    );
+    assert!(at_discount["pricing_rule"]
+        .get("g_spread_refused")
+        .is_none());
     // A spread does not quote a perpetual.
     let (status, refused) = calculate(json!({"kind": "z_spread"}), "150".into()).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
@@ -375,6 +377,49 @@ async fn a_perpetual_is_stored_valued_in_live_and_calculated_on_its_workouts() {
     assert_eq!(status, StatusCode::OK, "{quote}");
     assert_eq!(number(&quote["ytw"]), ytw, "{quote}");
     assert!(quote["clean_price_bid"].is_null());
+
+    // Inline terms are valued as stored ones are; a what-if curve values only a dated bond.
+    let (bond, _) = perpetual();
+    let inline = json!({"bond": bond, "settlement_date": SETTLEMENT, "market_price": PRICE,
+                        "known_at": cutoff});
+    let (status, quote) = call(&app, "POST", "/api/v1/quote", Some(inline)).await;
+    assert_eq!(status, StatusCode::OK, "{quote}");
+    assert_eq!(number(&quote["ytw"]), ytw, "{quote}");
+    let curve = json!({"currency": "USD", "curve": {
+        "curve_id": "SUPPLIED-PERPETUAL", "version": 1, "reference_date": SETTLEMENT,
+        "source_time": "2026-10-06T00:00:00Z", "recorded_at": "2026-10-06T00:00:00Z",
+        "source": "supplied-contract", "model_id": "linear-continuous-zero",
+        "input_versions": [], "quality": "Indicative", "max_age_ms": 86400000,
+        "interpolation": "linear", "extrapolation": "flat_zero",
+        "points": [{"tenor_years": 0.01, "continuous_zero": 0.04},
+                   {"tenor_years": 10.0, "continuous_zero": 0.04}],
+    }});
+    let what_if = json!({"bond": bond, "settlement_date": SETTLEMENT, "market_price": PRICE,
+                         "discount_curve": curve});
+    let (status, refused) = call(&app, "POST", "/api/v1/quote", Some(what_if)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+}
+
+/// Below par, Live values the perpetual to perpetuity and its G-spread over the long bond,
+/// so its record is complete, as a book reads it.
+#[tokio::test]
+async fn a_discounted_perpetual_is_complete_in_live() {
+    let (_setup, engine, _) = desk("92.5").await;
+    let record = &engine.runtime_results_of([PERPETUAL])[0];
+    assert_eq!(
+        record.result.status(),
+        ResultStatus::Complete,
+        "{:?}",
+        record.result.errors()
+    );
+    let (_, results) = live(&engine, PERPETUAL);
+    let (_, ten) = live(&engine, "UST-10Y");
+    let ytw = measure(&results, "ytw_mid");
+    assert!((0.065..0.075).contains(&ytw), "{ytw}");
+    assert_eq!(
+        measure(&results, "g_spread_mid"),
+        ((ytw - measure(&ten, "ytm_mid")) * 10_000.0).round()
+    );
 }
 
 /// A perpetual the library does not admit, a perpetual with a maturity date, write-down
@@ -382,7 +427,7 @@ async fn a_perpetual_is_stored_valued_in_live_and_calculated_on_its_workouts() {
 /// nothing is stored.
 #[tokio::test]
 async fn what_a_fixed_coupon_perpetual_does_not_carry_is_refused() {
-    let (setup, engine, _) = desk().await;
+    let (setup, engine, _) = desk(PRICE).await;
     let app = router(engine);
     let post = |bond: Value| {
         let app = app.clone();

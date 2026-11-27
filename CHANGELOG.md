@@ -297,7 +297,8 @@ the changes that matter when you upgrade.
   - It is quoted to each call through the model's horizon and to perpetuity, mid
     only. An RFQ is priced at its Live mid.
   - The calculator lists each call through its `horizon`, then the perpetuity,
-    and the worst. Its `g_spread_mid` is over the rule's set at the worst call.
+    and the worst. Its `g_spread_mid` is over the rule's set where the worst is,
+    the longest security for the perpetuity.
   - A commit is refused with 400 when the library does not build the perpetual,
     when a bond has both a maturity date and perpetual terms or neither, and for
     any term a fixed-coupon perpetual does not carry.
@@ -672,8 +673,10 @@ the changes that matter when you upgrade.
   - Calls are quoted through the 128th after settlement, or the last whose cash
     the pinned calendar covers within the shared 150-year bound.
   - It publishes `clean_price_mid`, `dirty_price_mid`, `accrued_interest` and
-    `ytw_mid`, and `g_spread_mid` at the worst call when its rule names a set
-    (`level_pricing::is_g_spread_published` now admits a perpetual).
+    `ytw_mid`, and `g_spread_mid` when its rule names a set: read at the worst call
+    inside the set, at the nearest end for a call outside it, and at the longest
+    security for the perpetuity (`level_pricing::is_g_spread_published` now admits a
+    perpetual).
   - `calculate_perpetual` gives each path's yield, the worst and the horizon for
     the calculator; `PricingEngine::perpetual_g_spread` its G-spread.
   - `perpetual_valuation::admit_perpetuals` refuses a perpetual the library does

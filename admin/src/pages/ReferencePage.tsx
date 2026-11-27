@@ -86,7 +86,7 @@ function Bonds({ onEdit }: { onEdit: (draft: string) => void }) {
           b.isin as string | null,
           String(b.bond_type),
           String(b.currency),
-          String(b.maturity_date),
+          b.maturity_date == null ? 'Perpetual' : String(b.maturity_date),
           String(b.description),
         ])}
       />
