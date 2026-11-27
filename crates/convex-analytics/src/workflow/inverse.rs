@@ -77,8 +77,11 @@ pub struct BondInverse {
     /// Full final cash/model quote.
     pub valuation: BondValue,
 }
+/// `has_tail` says the price also holds positive future cash beyond `cash`, as a
+/// perpetuity's tail does.
 pub(super) fn solve_bond(
     cash: &PreparedBondCash,
+    has_tail: bool,
     target: BondPriceTarget,
     settings: BondInverseSettings,
     max_parameter: f64,
@@ -104,7 +107,7 @@ pub(super) fn solve_bond(
     }
     let f_low = finite(low.dirty_per100 - dirty, "inverse residual")?;
     let f_high = finite(high.dirty_per100 - dirty, "inverse residual")?;
-    if !cash.monotone()? {
+    if !cash.monotone()? && !has_tail {
         if f_low.abs() <= settings.price_tolerance {
             return Err(WorkflowError::NonUnique(
                 "no remaining future cash rate exposure",
@@ -181,7 +184,7 @@ pub fn solve_bond_yield(
     settings: BondInverseSettings,
 ) -> WorkflowResult<BondInverse> {
     cash.fixed_yield()?;
-    solve_bond(cash, target, settings, 10.0, |p| {
+    solve_bond(cash, false, target, settings, 10.0, |p| {
         cash.price_yield(p, convention)
     })
 }
@@ -193,7 +196,7 @@ pub fn solve_bond_spread(
     target: BondPriceTarget,
     settings: BondInverseSettings,
 ) -> WorkflowResult<BondInverse> {
-    solve_bond(cash, target, settings, 1.0, |p| {
+    solve_bond(cash, false, target, settings, 1.0, |p| {
         cash.price_spread(curve, role.clone(), p)
     })
 }

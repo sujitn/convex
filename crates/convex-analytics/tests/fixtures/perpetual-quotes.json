@@ -1,0 +1,734 @@
+{
+  "generator": "tests/scripts/perpetual_quote_reference.py",
+  "convention": {
+    "day_count": "Thirty360US",
+    "compounding": "SemiAnnual"
+  },
+  "bonds": [
+    {
+      "name": "fixed",
+      "terms": {
+        "schema_version": 2,
+        "currency": "USD",
+        "issue_date": "2025-01-15",
+        "face_value": "1000000",
+        "schedule": {
+          "start_date": "2025-01-15",
+          "end_date": "2030-01-15",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": false,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Following",
+          "payment_delay": {
+            "CalendarDays": 0
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "payment": "WEEKEND",
+          "reset": "WEEKEND",
+          "observation": "WEEKEND",
+          "exercise": "WEEKEND"
+        },
+        "settlement_lag": {
+          "BusinessDays": 2
+        },
+        "settlement_adjustment": "Following",
+        "day_count": "Thirty360US",
+        "profiles": {
+          "coupon": [
+            {
+              "start": "2025-01-15",
+              "end": "2030-01-15",
+              "value": "0.065"
+            }
+          ],
+          "spread": [
+            {
+              "start": "2025-01-15",
+              "end": "2030-01-15",
+              "value": "0"
+            }
+          ],
+          "gearing": [
+            {
+              "start": "2025-01-15",
+              "end": "2030-01-15",
+              "value": "0"
+            }
+          ],
+          "notional": [
+            {
+              "start": "2025-01-15",
+              "end": "2030-01-15",
+              "value": "1000000"
+            }
+          ]
+        },
+        "coupon": {
+          "kind": "fixed"
+        },
+        "coupon_principal": "AccrualProfile",
+        "redemption_multiplier": "1",
+        "principal_prices": [],
+        "rounding": "Unrounded",
+        "negative_coupons": "Allow",
+        "ex_coupon_accrual": "SubtractCoupon",
+        "exercise": [],
+        "redemption": {
+          "kind": "perpetual",
+          "call": {
+            "interval_months": 6,
+            "price_per_100": "100",
+            "notice_offset": {
+              "CalendarDays": -30
+            },
+            "settlement_lag": {
+              "CalendarDays": 0
+            },
+            "settlement_adjustment": "Following",
+            "accrued": "pay_accrued"
+          }
+        }
+      },
+      "cases": [
+        {
+          "trade_date": "2026-03-06",
+          "settlement": "2026-03-10",
+          "horizon": "2031-01-15",
+          "held_benchmark": null,
+          "fixings": [],
+          "accrued_per100": "0.993055555555555555555556",
+          "calls": [
+            "2030-01-15",
+            "2030-07-15",
+            "2031-01-15"
+          ],
+          "tail_start": "2030-01-15",
+          "tail_rate": "0.065",
+          "yield_to_worst": [
+            {
+              "clean_price": "104.25",
+              "yields": [
+                {
+                  "workout": "2030-01-15",
+                  "yield": "0.052620958440351311642209"
+                },
+                {
+                  "workout": "2030-07-15",
+                  "yield": "0.053874247582419053300272"
+                },
+                {
+                  "workout": "2031-01-15",
+                  "yield": "0.054868221073113947963309"
+                },
+                {
+                  "workout": "perpetuity",
+                  "yield": "0.062342367912504499237766"
+                }
+              ],
+              "worst": "2030-01-15"
+            },
+            {
+              "clean_price": "92.5",
+              "yields": [
+                {
+                  "workout": "2030-01-15",
+                  "yield": "0.088362735673896936469068"
+                },
+                {
+                  "workout": "2030-07-15",
+                  "yield": "0.085992306120279090864054"
+                },
+                {
+                  "workout": "2031-01-15",
+                  "yield": "0.084115639913457211895462"
+                },
+                {
+                  "workout": "perpetuity",
+                  "yield": "0.070259233657760496938480"
+                }
+              ],
+              "worst": "perpetuity"
+            }
+          ],
+          "price_to_worst": [
+            {
+              "yield": "0.055",
+              "prices": [
+                {
+                  "workout": "2030-01-15",
+                  "dirty": "104.406902662202264984700664",
+                  "clean": "103.413847106646709429145108"
+                },
+                {
+                  "workout": "2030-07-15",
+                  "dirty": "104.801844855047163986166028",
+                  "clean": "103.808789299491608430610473"
+                },
+                {
+                  "workout": "2031-01-15",
+                  "dirty": "105.186216818886481749149351",
+                  "clean": "104.193161263330926193593795"
+                },
+                {
+                  "workout": "perpetuity",
+                  "dirty": "119.163379140316218584906546",
+                  "clean": "118.170323584760663029350990"
+                }
+              ],
+              "worst": "2030-01-15"
+            },
+            {
+              "yield": "0.08",
+              "prices": [
+                {
+                  "workout": "2030-01-15",
+                  "dirty": "96.092235794095427815766401",
+                  "clean": "95.099180238539872260210845"
+                },
+                {
+                  "workout": "2030-07-15",
+                  "dirty": "95.558942845692796580724957",
+                  "clean": "94.565887290137241025169402"
+                },
+                {
+                  "workout": "2031-01-15",
+                  "dirty": "95.046161164536420393185107",
+                  "clean": "94.053105608980864837629552"
+                },
+                {
+                  "workout": "perpetuity",
+                  "dirty": "82.226619135627015704688865",
+                  "clean": "81.233563580071460149133310"
+                }
+              ],
+              "worst": "perpetuity"
+            },
+            {
+              "yield": "-0.002",
+              "prices": [
+                {
+                  "workout": "2030-01-15",
+                  "dirty": "126.882298965842974117413850",
+                  "clean": "125.889243410287418561858294"
+                },
+                {
+                  "workout": "2030-07-15",
+                  "dirty": "130.261567041574469423724886",
+                  "clean": "129.268511486018913868169330"
+                },
+                {
+                  "workout": "2031-01-15",
+                  "dirty": "133.644217768032422683295493",
+                  "clean": "132.651162212476867127739938"
+                }
+              ],
+              "worst": "2030-01-15"
+            }
+          ]
+        },
+        {
+          "trade_date": "2031-02-18",
+          "settlement": "2031-02-20",
+          "horizon": "2033-01-15",
+          "held_benchmark": null,
+          "fixings": [],
+          "accrued_per100": "0.631944444444444444444444",
+          "calls": [
+            "2031-07-15",
+            "2032-01-15",
+            "2032-07-15",
+            "2033-01-15"
+          ],
+          "tail_start": "2031-07-15",
+          "tail_rate": "0.065",
+          "yield_to_worst": [
+            {
+              "clean_price": "101.125",
+              "yields": [
+                {
+                  "workout": "2031-07-15",
+                  "yield": "0.036493201837486619504096"
+                },
+                {
+                  "workout": "2032-01-15",
+                  "yield": "0.052007497785478790147858"
+                },
+                {
+                  "workout": "2032-07-15",
+                  "yield": "0.056492421447725536439361"
+                },
+                {
+                  "workout": "2033-01-15",
+                  "yield": "0.058458879129282277578946"
+                },
+                {
+                  "workout": "perpetuity",
+                  "yield": "0.064271784657735716691399"
+                }
+              ],
+              "worst": "2031-07-15"
+            },
+            {
+              "clean_price": "97",
+              "yields": [
+                {
+                  "workout": "2031-07-15",
+                  "yield": "0.143844004341442320084046"
+                },
+                {
+                  "workout": "2032-01-15",
+                  "yield": "0.100439986379131997896001"
+                },
+                {
+                  "workout": "2032-07-15",
+                  "yield": "0.088117783486972916014159"
+                },
+                {
+                  "workout": "2033-01-15",
+                  "yield": "0.082062189858609960413249"
+                },
+                {
+                  "workout": "perpetuity",
+                  "yield": "0.067004534843809520606942"
+                }
+              ],
+              "worst": "perpetuity"
+            }
+          ],
+          "price_to_worst": [
+            {
+              "yield": "0.06",
+              "prices": [
+                {
+                  "workout": "2031-07-15",
+                  "dirty": "100.820526869094825683644536",
+                  "clean": "100.188582424650381239200091"
+                },
+                {
+                  "workout": "2032-01-15",
+                  "dirty": "101.057534149165101961139645",
+                  "clean": "100.425589704720657516695200"
+                },
+                {
+                  "workout": "2032-07-15",
+                  "dirty": "101.287638304573137182008683",
+                  "clean": "100.655693860128692737564239"
+                },
+                {
+                  "workout": "2033-01-15",
+                  "dirty": "101.480742652967677518966596",
+                  "clean": "100.848798208523233074522152"
+                },
+                {
+                  "workout": "perpetuity",
+                  "dirty": "108.957776818174311210976621",
+                  "clean": "108.325832373729866766532176"
+                }
+              ],
+              "worst": "2031-07-15"
+            },
+            {
+              "yield": "0.01",
+              "prices": [
+                {
+                  "workout": "2031-07-15",
+                  "dirty": "102.836000390629467778247916",
+                  "clean": "102.204055946185023333803472"
+                },
+                {
+                  "workout": "2032-01-15",
+                  "dirty": "105.561347033437038027632295",
+                  "clean": "104.929402588992593583187850"
+                },
+                {
+                  "workout": "2032-07-15",
+                  "dirty": "108.273134737723177579258542",
+                  "clean": "107.641190293278733134814098"
+                },
+                {
+                  "workout": "2033-01-15",
+                  "dirty": "110.965816876042682526259787",
+                  "clean": "110.333872431598238081815342"
+                },
+                {
+                  "workout": "perpetuity",
+                  "dirty": "650.630675594951087904508003",
+                  "clean": "649.998731150506643460063558"
+                }
+              ],
+              "worst": "2031-07-15"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "reset",
+      "terms": {
+        "schema_version": 2,
+        "currency": "USD",
+        "issue_date": "2025-01-15",
+        "face_value": "1000000",
+        "schedule": {
+          "start_date": "2025-01-15",
+          "end_date": "2030-01-15",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": false,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Following",
+          "payment_delay": {
+            "CalendarDays": 0
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "payment": "WEEKEND",
+          "reset": "WEEKEND",
+          "observation": "WEEKEND",
+          "exercise": "WEEKEND"
+        },
+        "settlement_lag": {
+          "BusinessDays": 2
+        },
+        "settlement_adjustment": "Following",
+        "day_count": "Thirty360US",
+        "profiles": {
+          "coupon": [
+            {
+              "start": "2025-01-15",
+              "end": "2030-01-15",
+              "value": "0.07"
+            }
+          ],
+          "spread": [
+            {
+              "start": "2025-01-15",
+              "end": "2030-01-15",
+              "value": "0"
+            }
+          ],
+          "gearing": [
+            {
+              "start": "2025-01-15",
+              "end": "2030-01-15",
+              "value": "0"
+            }
+          ],
+          "notional": [
+            {
+              "start": "2025-01-15",
+              "end": "2030-01-15",
+              "value": "1000000"
+            }
+          ]
+        },
+        "coupon": {
+          "kind": "fixed"
+        },
+        "coupon_principal": "AccrualProfile",
+        "redemption_multiplier": "1",
+        "principal_prices": [],
+        "rounding": "Unrounded",
+        "negative_coupons": "Allow",
+        "ex_coupon_accrual": "SubtractCoupon",
+        "exercise": [],
+        "redemption": {
+          "kind": "perpetual",
+          "call": {
+            "interval_months": 6,
+            "price_per_100": "100",
+            "notice_offset": {
+              "CalendarDays": -30
+            },
+            "settlement_lag": {
+              "CalendarDays": 0
+            },
+            "settlement_adjustment": "Following",
+            "accrued": "pay_accrued"
+          },
+          "reset": {
+            "benchmark_id": "USD.SWAP.5Y",
+            "margin": "0.0412",
+            "first_reset": "2030-01-15",
+            "interval_months": 60,
+            "fixing_offset": {
+              "BusinessDays": -2
+            }
+          }
+        }
+      },
+      "cases": [
+        {
+          "trade_date": "2026-03-06",
+          "settlement": "2026-03-10",
+          "horizon": "2031-01-15",
+          "held_benchmark": "0.0385",
+          "fixings": [],
+          "accrued_per100": "1.069444444444444444444444",
+          "calls": [
+            "2030-01-15",
+            "2030-07-15",
+            "2031-01-15"
+          ],
+          "tail_start": "2030-01-15",
+          "tail_rate": "0.0797",
+          "yield_to_worst": [
+            {
+              "clean_price": "103.5",
+              "yields": [
+                {
+                  "workout": "2030-01-15",
+                  "yield": "0.059645009058601863887767"
+                },
+                {
+                  "workout": "2030-07-15",
+                  "yield": "0.061652214512601429935571"
+                },
+                {
+                  "workout": "2031-01-15",
+                  "yield": "0.063238055627454664765503"
+                },
+                {
+                  "workout": "perpetuity",
+                  "yield": "0.074689141048007507048061"
+                }
+              ],
+              "worst": "2030-01-15"
+            },
+            {
+              "clean_price": "95",
+              "yields": [
+                {
+                  "workout": "2030-01-15",
+                  "yield": "0.085464716509664429738580"
+                },
+                {
+                  "workout": "2030-07-15",
+                  "yield": "0.084887009578279142856666"
+                },
+                {
+                  "workout": "2031-01-15",
+                  "yield": "0.084431165747406590799315"
+                },
+                {
+                  "workout": "perpetuity",
+                  "yield": "0.081186492133556835410514"
+                }
+              ],
+              "worst": "perpetuity"
+            }
+          ],
+          "price_to_worst": [
+            {
+              "yield": "0.07",
+              "prices": [
+                {
+                  "workout": "2030-01-15",
+                  "dirty": "101.053851433629517123015442",
+                  "clean": "99.984406989185072678570998"
+                },
+                {
+                  "workout": "2030-07-15",
+                  "dirty": "101.413471318238452609355390",
+                  "clean": "100.344026873794008164910946"
+                },
+                {
+                  "workout": "2031-01-15",
+                  "dirty": "101.760930143947569021278045",
+                  "clean": "100.691485699503124576833601"
+                },
+                {
+                  "workout": "perpetuity",
+                  "dirty": "111.688325164208037933353903",
+                  "clean": "110.618880719763593488909459"
+                }
+              ],
+              "worst": "2030-01-15"
+            },
+            {
+              "yield": "0.01",
+              "prices": [
+                {
+                  "workout": "2030-01-15",
+                  "dirty": "123.656710486919774004841561",
+                  "clean": "122.587266042475329560397116"
+                },
+                {
+                  "workout": "2030-07-15",
+                  "dirty": "126.993817078612826151530038",
+                  "clean": "125.924372634168381707085593"
+                },
+                {
+                  "workout": "2031-01-15",
+                  "dirty": "130.314321149949196446742453",
+                  "clean": "129.244876705504752002298009"
+                },
+                {
+                  "workout": "perpetuity",
+                  "dirty": "794.415135417223255489225514",
+                  "clean": "793.345690972778811044781069"
+                }
+              ],
+              "worst": "2030-01-15"
+            }
+          ]
+        },
+        {
+          "trade_date": "2031-02-18",
+          "settlement": "2031-02-20",
+          "horizon": "2033-01-15",
+          "held_benchmark": "0.0385",
+          "fixings": [
+            {
+              "observation_date": "2030-01-11",
+              "rate": "0.0362"
+            }
+          ],
+          "accrued_per100": "0.752500000000000000000000",
+          "calls": [
+            "2031-07-15",
+            "2032-01-15",
+            "2032-07-15",
+            "2033-01-15"
+          ],
+          "tail_start": "2035-01-15",
+          "tail_rate": "0.0797",
+          "yield_to_worst": [
+            {
+              "clean_price": "100.75",
+              "yields": [
+                {
+                  "workout": "2031-07-15",
+                  "yield": "0.058071288792773617670816"
+                },
+                {
+                  "workout": "2032-01-15",
+                  "yield": "0.068572692071691431036479"
+                },
+                {
+                  "workout": "2032-07-15",
+                  "yield": "0.071604441662725083411937"
+                },
+                {
+                  "workout": "2033-01-15",
+                  "yield": "0.072839712405657858715645"
+                },
+                {
+                  "workout": "perpetuity",
+                  "yield": "0.078502465426838492003659"
+                }
+              ],
+              "worst": "2031-07-15"
+            },
+            {
+              "clean_price": "94",
+              "yields": [
+                {
+                  "workout": "2031-07-15",
+                  "yield": "0.241611534009068992614450"
+                },
+                {
+                  "workout": "2032-01-15",
+                  "yield": "0.150686438619851452207387"
+                },
+                {
+                  "workout": "2032-07-15",
+                  "yield": "0.125214495653104613729978"
+                },
+                {
+                  "workout": "2033-01-15",
+                  "yield": "0.112913234290389859320849"
+                },
+                {
+                  "workout": "perpetuity",
+                  "yield": "0.084100193046782669191005"
+                }
+              ],
+              "worst": "perpetuity"
+            }
+          ],
+          "price_to_worst": [
+            {
+              "yield": "0.075",
+              "prices": [
+                {
+                  "workout": "2031-07-15",
+                  "dirty": "100.834888988474056816470321",
+                  "clean": "100.082388988474056816470321"
+                },
+                {
+                  "workout": "2032-01-15",
+                  "dirty": "100.947171943452459029783547",
+                  "clean": "100.194671943452459029783547"
+                },
+                {
+                  "workout": "2032-07-15",
+                  "dirty": "101.055396478371400922133644",
+                  "clean": "100.302896478371400922133644"
+                },
+                {
+                  "workout": "2033-01-15",
+                  "dirty": "101.122783656823108468126388",
+                  "clean": "100.370283656823108468126388"
+                },
+                {
+                  "workout": "perpetuity",
+                  "dirty": "106.238893057375070572083836",
+                  "clean": "105.486393057375070572083836"
+                }
+              ],
+              "worst": "2031-07-15"
+            },
+            {
+              "yield": "0.01",
+              "prices": [
+                {
+                  "workout": "2031-07-15",
+                  "dirty": "103.453514388132521240935700",
+                  "clean": "102.701014388132521240935700"
+                },
+                {
+                  "workout": "2032-01-15",
+                  "dirty": "106.793302819500343691999466",
+                  "clean": "106.040802819500343691999466"
+                },
+                {
+                  "workout": "2032-07-15",
+                  "dirty": "110.116475388025540160719631",
+                  "clean": "109.363975388025540160719631"
+                },
+                {
+                  "workout": "2033-01-15",
+                  "dirty": "113.417466963145662877953636",
+                  "clean": "112.664966963145662877953636"
+                },
+                {
+                  "workout": "perpetuity",
+                  "dirty": "796.872270202084577210056716",
+                  "clean": "796.119770202084577210056716"
+                }
+              ],
+              "worst": "2031-07-15"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

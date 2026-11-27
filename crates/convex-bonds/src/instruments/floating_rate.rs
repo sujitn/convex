@@ -151,7 +151,9 @@ impl FloatingRateNote {
         &self,
         coupon: crate::contracts::BondCoupon,
     ) -> Result<crate::contracts::BondTerms, crate::contracts::BondContractError> {
-        use crate::contracts::{BondCalendarIds, BondCoupon, BondProfiles, BondTerms};
+        use crate::contracts::{
+            BondCalendarIds, BondCoupon, BondProfiles, BondRedemption, BondTerms,
+        };
         use convex_core::calendars::BusinessDayConvention;
         use convex_core::cashflows::{
             CashRounding, CouponPrincipal, DateOffset, DateRules, ExCouponAccrual,
@@ -235,6 +237,7 @@ impl FloatingRateNote {
             negative_coupons: NegativeCouponPolicy::Allow,
             ex_coupon_accrual: ExCouponAccrual::SubtractCoupon,
             exercise: vec![],
+            redemption: BondRedemption::Dated,
         })
     }
 

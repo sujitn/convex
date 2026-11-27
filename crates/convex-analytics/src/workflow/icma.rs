@@ -394,7 +394,9 @@ impl PreparedIcmaQuotation {
         target: BondPriceTarget,
         settings: BondInverseSettings,
     ) -> WorkflowResult<IcmaQuotation> {
-        let v = super::inverse::solve_bond(&self.cash, target, settings, 10.0, |p| self.price(p))?;
+        let v = super::inverse::solve_bond(&self.cash, false, target, settings, 10.0, |p| {
+            self.price(p)
+        })?;
         let dirty = match target {
             BondPriceTarget::Dirty(d) => d,
             BondPriceTarget::Clean(c) => c + v.valuation.accrued_per100,
