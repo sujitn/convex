@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useSession, type PublishedValuation } from '@convex/api-client'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { StreamBadge } from '../components/StreamBadge'
+import { TableHead, type Column } from '../components/TableHead'
 import { useNow } from '../lib/clock'
 import { isDecimal } from '../lib/decimal'
 import { formatAge, formatCoupon, formatMeasure } from '../lib/format'
@@ -31,6 +32,23 @@ import { followValuations, type StreamStatus } from '../lib/stream'
 
 /** How often the desk's marks are read again, so another page's marks appear. */
 const MARKS_REFRESH_MS = 5000
+
+/** The sheet's columns: a bond's terms, its level, its Live measures, its state and its mark's age. */
+const SHEET_COLUMNS: Column[] = [
+  { heading: 'Bond' },
+  { heading: 'CUSIP' },
+  { heading: 'Cpn' },
+  { heading: 'Maturity' },
+  { heading: 'Method' },
+  { heading: 'Level', isNumeric: true },
+  { heading: 'Clean', isNumeric: true },
+  { heading: 'Yield', isNumeric: true },
+  { heading: 'Z', isNumeric: true },
+  { heading: 'G', isNumeric: true },
+  { heading: 'DV01', isNumeric: true },
+  { heading: 'State' },
+  { heading: 'Mark' },
+]
 
 export function PricingSheet() {
   const { call, token } = useSession()
@@ -215,17 +233,7 @@ export function PricingSheet() {
         className="overflow-auto rounded border border-slate-800 focus:outline-none focus:ring-1 focus:ring-sky-700"
       >
         <table className="w-full border-collapse text-xs">
-          <thead className="sticky top-0 bg-slate-900 text-slate-400">
-            <tr>
-              {['Bond', 'CUSIP', 'Cpn', 'Maturity', 'Method', 'Level', 'Clean', 'Yield', 'Z', 'G', 'DV01', 'State', 'Mark'].map(
-                (heading, index) => (
-                  <th key={heading} className={`px-2 py-1 font-medium ${index >= 5 && index <= 10 ? 'text-right' : 'text-left'}`}>
-                    {heading}
-                  </th>
-                ),
-              )}
-            </tr>
-          </thead>
+          <TableHead columns={SHEET_COLUMNS} />
           <tbody>
             {rows.map((row, index) => (
               <Row

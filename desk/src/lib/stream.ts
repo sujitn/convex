@@ -99,7 +99,7 @@ export function openStream(token: string | null, handlers: ConnectionHandlers): 
 }
 
 export interface TopicHandlers<T> {
-  /** An item the topic sent: a later one than any given of it. */
+  /** An item the topic sent, its latest when sent; one sent at subscription can be newer than one still on its way, so the caller keeps the later. */
   onItem: (item: T) => void
   onStatus: (status: StreamStatus) => void
   /** A refusal the stream sent, such as `FORBIDDEN` or `RESULT_TOO_LARGE`. */
@@ -125,9 +125,9 @@ export function readTopicMessage<T>(
 
 /**
  * Follow a topic until the returned function is called: send `subscription` on each
- * connection, and give each item of `itemType`. Subscribing sends each item's latest
- * first, so a reconnection, or a `RESYNC_REQUIRED` after the session fell behind,
- * subscribes again and the later of each wins.
+ * connection, and give each item of `itemType` as it arrives. Subscribing sends each
+ * item's latest first, so a reconnection, or a `RESYNC_REQUIRED` after the session fell
+ * behind, subscribes again; the caller keeps the later of each.
  */
 export function followTopic<T>(
   token: string | null,

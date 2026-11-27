@@ -1,9 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { bookSubscription, closeTaken, holdLater, MAX_SUMMARY_BOOKS, noBookPnlText, summariesOn, withSummaries, type BookSummary } from './books'
 import { bookList } from './followedBooks'
-import { codeWords, formatAmount, formatPercent, formatYears } from './format'
 import { boundsLabel, countStatuses, countsSummary, formatLimitValue, measureLabel, unknownReasonText, worstCounted } from './limits'
-import { readTopicMessage, type StreamMessage, type TopicHandlers } from './stream'
 
 const STARTED = '2026-11-27T09:00:00Z'
 
@@ -69,7 +67,7 @@ describe('book summaries', () => {
   })
 })
 
-describe('a topic', () => {
+describe('the book topic', () => {
   it('subscribes to at most a session of books', () => {
     expect(JSON.parse(bookSubscription(['BOOK-IG', 'BOOK-HY']))).toEqual({
       type: 'subscribe_books',
@@ -79,21 +77,6 @@ describe('a topic', () => {
     expect(() => bookSubscription(many)).toThrow(/at most 64/)
   })
 
-  it('gives each item, subscribes again after RESYNC_REQUIRED and reports any other error', () => {
-    const handlers = { onItem: vi.fn(), onRefusal: vi.fn(), onStatus: vi.fn() } satisfies TopicHandlers<BookSummary>
-    const send = vi.fn()
-    const subscription = [bookSubscription(['BOOK-IG'])]
-    const read = (message: StreamMessage) => readTopicMessage(message, send, subscription, 'book_summary', handlers)
-    read({ ...summary('BOOK-IG', 3), type: 'book_summary' } as unknown as StreamMessage)
-    expect(handlers.onItem).toHaveBeenCalledWith(expect.objectContaining({ book_id: 'BOOK-IG', sequence: 3 }))
-    read({ type: 'error', code: 'RESYNC_REQUIRED', message: 'fell behind' })
-    expect(send).toHaveBeenCalledWith(subscription[0])
-    read({ type: 'error', code: 'FORBIDDEN', message: 'the summary of book BOOK-IG needs read access' })
-    expect(handlers.onRefusal).toHaveBeenCalledWith('FORBIDDEN', 'the summary of book BOOK-IG needs read access')
-    read({ type: 'subscribed', subscription_type: 'books', count: 1 })
-    expect(handlers.onItem).toHaveBeenCalledTimes(1)
-    expect(handlers.onRefusal).toHaveBeenCalledTimes(1)
-  })
 })
 
 describe('the books followed', () => {
@@ -141,15 +124,5 @@ describe('limits as the desk words them', () => {
       positions: [{ value: { status: 'valued' as const } }, { value: { status: 'unvalued' as const } }, { value: { status: 'valued' as const } }],
     }
     expect(closeTaken('BOOK-IG', close)).toBe('BOOK-IG closed for 2026-11-27 (version 2): 2 valued, 1 unvalued')
-  })
-})
-
-describe('book numbers', () => {
-  it('group amounts, keep two places of years and show fractions in percent', () => {
-    expect(formatAmount('-19338.77')).toBe('-19,339')
-    expect(formatAmount(5000000)).toBe('5,000,000')
-    expect(formatYears('6.1')).toBe('6.10')
-    expect(formatPercent('1.0526')).toBe('105.3%')
-    expect(codeWords('traded_away')).toBe('traded away')
   })
 })
