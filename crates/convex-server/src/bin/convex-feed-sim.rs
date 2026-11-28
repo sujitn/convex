@@ -206,8 +206,6 @@ async fn post_prices(
         .prices
         .iter()
         .map(|bond| {
-            let moved_bp = level.rates + bond.credit_beta * level.credit;
-            let scale = decimal(1.0 - bond.modified_duration * moved_bp / 10_000.0)?;
             Ok(QuoteEvent {
                 schema_version: 1,
                 key: QuoteKey {
@@ -226,7 +224,7 @@ async fn post_prices(
                     fields: vec![QuoteChange {
                         field: QuoteField::MidPrice,
                         update: FieldUpdate::Set(QuoteValue {
-                            value: (bond.price * scale).round_dp(6),
+                            value: moved_price(bond, level)?,
                             unit: QuoteField::MidPrice.unit(),
                         }),
                     }],
@@ -282,21 +280,10 @@ async fn move_marks(
 ) -> Result<(), String> {
     let mut levels = Vec::new();
     for bond in &plan.levels {
-        let Some(level) = marks.get(&bond.instrument_id) else {
+        let Some(mark) = marks.get(&bond.instrument_id) else {
             continue;
         };
-        let spread_move = bond.credit_beta * moved.credit;
-        let level = match bond.field {
-            QuoteField::MidSpread => (level + decimal(spread_move)?).round_dp(2),
-            QuoteField::MidYield => {
-                (level + decimal((moved.rates + spread_move) / 10_000.0)?).round_dp(6)
-            }
-            other => {
-                return Err(format!(
-                    "a desk mark is in {other:?}, not a spread or yield"
-                ))
-            }
-        };
+        let level = moved_mark(bond, *mark, moved)?;
         levels.push(
             json!({"instrument_id": bond.instrument_id, "field": bond.field,
                            "level": level.to_string()}),
@@ -363,6 +350,29 @@ async fn publish_due_fixings(
     }
 }
 
+/// A priced bond's mid at the market's `level` from the open: its opening price less its
+/// modified duration times the rates move and its credit beta times the credit move.
+fn moved_price(bond: &PricedBond, level: BasisPoints) -> Result<Decimal, String> {
+    let moved_bp = level.rates + bond.credit_beta * level.credit;
+    let scale = decimal(1.0 - bond.modified_duration * moved_bp / 10_000.0)?;
+    Ok((bond.price * scale).round_dp(6))
+}
+
+/// A desk `mark` moved by a tick's change: a spread by its credit beta times the credit move,
+/// in basis points; a yield also by the rates move, as a decimal.
+fn moved_mark(bond: &MarkedBond, mark: Decimal, moved: BasisPoints) -> Result<Decimal, String> {
+    let spread_move = bond.credit_beta * moved.credit;
+    match bond.field {
+        QuoteField::MidSpread => Ok((mark + decimal(spread_move)?).round_dp(2)),
+        QuoteField::MidYield => {
+            Ok((mark + decimal((moved.rates + spread_move) / 10_000.0)?).round_dp(6))
+        }
+        other => Err(format!(
+            "a desk mark is in {other:?}, not a spread or yield"
+        )),
+    }
+}
+
 /// `day` at `hour`, UTC.
 fn publication_time(day: Date, hour: u32) -> Result<chrono::DateTime<Utc>, String> {
     NaiveDate::from(day)
@@ -423,6 +433,72 @@ mod tests {
             (covariance - expected).abs() < 0.01,
             "{covariance} against {expected}"
         );
+    }
+
+    fn priced(modified_duration: f64, credit_beta: f64) -> PricedBond {
+        PricedBond {
+            instrument_id: "BOND".into(),
+            price: Decimal::from(100),
+            modified_duration,
+            credit_beta,
+        }
+    }
+
+    fn marked(field: QuoteField, credit_beta: f64) -> MarkedBond {
+        MarkedBond {
+            instrument_id: "BOND".into(),
+            field,
+            credit_beta,
+        }
+    }
+
+    #[test]
+    fn a_price_falls_by_its_duration_as_rates_and_its_credit_rise() {
+        let level = BasisPoints {
+            rates: 10.0,
+            credit: 4.0,
+        };
+        // A Treasury moves with rates only: 100 less 5 years times 10 bp.
+        assert_eq!(
+            moved_price(&priced(5.0, 0.0), level).unwrap(),
+            Decimal::new(995, 1)
+        );
+        // A credit bond also with its beta to credit: 10 + 2.5 × 4 = 20 bp at 3 years.
+        assert_eq!(
+            moved_price(&priced(3.0, 2.5), level).unwrap(),
+            Decimal::new(994, 1)
+        );
+        let fallen = BasisPoints {
+            rates: -10.0,
+            credit: 0.0,
+        };
+        assert_eq!(
+            moved_price(&priced(5.0, 0.0), fallen).unwrap(),
+            Decimal::new(1005, 1)
+        );
+    }
+
+    #[test]
+    fn a_spread_moves_with_credit_and_a_yield_with_rates_too() {
+        let moved = BasisPoints {
+            rates: 2.0,
+            credit: -1.5,
+        };
+        // A spread of 125 bp at a beta of 2 tightens 3 bp; rates do not move it.
+        let spread = moved_mark(
+            &marked(QuoteField::MidSpread, 2.0),
+            Decimal::from(125),
+            moved,
+        );
+        assert_eq!(spread.unwrap(), Decimal::from(122));
+        // A yield of 7% moves by 2 - 2 × 1.5 = -1 bp, as a decimal.
+        let yielded = moved_mark(
+            &marked(QuoteField::MidYield, 2.0),
+            Decimal::new(7, 2),
+            moved,
+        );
+        assert_eq!(yielded.unwrap(), Decimal::new(699, 4));
+        assert!(moved_mark(&marked(QuoteField::MidPrice, 1.0), Decimal::ONE, moved).is_err());
     }
 
     #[test]

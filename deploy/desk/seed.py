@@ -68,8 +68,48 @@ def add_months(day: date, months: int) -> date:
     return date(index // 12, index % 12 + 1, day.day)
 
 
-def weekday_on_or_after(day: date) -> date:
-    while day.weekday() >= 5:
+def observed(day: date) -> date:
+    """A fixed holiday on a weekend is observed on the Friday before or the Monday after."""
+    return day - timedelta(days=1) if day.weekday() == 5 else day + timedelta(days=1) if day.weekday() == 6 else day
+
+
+def nth_weekday(year: int, month: int, weekday: int, nth: int) -> date:
+    first = date(year, month, 1)
+    return first + timedelta(days=(weekday - first.weekday()) % 7 + 7 * (nth - 1))
+
+
+def last_weekday(year: int, month: int, weekday: int) -> date:
+    last = add_months(date(year, month, 1), 1) - timedelta(days=1)
+    return last - timedelta(days=(last.weekday() - weekday) % 7)
+
+
+def easter(year: int) -> date:
+    """Western Easter Sunday (the anonymous Gregorian computus)."""
+    a, b, c = year % 19, year // 100, year % 100
+    d, e = divmod(b, 4)
+    g = (8 * b + 13) // 25
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    m = (32 + 2 * e + 2 * i - h - k) % 7
+    n = (h + m - 7 * ((a + 11 * h + 19 * m) // 433) + 90) // 25
+    return date(year, n, (h + m - 7 * ((a + 11 * h + 19 * m) // 433) + 33 * n + 19) % 32)
+
+
+def sifma_holidays(year: int) -> set[date]:
+    """The SIFMA holidays of `year`, as the server's calendar holds them."""
+    monday, thursday = 0, 3
+    holidays = {observed(date(year, 1, 1)), nth_weekday(year, 1, monday, 3), nth_weekday(year, 2, monday, 3),
+                easter(year) - timedelta(days=2), last_weekday(year, 5, monday), observed(date(year, 7, 4)),
+                nth_weekday(year, 9, monday, 1), nth_weekday(year, 10, monday, 2), observed(date(year, 11, 11)),
+                nth_weekday(year, 11, thursday, 4), observed(date(year, 12, 25))}
+    if year >= 2021:
+        holidays.add(observed(date(year, 6, 19)))
+    return holidays
+
+
+def business_day_on_or_after(day: date) -> date:
+    """`day`, or the next SIFMA business day after it."""
+    while day.weekday() >= 5 or day in sifma_holidays(day.year) | sifma_holidays(day.year + 1):
         day += timedelta(days=1)
     return day
 
@@ -305,11 +345,13 @@ def add_treasuries(universe: Universe) -> dict[str, Decimal]:
 
 
 def corporate_issue(settlement: date, years_ago: int) -> date:
-    """An issue date `years_ago` before settlement, on a roll day no coupon or sink shares
-    with settlement: the sinkers' factor and the fixture's echoed quotes need no boundary
-    convention."""
-    roll = 10 if settlement.day != 10 else 11
-    return add_months(settlement.replace(day=roll), -12 * years_ago)
+    """An issue date `years_ago` before the latest roll day on or before settlement. The roll
+    day is one no coupon or sink shares with settlement, so the sinkers' factor and the
+    fixture's echoed quotes need no boundary convention."""
+    anchor = settlement.replace(day=10 if settlement.day != 10 else 11)
+    if anchor > settlement:
+        anchor = add_months(anchor, -1)
+    return add_months(anchor, -12 * years_ago)
 
 
 def add_investment_grade(universe: Universe, opening_yields: dict[str, Decimal]) -> None:
@@ -593,7 +635,7 @@ def generate(work: Path, now: datetime | None = None) -> Launch:
     now = (now or datetime.now(timezone.utc)).replace(microsecond=0)
     recorded_at = now - timedelta(seconds=30)
     recorded = stamp(recorded_at)
-    settlement = weekday_on_or_after(now.date())
+    settlement = business_day_on_or_after(now.date())
     universe = build(settlement)
     curves, pricing = showcase_inputs(recorded_at)
     fixings = sofr_fixings(settlement, recorded)
