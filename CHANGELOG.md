@@ -217,6 +217,11 @@ the changes that matter when you upgrade.
 
 ### convex-analytics
 
+- **The asset swap spread counts an ACT/ACT ICMA coupon against its regular period.** It
+  used the bare ICMA day count, which fell back to ACT/ACT ISDA and logged a warning per
+  coupon, so a regular semiannual period counted 181/365 or 184/365 rather than a half
+  year. A regular coupon is now exactly 1/f at the bond's own frequency, and a short stub
+  its share of the regular period ending with it.
 - **Perpetual quotes.** `workflow::quote_perpetual_worst` solves each call date
   after settlement up to a horizon, and the perpetuity, from one price; the
   worst is the lowest yield. `quote_perpetual_price_to_worst` prices each at one
@@ -297,6 +302,16 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **The desk demo** (`deploy/desk/demo.py`): one command builds and runs the server live
+  on a synthetic seed of every product the desk quotes, with the desk app, a market feed
+  and the RFQ and BMS simulators, after activating the configuration under a fixture that
+  asserts every bond's opening quote. See `deploy/desk/README.md`.
+- **`convex-feed-sim`**: a synthetic market that moves rates and credit together, posts
+  priced bonds' mids, moves the desk's marks with the market and publishes SOFR fixings as
+  they fall due.
+- **`convex-config` validates against the database's fixings.** It validated with none,
+  so a document holding a floating rate note with a fixing due by a fixture's cutoff
+  could not be validated, staged or activated offline (`INVALID_FIXTURE_INPUTS`).
 - **Perpetuals.** A fixed-coupon callable perpetual is stored with its perpetual
   terms and no maturity date, and valued in Live, at request time, in the
   calculator and in RFQs, by price or by yield to worst.

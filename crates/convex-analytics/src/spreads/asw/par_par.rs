@@ -113,7 +113,8 @@ impl<'a> ParParAssetSwap<'a> {
             ));
         }
 
-        let payments_per_year = bond.coupon_frequency();
+        let frequency = bond.frequency();
+        let payments_per_year = frequency.periods_per_year();
         if payments_per_year == 0 {
             return Err(AnalyticsError::InvalidInput(
                 "Invalid payment frequency".to_string(),
@@ -124,7 +125,7 @@ impl<'a> ParParAssetSwap<'a> {
             .coupon_rate()
             .to_f64()
             .ok_or_else(|| AnalyticsError::InvalidInput("coupon conversion".into()))?;
-        let day_count = day_counter(bond.day_count_convention());
+        let day_count = day_counter(bond.day_count_convention(), frequency);
 
         let mut annuity = 0.0;
         let mut mismatch = 0.0;
@@ -162,7 +163,7 @@ impl<'a> ParParAssetSwap<'a> {
                 )
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
 
-            let tau = coupon_year_fraction(day_count.as_deref(), cf, payments_per_year);
+            let tau = coupon_year_fraction(day_count.as_deref(), cf, frequency);
 
             let fwd = (prev_df / df - 1.0) / tau;
             if !df.is_finite() || df <= 0.0 || !tau.is_finite() || tau <= 0.0 || !fwd.is_finite() {

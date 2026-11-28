@@ -25,6 +25,8 @@
 //! name, and the bonds traded.
 #![forbid(unsafe_code)]
 
+#[path = "simulation/rfq_topic.rs"]
+mod rfq_topic;
 #[path = "simulation/server_client.rs"]
 mod server_client;
 
@@ -34,10 +36,11 @@ use convex_core::contracts::ExactDecimal;
 use convex_engine::ports::reference_master::{BookPosition, QuantityUnit};
 use convex_engine::ports::rfq::RfqState;
 use reqwest::{Method, StatusCode};
+use rfq_topic::{RfqRow, RfqTopic};
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use server_client::{send_until_answered, Arguments, RfqRow, ServerClient};
+use server_client::{send_until_answered, Arguments, ServerClient};
 
 /// Times a snapshot is built again after another writer committed one.
 const ATTEMPTS: usize = 5;
@@ -58,7 +61,7 @@ async fn run() -> Result<(), String> {
     let server = ServerClient::new(arguments.required("server")?)?;
     let trades: usize = arguments.optional("trades", usize::MAX)?;
     let books = arguments.list("books")?;
-    let mut topic = server.rfq_topic(&books).await?;
+    let mut topic = RfqTopic::open(&server, &books).await?;
     println!(
         "{}",
         json!({"event": "following", "books": books, "open": topic.open_count()})

@@ -334,8 +334,10 @@ verifiable after another activation. Credentials do not enter snapshots.
 
 One document is at most 2 MiB, with up to 4,096 instruments for a Live runtime and
 256 otherwise, one selected quote per instrument, 64 providers/curves and 256 scoped
-exceptions. The current
-runtime accepts no fixing-dependent instruments and at most four measures.
+exceptions. A floating note's fixings are read where the fixtures run: the database's
+for `convex-config`, which opens it alone, or the running server's over HTTP. Each one
+due by a fixture's cutoff must be published there, or its inputs are refused
+(`INVALID_FIXTURE_INPUTS`).
 Validation admits one control operation per use-case instance, one to eight
 fixtures, 4,096 aggregate trace events and 8,192 expectations; the warmed
 valuation cache keeps up to 4,096 contexts of one fixture snapshot and releases them

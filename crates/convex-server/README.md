@@ -1677,10 +1677,10 @@ new position through `PUT /api/v1/books/:book_id`.
 
 ### Simulators
 
-Two binaries stand in for a venue and for the books' owning system, for a demo desk and
-for tests. Both talk to a server on loopback; under required access each reads its token
-from `CONVEX_SIM_TOKEN`. Each prints one JSON event a line, `following` first once it
-follows its books.
+Three binaries stand in for a venue, for the books' owning system and for a market, for
+a demo desk and for tests. Each talks to a server on loopback; under required access each
+reads its token from `CONVEX_SIM_TOKEN`. Each prints one JSON event a line: the RFQ and
+BMS simulators `following` first once they follow their books, the feed `started`.
 
 - **`convex-rfq-sim`** sends clients' requests and reports what each client did:
 
@@ -1725,6 +1725,24 @@ follows its books.
   they may not read is reported `rfq_withheld` and passed over. A `done` recorded while it
   was not running is not booked. Its identity needs `book_writer` and `reader` on the
   books, every instrument they hold or their limits name, and the bonds traded.
+
+- **`convex-feed-sim`** moves a synthetic market:
+
+  ```text
+  convex-feed-sim --server http://127.0.0.1:8080 --feed feed.json [--interval-ms 1000] \
+      [--seed 7] [--ticks 0]
+  ```
+
+  Once a tick it moves rates and credit, two mean-reverting walks in basis points with
+  credit correlated to rates, and posts each priced bond's mid (its opening price moved by
+  its modified duration over the rates move and its credit beta times the credit move) as
+  a `live` image on the feed's source. It reads the desk's marks back and moves each by the
+  tick's change, so a trader's own mark is kept and moves with the market, and publishes
+  each SIFMA business day's fixing as its rate index says (the business days later and the
+  hour, UTC, the feed file gives) through `POST /api/v1/analytics/fixings`. The feed file
+  names the instruments, their opening prices, durations and credit betas, and the index;
+  [the desk demo](../../deploy/desk/README.md) writes one. A refused post ends the run; a
+  server too busy for one skips the tick, and a tick missed after a stall is not caught up.
 
 ## Reference schema and Rust migration
 

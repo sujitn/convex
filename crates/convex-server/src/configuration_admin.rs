@@ -27,6 +27,26 @@ use serde_json::{json, Value};
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
 
+/// The configuration use cases over one database: its configuration, reference, config
+/// and curve stores, fixings and snapshots, under `capabilities`. The server and
+/// `convex-config` build them alike, so fixtures read the same inputs offline as over HTTP.
+pub fn database_use_cases(
+    storage: &convex_engine::ports::storage::StorageAdapter,
+    fixings: Arc<dyn convex_engine::ports::fixing::FixingRepository>,
+    snapshots: Arc<dyn convex_engine::ports::snapshot::SnapshotRepository>,
+    capabilities: ConfigurationCapabilities,
+) -> ConfigurationUseCases {
+    ConfigurationUseCases::new(
+        storage.configuration.clone(),
+        storage.bonds.clone(),
+        storage.configs.clone(),
+        storage.curves.clone(),
+        fixings,
+        snapshots,
+        capabilities,
+    )
+}
+
 /// Capabilities of the real local redb/JSONL/canonical-file composition. No live provider is certified.
 pub fn local_replay_capabilities(
     sources: impl IntoIterator<Item = SourceId>,
