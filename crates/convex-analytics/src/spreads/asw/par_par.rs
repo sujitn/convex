@@ -124,7 +124,7 @@ impl<'a> ParParAssetSwap<'a> {
             .coupon_rate()
             .to_f64()
             .ok_or_else(|| AnalyticsError::InvalidInput("coupon conversion".into()))?;
-        let day_count = day_counter(bond.day_count_convention());
+        let day_count = day_counter(bond.day_count_convention(), payments_per_year);
 
         let mut annuity = 0.0;
         let mut mismatch = 0.0;

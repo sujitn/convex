@@ -141,7 +141,7 @@ impl<'a> ProceedsAssetSwap<'a> {
             ));
         }
 
-        let day_count = day_counter(bond.day_count_convention());
+        let day_count = day_counter(bond.day_count_convention(), payments_per_year);
         let mut annuity = Decimal::ZERO;
 
         for cf in &cash_flows {
