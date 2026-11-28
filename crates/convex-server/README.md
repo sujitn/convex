@@ -1738,10 +1738,11 @@ BMS simulators `following` first once they follow their books, the feed `started
   its modified duration over the rates move and its credit beta times the credit move) as
   a `live` image on the feed's source. It reads the desk's marks back and moves each by the
   tick's change, so a trader's own mark is kept and moves with the market, and publishes
-  each weekday's fixing at 13:00 UTC on the next weekday through
-  `POST /api/v1/analytics/fixings`. The feed file names the instruments, their opening
-  prices, durations and credit betas; [the desk demo](../../deploy/desk/README.md) writes
-  one. A refused post ends the run; a server too busy for one skips the tick.
+  each SIFMA business day's fixing as its rate index says (the business days later and the
+  hour, UTC, the feed file gives) through `POST /api/v1/analytics/fixings`. The feed file
+  names the instruments, their opening prices, durations and credit betas, and the index;
+  [the desk demo](../../deploy/desk/README.md) writes one. A refused post ends the run; a
+  server too busy for one skips the tick, and a tick missed after a stall is not caught up.
 
 ## Reference schema and Rust migration
 

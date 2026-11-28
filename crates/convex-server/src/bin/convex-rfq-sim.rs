@@ -24,7 +24,10 @@
 #![forbid(unsafe_code)]
 
 #[path = "simulation/draws.rs"]
+#[allow(dead_code)] // Requests are drawn uniformly or by weight; no normal draw.
 mod draws;
+#[path = "simulation/rfq_topic.rs"]
+mod rfq_topic;
 #[path = "simulation/server_client.rs"]
 mod server_client;
 
@@ -41,9 +44,10 @@ use convex_engine::ports::reference_master::BookId;
 use convex_engine::ports::rfq::{ClientSide, ClientTier, RfqRequest, RfqState, SourceOutcome};
 use draws::Draws;
 use reqwest::{Method, StatusCode};
+use rfq_topic::{read_rfq, RfqRead, RfqRow, RfqTopic};
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
-use server_client::{Arguments, RfqRead, RfqRow, RfqTopic, ServerClient};
+use server_client::{Arguments, ServerClient};
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
@@ -243,7 +247,7 @@ async fn run() -> Result<(), String> {
     let mut draws = Draws(arguments.optional("seed", Utc::now().timestamp_millis() as u64)?);
 
     let books: Vec<String> = venue.books.iter().map(ToString::to_string).collect();
-    let topic = server.rfq_topic(&books).await?;
+    let topic = RfqTopic::open(&server, &books).await?;
     println!(
         "{}",
         json!({"event": "following", "books": books, "open": topic.open_count()})
@@ -430,7 +434,7 @@ impl Simulation {
             .map(|(key, _)| key.clone())
             .collect();
         for rfq_key in missed {
-            match server.rfq(&rfq_key).await? {
+            match read_rfq(server, &rfq_key).await? {
                 RfqRead::Row(row) => self.saw(&row),
                 RfqRead::Unknown => {}
                 RfqRead::Withheld => {

@@ -65,5 +65,5 @@ to the work directory's `logs/`.
 - Bills: a bill cannot be in the benchmark set, and the spread measures asked of every
   bullet fail for one, so the seed holds none.
 - A restart: the database is the work directory's, and a launch begins it again.
-- Holidays in the settlement date: the seed settles on a weekday, and the SOFR fixings
-  are for every weekday.
+- Holidays in the settlement date: the seed settles on a weekday, and its SOFR fixings
+  are for every weekday; the feed publishes later ones by the SIFMA calendar.

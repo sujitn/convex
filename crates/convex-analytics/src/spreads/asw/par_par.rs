@@ -124,7 +124,7 @@ impl<'a> ParParAssetSwap<'a> {
             .coupon_rate()
             .to_f64()
             .ok_or_else(|| AnalyticsError::InvalidInput("coupon conversion".into()))?;
-        let day_count = day_counter(bond.day_count_convention(), payments_per_year);
+        let day_count = day_counter(bond.day_count_convention(), bond.frequency());
 
         let mut annuity = 0.0;
         let mut mismatch = 0.0;
@@ -162,7 +162,7 @@ impl<'a> ParParAssetSwap<'a> {
                 )
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
 
-            let tau = coupon_year_fraction(day_count.as_deref(), cf, payments_per_year);
+            let tau = coupon_year_fraction(day_count.as_deref(), cf, bond.frequency());
 
             let fwd = (prev_df / df - 1.0) / tau;
             if !df.is_finite() || df <= 0.0 || !tau.is_finite() || tau <= 0.0 || !fwd.is_finite() {

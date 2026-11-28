@@ -1,5 +1,4 @@
 //! The simulators' seeded draws, so one seed gives one run.
-#![allow(dead_code)] // Each simulator draws what it needs.
 
 use std::time::Duration;
 

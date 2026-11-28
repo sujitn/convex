@@ -13,31 +13,46 @@
 //! `live` image on the feed's source. A desk mark is read back and moved by the tick's
 //! change (a spread by its credit beta times the credit change; a yield by the rates change
 //! and its credit beta times the credit change), so a trader's own mark is kept and moves
-//! with the market. A fixing for each weekday is published at 13:00 UTC on the next
-//! weekday. `--ticks` stops after that many; 0 runs until stopped. Each stdout line is one
-//! JSON event: `started`, `moved` each minute of ticks, `fixing`, and `stopped`.
+//! with the market. A fixing for each SIFMA business day is published as its rate index
+//! says, the business days later and the hour (UTC) the feed file gives. `--ticks` stops
+//! after that many; 0 runs until stopped. Each stdout line is one JSON event: `started`,
+//! `moved` each minute of ticks, `fixing`, and `stopped`.
 //!
 //! Under required access the identity, whose token is read from `CONVEX_SIM_TOKEN`, needs
 //! to post quotes on the feed's source, mark the desk's levels, and publish fixings.
 #![forbid(unsafe_code)]
 
 #[path = "simulation/draws.rs"]
+#[allow(dead_code)] // The feed draws normals only.
 mod draws;
 #[path = "simulation/server_client.rs"]
+#[allow(dead_code)] // The feed takes no list argument and opens no stream.
 mod server_client;
 
 use std::collections::HashMap;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use chrono::{Datelike, NaiveDate, TimeZone, Utc, Weekday};
+use chrono::{NaiveDate, TimeZone, Utc};
+use convex_core::calendars::{Calendar, SIFMACalendar};
+use convex_core::contracts::{
+    BusinessDate, DecimalRate, ExactDecimal, IndexId, SourceId, UtcTimestamp, Version,
+};
+use convex_core::ids::InstrumentId;
+use convex_core::Date;
+use convex_engine::ports::fixing::{FixingKey, PublishedFixing};
+use convex_engine::ports::quote_event::{
+    FieldUpdate, QuoteChange, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality,
+    QuoteValue,
+};
 use draws::Draws;
 use reqwest::{Method, StatusCode};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::json;
 use server_client::{send_until_answered, Arguments, ServerClient};
+use tokio::time::MissedTickBehavior;
 
 /// A tick's rates move, one standard deviation, in basis points.
 const RATES_VOLATILITY_BP: f64 = 0.35;
@@ -47,8 +62,6 @@ const CREDIT_VOLATILITY_BP: f64 = 0.25;
 const CORRELATION: f64 = -0.3;
 /// The share of its distance from the open each walk gives back a tick.
 const REVERSION: f64 = 0.01;
-/// The UTC hour a weekday's fixing is published, on the next weekday.
-const FIXING_HOUR_UTC: u32 = 13;
 /// Ticks between `moved` events at the default interval: one a minute.
 const REPORT_EVERY: u64 = 60;
 
@@ -80,36 +93,46 @@ struct PricedBond {
 struct MarkedBond {
     instrument_id: String,
     /// `mid_spread`, in basis points, or `mid_yield`, a decimal yield.
-    field: String,
+    field: QuoteField,
     credit_beta: f64,
 }
 
-/// The index whose fixings are published, and the last already published.
+/// The index whose fixings are published, when, and the last already published.
 #[derive(Deserialize)]
 struct FixingPlan {
     index_id: String,
     source: String,
     rate: Decimal,
-    last_observation: NaiveDate,
+    last_observation: Date,
+    publication_lag_business_days: i32,
+    publication_hour_utc: u32,
 }
 
-/// Where the market stands, in basis points from the open.
+/// Rates and credit, in basis points: where the market stands from the open, or a tick's move.
+#[derive(Debug, Default, Clone, Copy)]
+struct BasisPoints {
+    rates: f64,
+    credit: f64,
+}
+
+/// Where the market stands from the open.
 #[derive(Default)]
 struct Market {
-    rates_bp: f64,
-    credit_bp: f64,
+    level: BasisPoints,
 }
 
 impl Market {
-    /// One tick: the rates and credit moves.
-    fn step(&mut self, draws: &mut Draws) -> (f64, f64) {
+    /// One tick's move.
+    fn step(&mut self, draws: &mut Draws) -> BasisPoints {
         let (rates, other) = (draws.normal(), draws.normal());
         let credit = CORRELATION * rates + (1.0 - CORRELATION * CORRELATION).sqrt() * other;
-        let rates_move = RATES_VOLATILITY_BP * rates - REVERSION * self.rates_bp;
-        let credit_move = CREDIT_VOLATILITY_BP * credit - REVERSION * self.credit_bp;
-        self.rates_bp += rates_move;
-        self.credit_bp += credit_move;
-        (rates_move, credit_move)
+        let moved = BasisPoints {
+            rates: RATES_VOLATILITY_BP * rates - REVERSION * self.level.rates,
+            credit: CREDIT_VOLATILITY_BP * credit - REVERSION * self.level.credit,
+        };
+        self.level.rates += moved.rates;
+        self.level.credit += moved.credit;
+        moved
     }
 }
 
@@ -144,19 +167,24 @@ async fn run() -> Result<(), String> {
                "levels": plan.levels.len()})
     );
     let mut timer = tokio::time::interval(interval);
+    // Each tick posts absolute levels, so a tick missed after a stall needs no catch-up.
+    timer.set_missed_tick_behavior(MissedTickBehavior::Delay);
     let mut tick = 0;
     while ticks == 0 || tick < ticks {
         timer.tick().await;
         tick += 1;
-        let (rates_move, credit_move) = market.step(&mut draws);
-        post_prices(&server, &plan, &session, tick, &market).await?;
-        move_marks(&server, &plan, rates_move, credit_move).await?;
+        let moved = market.step(&mut draws);
+        // The marks are read first, so the prices and the moved marks are posted back to
+        // back and the runtime values a tick's moves together.
+        let marks = read_marks(&server).await?;
+        post_prices(&server, &plan, &session, tick, market.level).await?;
+        move_marks(&server, &plan, &marks, moved).await?;
         last_fixing = publish_due_fixings(&server, &plan.fixings, last_fixing).await?;
         if tick % REPORT_EVERY == 0 {
             println!(
                 "{}",
-                json!({"event": "moved", "tick": tick, "rates_bp": market.rates_bp,
-                       "credit_bp": market.credit_bp})
+                json!({"event": "moved", "tick": tick, "rates_bp": market.level.rates,
+                       "credit_bp": market.level.credit})
             );
         }
     }
@@ -164,35 +192,48 @@ async fn run() -> Result<(), String> {
     Ok(())
 }
 
-/// Post each priced bond's mid at the market's level: its opening price moved by its
+/// Post each priced bond's mid at the market's `level`: its opening price moved by its
 /// modified duration over the rates and credit moves since the open.
 async fn post_prices(
     server: &ServerClient,
     plan: &FeedPlan,
     session: &str,
     sequence: u64,
-    market: &Market,
+    level: BasisPoints,
 ) -> Result<(), String> {
     let now = Utc::now().timestamp_millis();
-    let events: Vec<Value> = plan
+    let events = plan
         .prices
         .iter()
         .map(|bond| {
-            let moved_bp = market.rates_bp + bond.credit_beta * market.credit_bp;
-            let scale = Decimal::from_f64(1.0 - bond.modified_duration * moved_bp / 10_000.0)
-                .ok_or("a price move is not finite")?;
-            let price = (bond.price * scale).round_dp(6);
-            Ok(json!({
-                "schema_version": 1,
-                "key": {"instrument_id": bond.instrument_id, "source": plan.source},
-                "session": session, "sequence": sequence, "source_time_ms": now,
-                "receive_time_ms": now, "quality": "live", "entitled": true,
-                "entitlement_tags": [], "evidence_reference": null,
-                "event": {"kind": "image", "fields": [{"field": "mid_price", "update":
-                    {"action": "set", "value": {"value": price.to_string(), "unit": "price_per100"}}}]},
-            }))
+            let moved_bp = level.rates + bond.credit_beta * level.credit;
+            let scale = decimal(1.0 - bond.modified_duration * moved_bp / 10_000.0)?;
+            Ok(QuoteEvent {
+                schema_version: 1,
+                key: QuoteKey {
+                    instrument_id: InstrumentId::new(&bond.instrument_id),
+                    source: plan.source.clone(),
+                },
+                session: session.to_owned(),
+                sequence,
+                source_time_ms: now,
+                receive_time_ms: now,
+                quality: QuoteQuality::Live,
+                entitled: true,
+                entitlement_tags: Vec::new(),
+                evidence_reference: None,
+                event: QuoteEventKind::Image {
+                    fields: vec![QuoteChange {
+                        field: QuoteField::MidPrice,
+                        update: FieldUpdate::Set(QuoteValue {
+                            value: (bond.price * scale).round_dp(6),
+                            unit: QuoteField::MidPrice.unit(),
+                        }),
+                    }],
+                },
+            })
         })
-        .collect::<Result<_, String>>()?;
+        .collect::<Result<Vec<_>, String>>()?;
     let response = send_until_answered(
         server
             .request(Method::POST, "/api/v1/market/quotes")
@@ -202,14 +243,8 @@ async fn post_prices(
     answered(response, "quotes").await
 }
 
-/// Move each desk mark by the tick's change, from its level now; a bond not yet marked
-/// stays unmarked.
-async fn move_marks(
-    server: &ServerClient,
-    plan: &FeedPlan,
-    rates_move: f64,
-    credit_move: f64,
-) -> Result<(), String> {
+/// The desk's marks now, by bond; a bond not yet marked has none.
+async fn read_marks(server: &ServerClient) -> Result<HashMap<String, Decimal>, String> {
     #[derive(Deserialize)]
     struct Mark {
         level: Decimal,
@@ -231,25 +266,40 @@ async fn move_marks(
         .json()
         .await
         .map_err(|error| format!("the desk's marks are unreadable: {error}"))?;
-    let marked: HashMap<String, Decimal> = marks
+    Ok(marks
         .levels
         .into_iter()
         .filter_map(|bond| Some((bond.instrument_id, bond.mark?.level)))
-        .collect();
+        .collect())
+}
+
+/// Move each desk mark in `marks` by the tick's change; a bond not yet marked stays unmarked.
+async fn move_marks(
+    server: &ServerClient,
+    plan: &FeedPlan,
+    marks: &HashMap<String, Decimal>,
+    moved: BasisPoints,
+) -> Result<(), String> {
     let mut levels = Vec::new();
     for bond in &plan.levels {
-        let Some(level) = marked.get(&bond.instrument_id) else {
+        let Some(level) = marks.get(&bond.instrument_id) else {
             continue;
         };
-        let spread_move = bond.credit_beta * credit_move;
-        let moved = match bond.field.as_str() {
-            "mid_spread" => (level + decimal(spread_move)?).round_dp(2),
-            "mid_yield" => (level + decimal((rates_move + spread_move) / 10_000.0)?).round_dp(6),
-            other => return Err(format!("a desk mark's field is {other}")),
+        let spread_move = bond.credit_beta * moved.credit;
+        let level = match bond.field {
+            QuoteField::MidSpread => (level + decimal(spread_move)?).round_dp(2),
+            QuoteField::MidYield => {
+                (level + decimal((moved.rates + spread_move) / 10_000.0)?).round_dp(6)
+            }
+            other => {
+                return Err(format!(
+                    "a desk mark is in {other:?}, not a spread or yield"
+                ))
+            }
         };
         levels.push(
             json!({"instrument_id": bond.instrument_id, "field": bond.field,
-                           "level": moved.to_string()}),
+                           "level": level.to_string()}),
         );
     }
     if levels.is_empty() {
@@ -264,35 +314,44 @@ async fn move_marks(
     answered(response, "marks").await
 }
 
-/// Publish each weekday's fixing after `last` that is due, at 13:00 UTC on the next
-/// weekday; the last one published.
+/// Publish each business day's fixing after `last` that is due; the last one published.
 async fn publish_due_fixings(
     server: &ServerClient,
     fixings: &FixingPlan,
-    mut last: NaiveDate,
-) -> Result<NaiveDate, String> {
+    mut last: Date,
+) -> Result<Date, String> {
+    let calendar = SIFMACalendar::global();
     loop {
-        let observation = next_weekday(last);
-        let published = next_weekday(observation)
-            .and_hms_opt(FIXING_HOUR_UTC, 0, 0)
-            .map(|at| Utc.from_utc_datetime(&at))
-            .ok_or("a fixing's publication time is not a time")?;
+        let observation = calendar.add_business_days(last, 1);
+        let published = publication_time(
+            calendar.add_business_days(observation, fixings.publication_lag_business_days),
+            fixings.publication_hour_utc,
+        )?;
         if Utc::now() < published {
             return Ok(last);
         }
-        let stamp = published.format("%Y-%m-%dT%H:%M:%SZ").to_string();
-        let fixing = json!([{
-            "schema_version": 1,
-            "key": {"index_id": fixings.index_id, "observation_date": observation.to_string(),
-                    "source": fixings.source},
-            "version": 1, "rate": {"unit": "decimal_rate", "value": fixings.rate.to_string()},
-            "published_at": stamp, "recorded_at": Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
-            "is_preliminary": false, "entitled": true, "evidence_reference": "synthetic",
-        }]);
+        let fixing = PublishedFixing {
+            schema_version: 1,
+            key: FixingKey {
+                index_id: IndexId::new(&fixings.index_id).map_err(|error| error.to_string())?,
+                observation_date: BusinessDate::try_from(observation)
+                    .map_err(|error| error.to_string())?,
+                source: SourceId::new(&fixings.source).map_err(|error| error.to_string())?,
+            },
+            version: Version::new(1).map_err(|error| error.to_string())?,
+            rate: DecimalRate::new(ExactDecimal::new(fixings.rate)),
+            published_at: UtcTimestamp::from_datetime(published)
+                .map_err(|error| error.to_string())?,
+            recorded_at: UtcTimestamp::from_datetime(Utc::now())
+                .map_err(|error| error.to_string())?,
+            is_preliminary: false,
+            entitled: true,
+            evidence_reference: "synthetic".into(),
+        };
         let response = send_until_answered(
             server
                 .request(Method::POST, "/api/v1/analytics/fixings")
-                .json(&fixing),
+                .json(&[fixing]),
         )
         .await?;
         answered(response, "a fixing").await?;
@@ -304,12 +363,12 @@ async fn publish_due_fixings(
     }
 }
 
-fn next_weekday(day: NaiveDate) -> NaiveDate {
-    let mut next = day.succ_opt().unwrap_or(day);
-    while matches!(next.weekday(), Weekday::Sat | Weekday::Sun) {
-        next = next.succ_opt().unwrap_or(next);
-    }
-    next
+/// `day` at `hour`, UTC.
+fn publication_time(day: Date, hour: u32) -> Result<chrono::DateTime<Utc>, String> {
+    NaiveDate::from(day)
+        .and_hms_opt(hour, 0, 0)
+        .map(|at| Utc.from_utc_datetime(&at))
+        .ok_or_else(|| format!("{hour}:00 is not a time"))
 }
 
 fn decimal(value: f64) -> Result<Decimal, String> {
@@ -345,18 +404,18 @@ mod tests {
         // Mean reversion keeps each walk near its open: a few volatilities over the
         // reversion, never a random walk's drift.
         let bound = 6.0 * RATES_VOLATILITY_BP / (2.0 * REVERSION).sqrt();
-        assert!(market.rates_bp.abs() < bound, "{}", market.rates_bp);
-        assert!(market.credit_bp.abs() < bound, "{}", market.credit_bp);
+        assert!(market.level.rates.abs() < bound, "{:?}", market.level);
+        assert!(market.level.credit.abs() < bound, "{:?}", market.level);
     }
 
     #[test]
     fn credit_moves_against_rates() {
         let mut market = Market::default();
         let mut draws = Draws(11);
-        let moves: Vec<(f64, f64)> = (0..20_000).map(|_| market.step(&mut draws)).collect();
-        let covariance: f64 = moves
+        let moves: Vec<BasisPoints> = (0..20_000).map(|_| market.step(&mut draws)).collect();
+        let covariance = moves
             .iter()
-            .map(|(rates, credit)| rates * credit)
+            .map(|moved| moved.rates * moved.credit)
             .sum::<f64>()
             / moves.len() as f64;
         let expected = CORRELATION * RATES_VOLATILITY_BP * CREDIT_VOLATILITY_BP;
@@ -367,16 +426,19 @@ mod tests {
     }
 
     #[test]
-    fn a_weekday_fixing_is_published_on_the_next_weekday() {
-        let friday = NaiveDate::from_ymd_opt(2026, 11, 27).unwrap();
+    fn a_fixing_is_published_the_business_day_after_its_observation() {
+        let calendar = SIFMACalendar::global();
+        let day = |y, m, d| Date::from_ymd(y, m, d).unwrap();
+        // Friday's is published on Monday; Thanksgiving's Wednesday on Friday.
         assert_eq!(
-            next_weekday(friday),
-            NaiveDate::from_ymd_opt(2026, 11, 30).unwrap()
+            calendar.add_business_days(day(2026, 11, 27), 1),
+            day(2026, 11, 30)
         );
-        let monday = NaiveDate::from_ymd_opt(2026, 11, 30).unwrap();
         assert_eq!(
-            next_weekday(monday),
-            NaiveDate::from_ymd_opt(2026, 12, 1).unwrap()
+            calendar.add_business_days(day(2026, 11, 25), 1),
+            day(2026, 11, 27)
         );
+        let at = publication_time(day(2026, 11, 30), 13).unwrap();
+        assert_eq!(at.to_rfc3339(), "2026-11-30T13:00:00+00:00");
     }
 }

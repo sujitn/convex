@@ -7,7 +7,7 @@ use convex_engine::{
 };
 use convex_server::{
     configuration_admin::{
-        document_capabilities, effective_configuration, fixture_evidence,
+        database_use_cases, document_capabilities, effective_configuration, fixture_evidence,
         local_replay_capabilities, mode_capabilities, replay_events,
     },
     ServerConfig,
@@ -132,15 +132,7 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
     }
     // Dry-run resolve reads the database's snapshots and fixings and never publishes content.
     let cases = |capabilities| {
-        ConfigurationUseCases::new(
-            storage.configuration.clone(),
-            storage.bonds.clone(),
-            storage.configs.clone(),
-            storage.curves.clone(),
-            fixings.clone(),
-            snapshots.clone(),
-            capabilities,
-        )
+        database_use_cases(&storage, fixings.clone(), snapshots.clone(), capabilities)
     };
     let inspect = || Ok::<_, ConfigurationError>(cases(local_replay_capabilities(Vec::new())?));
     match command {

@@ -77,12 +77,7 @@ async fn separate_process_cli_stage_activate_rollback_inspection_and_export_are_
         to_revision: Version::new(1).unwrap(),
     };
     write(&rollback, &request);
-    let owned_dir = setup.dir;
-    drop(setup.storage);
-    drop(setup.store);
-    drop(setup.snapshots);
-    drop(setup.results);
-    drop(setup.fixings);
+    let owned_dir = setup.release();
     let validate = output_json(run(&[
         text(&db),
         "validate",
@@ -202,12 +197,7 @@ async fn cli_invalid_schema_credentials_fixture_and_process_values_are_redacted(
         serde_json::to_string(&setup.plan.seed_events[0]).unwrap() + "\n",
     )
     .unwrap();
-    let owned_dir = setup.dir;
-    drop(setup.storage);
-    drop(setup.store);
-    drop(setup.snapshots);
-    drop(setup.results);
-    drop(setup.fixings);
+    let owned_dir = setup.release();
     let output = run(&[
         text(&db),
         "validate",

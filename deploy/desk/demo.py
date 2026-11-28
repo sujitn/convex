@@ -24,6 +24,7 @@ import argparse
 import json
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -38,60 +39,93 @@ import seed  # noqa: E402
 
 ROOT = seed.ROOT
 VALUED_WITHIN_S = 120
-
-
-def stamp() -> str:
-    return seed.stamp(datetime.now(timezone.utc))
+LISTENING_WITHIN_S = 30
 
 
 def step(message: str) -> None:
     print(f'desk demo: {message}', flush=True)
 
 
-def run(command: list[str], *, cwd: Path = ROOT, capture: bool = False) -> str:
-    """Run `command`; on failure print its output and stop."""
-    done = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
+def run(command: list[str]) -> str:
+    """Run `command` from the repository root, its output; on failure print it and stop."""
+    done = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
     if done.returncode != 0:
         sys.stderr.write(done.stdout + done.stderr)
         raise SystemExit(f'desk demo: failed: {" ".join(command)}')
-    return done.stdout if capture else ''
+    return done.stdout
 
 
 class Server:
+    """The server's HTTP API on loopback, past any proxy the environment names."""
+
     def __init__(self, port: int):
         self.base = f'http://127.0.0.1:{port}'
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
     def call(self, method: str, path: str, body=None, headers: dict | None = None):
+        """The status and JSON reply, or the error's text."""
         data = None if body is None else json.dumps(body).encode()
         request = urllib.request.Request(self.base + path, data=data, method=method,
                                          headers={'content-type': 'application/json', **(headers or {})})
         try:
-            with urllib.request.urlopen(request, timeout=10) as response:
+            with self.opener.open(request, timeout=10) as response:
                 text = response.read()
                 return response.status, json.loads(text) if text else None
         except urllib.error.HTTPError as error:
             return error.code, error.read().decode(errors='replace')[:400]
 
+    def require(self, what: str, method: str, path: str, body=None, headers: dict | None = None):
+        """`call`, stopping the demo unless it succeeds."""
+        status, reply = self.call(method, path, body, headers)
+        if not 200 <= status < 300:
+            raise SystemExit(f'desk demo: {what} refused ({status}): {reply}')
+        return reply
 
-def build(debug: bool) -> Path:
-    profile = [] if debug else ['--release']
+
+class Processes:
+    """The demo's processes, each logging to its own file."""
+
+    def __init__(self, logs: Path):
+        self.logs = logs
+        self.running: dict[str, subprocess.Popen] = {}
+
+    def start(self, name: str, command: list[str]) -> subprocess.Popen:
+        log = open(self.logs / f'{name}.log', 'w')
+        self.running[name] = subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+        return self.running[name]
+
+    def stopped(self) -> list[str]:
+        return [name for name, process in self.running.items() if process.poll() is not None]
+
+    def stop(self) -> None:
+        for process in self.running.values():
+            if process.poll() is None:
+                process.terminate()
+        for process in self.running.values():
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+
+
+def build(debug: bool) -> None:
     step('building the server, its tools and the simulators')
-    run(['cargo', 'build', '--locked', '-q', *profile, '-p', 'convex-server', '--bins'])
+    run(['cargo', 'build', '--locked', '-q', *([] if debug else ['--release']), '-p', 'convex-server', '--bins'])
     if not (ROOT / 'node_modules').exists():
         step('installing the web apps\' packages')
         run(['npm', 'ci', '--no-audit', '--no-fund'])
     step('building the desk app')
     run(['npm', 'run', 'build', '-w', 'desk'])
-    return ROOT / 'target' / ('debug' if debug else 'release')
 
 
-def activate(bin_dir: Path, work: Path, database: Path) -> int:
-    """Import the seed and activate its configuration; how many bonds it values."""
+def activate(bin_dir: Path, work: Path, database: Path) -> None:
+    """Import the seed, and compile, stage and activate its configuration."""
+    stamp = lambda: seed.stamp(datetime.now(timezone.utc))  # noqa: E731
     step('importing the seed')
     run([str(bin_dir / 'convex-core-inputs'), str(database), str(work / 'seed.json')])
     config = [str(bin_dir / 'convex-config'), '--demo', str(database)]
-    step('compiling, staging and activating DESK-USD')
-    document = json.loads(run([*config, 'compile', str(work / 'selection.json')], capture=True))
+    step(f'compiling, staging and activating {seed.CONFIG_ID}')
+    document = json.loads(run([*config, 'compile', str(work / 'selection.json')]))
     fixtures, events = str(work / 'fixtures.json'), str(work / 'events.jsonl')
     (work / 'staged.json').write_text(json.dumps({
         'document': document, 'idempotency_key': 'desk-demo-stage', 'actor': 'desk-demo',
@@ -102,7 +136,6 @@ def activate(bin_dir: Path, work: Path, database: Path) -> int:
         'idempotency_key': 'desk-demo-activate', 'actor': 'desk-demo', 'reason': 'start the desk demo',
         'activated_at': stamp(), 'mode': 'restart_required', 'action': {'kind': 'activate'}}))
     run([*config, 'activate', str(work / 'activation.json'), fixtures, events])
-    return len(document['assembly']['instruments'])
 
 
 def server_settings(work: Path, database: Path, port: int) -> Path:
@@ -124,7 +157,29 @@ cors_origins = ["http://127.0.0.1:{port}"]
     return settings
 
 
-def wait_until_valued(server: Server, instruments: int) -> None:
+def refuse_a_taken_port(port: int) -> None:
+    """Stop the demo if something already listens on `port`, such as an earlier demo: the
+    launcher would otherwise set up whatever answers there."""
+    with socket.socket() as probe:
+        if probe.connect_ex(('127.0.0.1', port)) == 0:
+            raise SystemExit(f'desk demo: 127.0.0.1:{port} is in use; stop what listens there or pass --port')
+
+
+def wait_until_listening(server: Server, process: subprocess.Popen, log: Path) -> None:
+    deadline = time.monotonic() + LISTENING_WITHIN_S
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            raise SystemExit(f'desk demo: the server stopped; see {log}')
+        try:
+            if server.call('GET', '/health')[0] == 200:
+                return
+        except OSError:
+            pass
+        time.sleep(0.5)
+    raise SystemExit(f'desk demo: the server did not listen within {LISTENING_WITHIN_S} s; see {log}')
+
+
+def wait_until_valued(server: Server, instrument_count: int) -> None:
     """Until every bond has a complete Live result, or report those without one."""
     deadline = time.monotonic() + VALUED_WITHIN_S
     incomplete: list[str] = []
@@ -134,23 +189,20 @@ def wait_until_valued(server: Server, instruments: int) -> None:
             results = page['results']
             incomplete = [r['result']['provenance']['subject']['instrument_id'] for r in results
                           if r['result']['status'] != 'Complete']
-            if len(results) == instruments and not incomplete:
+            if len(results) == instrument_count and not incomplete:
                 return
         time.sleep(1)
     raise SystemExit(f'desk demo: bonds not valued within {VALUED_WITHIN_S} s: {incomplete or "no results"}')
 
 
-def set_up_books(server: Server, desk: dict) -> None:
-    for book_id, limits in desk['limits'].items():
-        status, body = server.call('PUT', f'/api/v1/books/{book_id}/limits', {'limits': limits},
-                                   {'Idempotency-Key': f'desk-demo-limits-{book_id}'})
-        if status not in (200, 201):
-            raise SystemExit(f'desk demo: limits for {book_id} refused ({status}): {body}')
-    for book_id in desk['books']:
-        status, body = server.call('POST', f'/api/v1/books/{book_id}/close', None,
-                                   {'Idempotency-Key': f'desk-demo-close-{book_id}-{uuid.uuid4()}'})
-        if status not in (200, 201):
-            raise SystemExit(f'desk demo: the close of {book_id} was refused ({status}): {body}')
+def set_up_books(server: Server) -> None:
+    """Each book's limits, then a close of each, so its P&L starts at zero."""
+    for book_id, limits in seed.LIMITS.items():
+        server.require(f'the limits of {book_id}', 'PUT', f'/api/v1/books/{book_id}/limits', {'limits': limits},
+                       {'Idempotency-Key': f'desk-demo-limits-{book_id}'})
+    for book_id in seed.BOOKS:
+        server.require(f'the close of {book_id}', 'POST', f'/api/v1/books/{book_id}/close', None,
+                       {'Idempotency-Key': f'desk-demo-close-{book_id}-{uuid.uuid4()}'})
 
 
 def main() -> None:
@@ -162,73 +214,47 @@ def main() -> None:
     parser.add_argument('--rfq-rate', type=float, default=0.2, help='client requests a second')
     options = parser.parse_args()
 
-    bin_dir = ROOT / 'target' / ('debug' if options.debug else 'release')
+    refuse_a_taken_port(options.port)
     if not options.no_build:
-        bin_dir = build(options.debug)
+        build(options.debug)
+    bin_dir = ROOT / 'target' / ('debug' if options.debug else 'release')
     work = options.work.resolve()
     shutil.rmtree(work, ignore_errors=True)
     logs = work / 'logs'
     logs.mkdir(parents=True)
     database = work / 'convex.redb'
-    facts = seed.generate(work)
-    step(f'seeded {facts["bonds"]} bonds settling {facts["settlement"]}')
-    instruments = activate(bin_dir, work, database)
-    desk = json.loads((work / 'desk.json').read_text())
+    launch = seed.generate(work)
+    step(f'seeded {launch.instrument_count} bonds settling {launch.settlement}')
+    activate(bin_dir, work, database)
 
-    processes: dict[str, subprocess.Popen] = {}
-
-    def start(name: str, command: list[str]) -> None:
-        log = open(logs / f'{name}.log', 'w')
-        processes[name] = subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
-
-    def stop(*_) -> None:
-        for process in processes.values():
-            if process.poll() is None:
-                process.terminate()
-        for process in processes.values():
-            try:
-                process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                process.kill()
-
-    signal.signal(signal.SIGTERM, lambda *_: (stop(), sys.exit(0)))
+    processes = Processes(logs)
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     server = Server(options.port)
     try:
         step('starting the server')
-        start('server', [str(bin_dir / 'convex-server'), str(server_settings(work, database, options.port))])
-        for _ in range(60):
-            if processes['server'].poll() is not None:
-                raise SystemExit(f'desk demo: the server stopped; see {logs / "server.log"}')
-            try:
-                if server.call('GET', '/health')[0] == 200:
-                    break
-            except OSError:
-                pass
-            time.sleep(0.5)
-        start('feed', [str(bin_dir / 'convex-feed-sim'), '--server', server.base, '--feed', str(work / 'feed.json')])
-        status, body = server.call('POST', '/api/v1/market/levels', {'source': seed.LEVEL_SOURCE, 'levels': desk['marks']})
-        if status != 202:
-            raise SystemExit(f'desk demo: the opening marks were refused ({status}): {body}')
-        step(f'waiting for {instruments} bonds to be valued')
-        wait_until_valued(server, instruments)
+        listening = processes.start('server', [str(bin_dir / 'convex-server'), str(server_settings(work, database, options.port))])
+        wait_until_listening(server, listening, logs / 'server.log')
+        processes.start('feed', [str(bin_dir / 'convex-feed-sim'), '--server', server.base, '--feed', str(work / 'feed.json')])
+        server.require('the opening marks', 'POST', '/api/v1/market/levels', {'source': seed.LEVEL_SOURCE, 'levels': launch.marks})
+        step(f'waiting for {launch.instrument_count} bonds to be valued')
+        wait_until_valued(server, launch.instrument_count)
         step('setting limits and taking a close of each book')
-        set_up_books(server, desk)
-        books = ','.join(desk['books'])
-        start('rfq-sim', [str(bin_dir / 'convex-rfq-sim'), '--server', server.base, '--source-id', 'venue-sim',
-                          '--books', books, '--bonds', ','.join(desk['rfq_bonds']), '--tiers', ','.join(desk['tiers']),
-                          '--rate', str(options.rfq_rate)])
-        start('bms-sim', [str(bin_dir / 'convex-bms-sim'), '--server', server.base, '--books', books])
+        set_up_books(server)
+        books = ','.join(seed.BOOKS)
+        processes.start('rfq-sim', [str(bin_dir / 'convex-rfq-sim'), '--server', server.base, '--source-id', 'venue-sim',
+                                    '--books', books, '--bonds', ','.join(launch.rfq_bonds), '--tiers', ','.join(seed.TIERS),
+                                    '--rate', str(options.rfq_rate)])
+        processes.start('bms-sim', [str(bin_dir / 'convex-bms-sim'), '--server', server.base, '--books', books])
         print(f'\nThe desk demo is running: {server.base}/desk/\n'
               f'  pricing sheet {server.base}/desk/sheet, RFQs {server.base}/desk/rfqs, books {server.base}/desk/books\n'
               f'  logs in {logs}; Ctrl-C stops it.\n', flush=True)
-        while all(process.poll() is None for process in processes.values()):
+        while not processes.stopped():
             time.sleep(1)
-        stopped = [name for name, process in processes.items() if process.poll() is not None]
-        raise SystemExit(f'desk demo: {", ".join(stopped)} stopped; see {logs}')
+        raise SystemExit(f'desk demo: {", ".join(processes.stopped())} stopped; see {logs}')
     except KeyboardInterrupt:
         step('stopping')
     finally:
-        stop()
+        processes.stop()
 
 
 if __name__ == '__main__':

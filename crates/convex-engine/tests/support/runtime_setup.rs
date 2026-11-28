@@ -16,6 +16,14 @@ pub struct Setup {
     pub fixings: Arc<convex_ext_redb::RedbFixingRepository>,
     pub plan: RuntimePlan,
 }
+impl Setup {
+    /// Close every handle on the database, so another process can open it alone; the
+    /// directory holding it, which lives as long as it is kept.
+    pub fn release(self) -> tempfile::TempDir {
+        self.dir
+    }
+}
+
 pub async fn setup() -> Setup {
     let dir = tempfile::tempdir().unwrap();
     let convex_ext_redb::RedbStorage {

@@ -249,11 +249,8 @@ async fn with_runtime(
     .map_err(stage("configuration_capabilities"))?;
     // Every demo-profile output is labelled demo, so Demo-quality inputs may be valued.
     capabilities.demo = config.profile == ServerProfile::Demo;
-    let cases = Arc::new(convex_engine::configuration::ConfigurationUseCases::new(
-        storage.configuration.clone(),
-        storage.bonds.clone(),
-        storage.configs.clone(),
-        storage.curves.clone(),
+    let cases = Arc::new(crate::configuration_admin::database_use_cases(
+        storage,
         fixings.clone(),
         snapshots.clone(),
         capabilities,

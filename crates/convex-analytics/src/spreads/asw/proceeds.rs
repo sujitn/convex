@@ -141,7 +141,7 @@ impl<'a> ProceedsAssetSwap<'a> {
             ));
         }
 
-        let day_count = day_counter(bond.day_count_convention(), payments_per_year);
+        let day_count = day_counter(bond.day_count_convention(), bond.frequency());
         let mut annuity = Decimal::ZERO;
 
         for cf in &cash_flows {
@@ -158,7 +158,7 @@ impl<'a> ProceedsAssetSwap<'a> {
             let tau = Decimal::from_f64_retain(coupon_year_fraction(
                 day_count.as_deref(),
                 cf,
-                payments_per_year,
+                bond.frequency(),
             ))
             .unwrap_or(Decimal::ONE / Decimal::from(payments_per_year));
 
