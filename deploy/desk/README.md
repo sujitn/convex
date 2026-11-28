@@ -14,8 +14,9 @@ python3 deploy/desk/demo.py            # then open http://127.0.0.1:8080/desk/
 Options: `--port`, `--work DIR` (default `target/desk-demo`, emptied at each launch),
 `--debug` (a debug build, quicker to build and slower to run), `--no-build` (the binaries
 and desk app already built) and `--rfq-rate` (client requests a second, default 0.2).
-Ctrl-C stops everything, and so does any of its processes stopping. Each process logs
-to the work directory's `logs/`.
+Ctrl-C stops everything, and so does any of its processes stopping. A run stops after 23
+hours, since the seed's curves are fresh for a day: launch again for a new one. It refuses
+a port already in use. Each process logs to the work directory's `logs/`.
 
 ## What it runs
 
@@ -65,5 +66,5 @@ to the work directory's `logs/`.
 - Bills: a bill cannot be in the benchmark set, and the spread measures asked of every
   bullet fail for one, so the seed holds none.
 - A restart: the database is the work directory's, and a launch begins it again.
-- Holidays in the settlement date: the seed settles on a weekday, and its SOFR fixings
-  are for every weekday; the feed publishes later ones by the SIFMA calendar.
+- Holidays: the seed settles on the next SIFMA business day and its SOFR fixings are for
+  every weekday before it; the feed publishes later ones on the SIFMA calendar.

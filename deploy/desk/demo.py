@@ -14,7 +14,8 @@ It builds the server, its tools and the desk app, then on a fresh database:
    P&L starts at zero;
 5. starts the RFQ and BMS simulators.
 
-Open the printed URL. Ctrl-C stops everything; so does any process stopping. Logs are in
+Open the printed URL. Ctrl-C stops everything; so does any process stopping, and so does
+a day less an hour, since the seed's curves are fresh for a day. Logs are in
 the work directory's `logs/`. Every output is labelled demo, and nothing is published:
 the server listens on loopback only, with no authentication.
 """
@@ -40,6 +41,8 @@ import seed  # noqa: E402
 ROOT = seed.ROOT
 VALUED_WITHIN_S = 120
 LISTENING_WITHIN_S = 30
+# The seed's curves are fresh for a day, so a run stops short of one: launch again.
+RUNS_FOR_S = 23 * 3600
 
 
 def step(message: str) -> None:
@@ -248,7 +251,10 @@ def main() -> None:
         print(f'\nThe desk demo is running: {server.base}/desk/\n'
               f'  pricing sheet {server.base}/desk/sheet, RFQs {server.base}/desk/rfqs, books {server.base}/desk/books\n'
               f'  logs in {logs}; Ctrl-C stops it.\n', flush=True)
+        stops_at = time.monotonic() + RUNS_FOR_S
         while not processes.stopped():
+            if time.monotonic() >= stops_at:
+                raise SystemExit('desk demo: the seed\'s curves are fresh for a day; launch again for a new one')
             time.sleep(1)
         raise SystemExit(f'desk demo: {", ".join(processes.stopped())} stopped; see {logs}')
     except KeyboardInterrupt:

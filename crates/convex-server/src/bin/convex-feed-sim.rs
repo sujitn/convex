@@ -64,6 +64,8 @@ const CORRELATION: f64 = -0.3;
 const REVERSION: f64 = 0.01;
 /// Ticks between `moved` events at the default interval: one a minute.
 const REPORT_EVERY: u64 = 60;
+/// Quote events one post carries, as the server takes them.
+const MAX_QUOTE_BATCH: usize = 256;
 
 /// The feed's instruments, as the demo's seed writes them.
 #[derive(Deserialize)]
@@ -193,7 +195,7 @@ async fn run() -> Result<(), String> {
 }
 
 /// Post each priced bond's mid at the market's `level`: its opening price moved by its
-/// modified duration over the rates and credit moves since the open.
+/// modified duration over the rates and credit moves since the open, at most 256 a post.
 async fn post_prices(
     server: &ServerClient,
     plan: &FeedPlan,
@@ -232,13 +234,16 @@ async fn post_prices(
             })
         })
         .collect::<Result<Vec<_>, String>>()?;
-    let response = send_until_answered(
-        server
-            .request(Method::POST, "/api/v1/market/quotes")
-            .json(&json!({"events": events})),
-    )
-    .await?;
-    answered(response, "quotes").await
+    for batch in events.chunks(MAX_QUOTE_BATCH) {
+        let response = send_until_answered(
+            server
+                .request(Method::POST, "/api/v1/market/quotes")
+                .json(&json!({ "events": batch })),
+        )
+        .await?;
+        answered(response, "quotes").await?;
+    }
+    Ok(())
 }
 
 /// The desk's marks now, by bond; a bond not yet marked has none.
