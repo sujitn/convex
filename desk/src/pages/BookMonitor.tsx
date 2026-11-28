@@ -1,4 +1,4 @@
-import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { useSession } from '@convex/api-client'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { BookPicker } from '../components/BookPicker'
@@ -45,6 +45,44 @@ type Summaries = ReadonlyMap<string, BookSummary>
 
 /** How often the selected book's P&L by position is read again while its summaries arrive. */
 const PNL_READ_MS = 2000
+
+/**
+ * Read `query` again whenever `wanted` changes, once no read of it is in flight and at
+ * least `minIntervalMs` after the last began: a change that arrives during a read is read
+ * after it, the last of a burst included, and reads never overlap. Any read that begins,
+ * the query's own included, reads what is wanted then.
+ */
+function useReadOnChange(
+  query: Pick<UseQueryResult, 'refetch' | 'isFetching'>,
+  wanted: unknown,
+  isEnabled: boolean,
+  minIntervalMs = 0,
+): void {
+  const readFor = useRef(wanted)
+  const readAt = useRef(0)
+  const wasFetching = useRef(false)
+  const { refetch, isFetching } = query
+  useEffect(() => {
+    if (isFetching && !wasFetching.current) {
+      readFor.current = wanted
+      readAt.current = Date.now()
+    }
+    wasFetching.current = isFetching
+    if (!isEnabled || isFetching || Object.is(readFor.current, wanted)) return
+    const read = () => {
+      readFor.current = wanted
+      readAt.current = Date.now()
+      void refetch()
+    }
+    const wait = readAt.current + minIntervalMs - Date.now()
+    if (wait <= 0) {
+      read()
+      return
+    }
+    const timer = setTimeout(read, wait)
+    return () => clearTimeout(timer)
+  }, [wanted, isEnabled, isFetching, refetch, minIntervalMs])
+}
 
 export function BookMonitor() {
   const { token } = useSession()
@@ -308,10 +346,7 @@ function LimitTable({ bookId, summary }: { bookId: string; summary: BookSummary 
     placeholderData: keepPreviousData,
   })
   const statuses = summary?.limits.map((limit) => `${limit.limit_id}:${limit.status}`).join(',') ?? ''
-  const { refetch } = evaluations
-  useEffect(() => {
-    if (setVersion !== undefined) void refetch({ cancelRefetch: false })
-  }, [statuses, setVersion, refetch])
+  useReadOnChange(evaluations, statuses, setVersion !== undefined)
   const evaluated = useMemo(
     () => new Map((evaluations.data ?? []).map((evaluation) => [evaluation.limit_id, evaluation])),
     [evaluations.data],
@@ -373,7 +408,8 @@ function UtilisationBar({ utilisation, status }: { utilisation: string; status: 
 
 /**
  * P&L since the book's latest close, by position: read once a close is measured, and again
- * at most every 2 seconds while the book's summaries arrive, the last of a burst included.
+ * at most every 2 seconds while the book's summaries arrive, the last of a burst included,
+ * each read after the one before it.
  */
 function PnlSection({ bookId, summary }: { bookId: string; summary: BookSummary | undefined }) {
   const { call } = useSession()
@@ -385,32 +421,18 @@ function PnlSection({ bookId, summary }: { bookId: string; summary: BookSummary 
     staleTime: Infinity,
     placeholderData: keepPreviousData,
   })
-  const { refetch } = pnl
-  const readAt = useRef(0)
-  const evaluatedAt = summary?.evaluated_at
-  useEffect(() => {
-    if (closeVersion === undefined || evaluatedAt === undefined) return
-    const read = () => {
-      readAt.current = Date.now()
-      void refetch({ cancelRefetch: false })
-    }
-    const wait = readAt.current + PNL_READ_MS - Date.now()
-    if (wait <= 0) {
-      read()
-      return
-    }
-    const timer = setTimeout(read, wait)
-    return () => clearTimeout(timer)
-  }, [evaluatedAt, closeVersion, refetch])
+  useReadOnChange(pnl, summary?.evaluated_at, closeVersion !== undefined, PNL_READ_MS)
+  // A close's P&L, while the summary measures one; never a former one beside why there is none.
+  const detail = closeVersion === undefined ? undefined : pnl.data
   return (
     <section>
       <h2 className="mb-1 text-xs font-medium text-slate-400">
         P&amp;L since the close
-        {pnl.data && ` of ${pnl.data.close.close_date} (version ${pnl.data.close.version}), ${pnl.data.currency}`}
+        {detail && ` of ${detail.close.close_date} (version ${detail.close.version}), ${detail.currency}`}
       </h2>
       {summary?.pnl.status === 'unknown' && <p className="text-xs text-slate-500">{noBookPnlText(summary.pnl.reason)}.</p>}
       {pnl.error && <p className="text-xs text-red-400">{failureNotice(pnl.error)}</p>}
-      {pnl.data && <PositionTable detail={pnl.data} />}
+      {detail && <PositionTable detail={detail} />}
     </section>
   )
 }
