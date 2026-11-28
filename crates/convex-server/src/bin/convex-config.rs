@@ -5,7 +5,6 @@ use convex_engine::{
     configuration::*,
     ports::{configuration::*, storage::Pagination},
 };
-use convex_ext_file::JsonFixingRepository;
 use convex_server::{
     configuration_admin::{
         document_capabilities, effective_configuration, fixture_evidence,
@@ -19,7 +18,6 @@ use std::{
     io::Read,
     path::{Path, PathBuf},
     process::ExitCode,
-    sync::Arc,
 };
 
 #[tokio::main]
@@ -109,7 +107,10 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
         vec![]
     };
     let convex_ext_redb::RedbStorage {
-        storage, snapshots, ..
+        storage,
+        snapshots,
+        fixings,
+        ..
     } = convex_ext_redb::open_redb_storage(&args[0]).map_err(|_| ConfigurationError::Storage)?;
     if command == "compile" && args.len() == 3 {
         let selection: PlanSelection = read(&args[2])?;
@@ -129,14 +130,14 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
         .await?;
         return Ok((json!(document), true));
     }
-    // Dry-run resolve reads the database's snapshots and never publishes content.
+    // Dry-run resolve reads the database's snapshots and fixings and never publishes content.
     let cases = |capabilities| {
         ConfigurationUseCases::new(
             storage.configuration.clone(),
             storage.bonds.clone(),
             storage.configs.clone(),
             storage.curves.clone(),
-            Arc::new(JsonFixingRepository::empty()),
+            fixings.clone(),
             snapshots.clone(),
             capabilities,
         )

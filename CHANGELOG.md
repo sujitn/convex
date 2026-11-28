@@ -297,6 +297,9 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **`convex-config` validates against the database's fixings.** It validated with none,
+  so a document holding a floating rate note with a fixing due by a fixture's cutoff
+  could not be validated, staged or activated offline (`INVALID_FIXTURE_INPUTS`).
 - **Perpetuals.** A fixed-coupon callable perpetual is stored with its perpetual
   terms and no maturity date, and valued in Live, at request time, in the
   calculator and in RFQs, by price or by yield to worst.
