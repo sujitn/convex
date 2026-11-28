@@ -121,9 +121,12 @@ def build(debug: bool) -> None:
     run(['npm', 'run', 'build', '-w', 'desk'])
 
 
+def now_stamp() -> str:
+    return seed.stamp(datetime.now(timezone.utc))
+
+
 def activate(bin_dir: Path, work: Path, database: Path) -> None:
     """Import the seed, and compile, stage and activate its configuration."""
-    stamp = lambda: seed.stamp(datetime.now(timezone.utc))  # noqa: E731
     step('importing the seed')
     run([str(bin_dir / 'convex-core-inputs'), str(database), str(work / 'seed.json')])
     config = [str(bin_dir / 'convex-config'), '--demo', str(database)]
@@ -132,12 +135,12 @@ def activate(bin_dir: Path, work: Path, database: Path) -> None:
     fixtures, events = str(work / 'fixtures.json'), str(work / 'events.jsonl')
     (work / 'staged.json').write_text(json.dumps({
         'document': document, 'idempotency_key': 'desk-demo-stage', 'actor': 'desk-demo',
-        'reason': 'the desk demo, compiled at launch', 'staged_at': stamp()}))
+        'reason': 'the desk demo, compiled at launch', 'staged_at': now_stamp()}))
     run([*config, 'stage', str(work / 'staged.json'), fixtures, events])
     (work / 'activation.json').write_text(json.dumps({
         'id': seed.CONFIG_ID, 'configuration_version': 1, 'expected_revision': 0,
         'idempotency_key': 'desk-demo-activate', 'actor': 'desk-demo', 'reason': 'start the desk demo',
-        'activated_at': stamp(), 'mode': 'restart_required', 'action': {'kind': 'activate'}}))
+        'activated_at': now_stamp(), 'mode': 'restart_required', 'action': {'kind': 'activate'}}))
     run([*config, 'activate', str(work / 'activation.json'), fixtures, events])
 
 

@@ -49,7 +49,7 @@ use draws::Draws;
 use reqwest::{Method, StatusCode};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use server_client::{send_until_answered, Arguments, ServerClient};
 use tokio::time::MissedTickBehavior;
@@ -94,25 +94,33 @@ struct PricedBond {
 #[derive(Deserialize)]
 struct MarkedBond {
     instrument_id: String,
-    /// `mid_spread`, in basis points, or `mid_yield`, a decimal yield.
-    field: QuoteField,
+    field: MarkField,
     credit_beta: f64,
+}
+
+/// What a desk mark is: a spread in basis points, or a decimal yield.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum MarkField {
+    MidSpread,
+    MidYield,
 }
 
 /// The index whose fixings are published, when, and the last already published.
 #[derive(Deserialize)]
 struct FixingPlan {
-    index_id: String,
-    source: String,
+    index_id: IndexId,
+    source: SourceId,
     rate: Decimal,
     last_observation: Date,
     publication_lag_business_days: i32,
     publication_hour_utc: u32,
 }
 
-/// Rates and credit, in basis points: where the market stands from the open, or a tick's move.
+/// Rates and credit, each in basis points: where the market stands from the open, or a
+/// tick's move.
 #[derive(Debug, Default, Clone, Copy)]
-struct BasisPoints {
+struct RatesAndCredit {
     rates: f64,
     credit: f64,
 }
@@ -120,15 +128,15 @@ struct BasisPoints {
 /// Where the market stands from the open.
 #[derive(Default)]
 struct Market {
-    level: BasisPoints,
+    level: RatesAndCredit,
 }
 
 impl Market {
     /// One tick's move.
-    fn step(&mut self, draws: &mut Draws) -> BasisPoints {
+    fn step(&mut self, draws: &mut Draws) -> RatesAndCredit {
         let (rates, other) = (draws.normal(), draws.normal());
         let credit = CORRELATION * rates + (1.0 - CORRELATION * CORRELATION).sqrt() * other;
-        let moved = BasisPoints {
+        let moved = RatesAndCredit {
             rates: RATES_VOLATILITY_BP * rates - REVERSION * self.level.rates,
             credit: CREDIT_VOLATILITY_BP * credit - REVERSION * self.level.credit,
         };
@@ -201,7 +209,7 @@ async fn post_prices(
     plan: &FeedPlan,
     session: &str,
     sequence: u64,
-    level: BasisPoints,
+    level: RatesAndCredit,
 ) -> Result<(), String> {
     let now = Utc::now().timestamp_millis();
     let events = plan
@@ -281,7 +289,7 @@ async fn move_marks(
     server: &ServerClient,
     plan: &FeedPlan,
     marks: &HashMap<String, Decimal>,
-    moved: BasisPoints,
+    moved: RatesAndCredit,
 ) -> Result<(), String> {
     let mut levels = Vec::new();
     for bond in &plan.levels {
@@ -312,23 +320,18 @@ async fn publish_due_fixings(
     fixings: &FixingPlan,
     mut last: Date,
 ) -> Result<Date, String> {
-    let calendar = SIFMACalendar::global();
     loop {
-        let observation = calendar.add_business_days(last, 1);
-        let published = publication_time(
-            calendar.add_business_days(observation, fixings.publication_lag_business_days),
-            fixings.publication_hour_utc,
-        )?;
+        let (observation, published) = next_fixing(last, fixings)?;
         if Utc::now() < published {
             return Ok(last);
         }
         let fixing = PublishedFixing {
             schema_version: 1,
             key: FixingKey {
-                index_id: IndexId::new(&fixings.index_id).map_err(|error| error.to_string())?,
+                index_id: fixings.index_id.clone(),
                 observation_date: BusinessDate::try_from(observation)
                     .map_err(|error| error.to_string())?,
-                source: SourceId::new(&fixings.source).map_err(|error| error.to_string())?,
+                source: fixings.source.clone(),
             },
             version: Version::new(1).map_err(|error| error.to_string())?,
             rate: DecimalRate::new(ExactDecimal::new(fixings.rate)),
@@ -357,7 +360,7 @@ async fn publish_due_fixings(
 
 /// A priced bond's mid at the market's `level` from the open: its opening price less its
 /// modified duration times the rates move and its credit beta times the credit move.
-fn moved_price(bond: &PricedBond, level: BasisPoints) -> Result<Decimal, String> {
+fn moved_price(bond: &PricedBond, level: RatesAndCredit) -> Result<Decimal, String> {
     let moved_bp = level.rates + bond.credit_beta * level.credit;
     let scale = decimal(1.0 - bond.modified_duration * moved_bp / 10_000.0)?;
     Ok((bond.price * scale).round_dp(6))
@@ -365,17 +368,26 @@ fn moved_price(bond: &PricedBond, level: BasisPoints) -> Result<Decimal, String>
 
 /// A desk `mark` moved by a tick's change: a spread by its credit beta times the credit move,
 /// in basis points; a yield also by the rates move, as a decimal.
-fn moved_mark(bond: &MarkedBond, mark: Decimal, moved: BasisPoints) -> Result<Decimal, String> {
+fn moved_mark(bond: &MarkedBond, mark: Decimal, moved: RatesAndCredit) -> Result<Decimal, String> {
     let spread_move = bond.credit_beta * moved.credit;
     match bond.field {
-        QuoteField::MidSpread => Ok((mark + decimal(spread_move)?).round_dp(2)),
-        QuoteField::MidYield => {
+        MarkField::MidSpread => Ok((mark + decimal(spread_move)?).round_dp(2)),
+        MarkField::MidYield => {
             Ok((mark + decimal((moved.rates + spread_move) / 10_000.0)?).round_dp(6))
         }
-        other => Err(format!(
-            "a desk mark is in {other:?}, not a spread or yield"
-        )),
     }
+}
+
+/// The business day's fixing after `last`, and when it is published: its rate index's
+/// business days later, at its hour (UTC).
+fn next_fixing(last: Date, fixings: &FixingPlan) -> Result<(Date, chrono::DateTime<Utc>), String> {
+    let calendar = SIFMACalendar::global();
+    let observation = calendar.add_business_days(last, 1);
+    let published = publication_time(
+        calendar.add_business_days(observation, fixings.publication_lag_business_days),
+        fixings.publication_hour_utc,
+    )?;
+    Ok((observation, published))
 }
 
 /// `day` at `hour`, UTC.
@@ -427,7 +439,7 @@ mod tests {
     fn credit_moves_against_rates() {
         let mut market = Market::default();
         let mut draws = Draws(11);
-        let moves: Vec<BasisPoints> = (0..20_000).map(|_| market.step(&mut draws)).collect();
+        let moves: Vec<RatesAndCredit> = (0..20_000).map(|_| market.step(&mut draws)).collect();
         let covariance = moves
             .iter()
             .map(|moved| moved.rates * moved.credit)
@@ -449,7 +461,7 @@ mod tests {
         }
     }
 
-    fn marked(field: QuoteField, credit_beta: f64) -> MarkedBond {
+    fn marked(field: MarkField, credit_beta: f64) -> MarkedBond {
         MarkedBond {
             instrument_id: "BOND".into(),
             field,
@@ -459,7 +471,7 @@ mod tests {
 
     #[test]
     fn a_price_falls_by_its_duration_as_rates_and_its_credit_rise() {
-        let level = BasisPoints {
+        let level = RatesAndCredit {
             rates: 10.0,
             credit: 4.0,
         };
@@ -473,7 +485,7 @@ mod tests {
             moved_price(&priced(3.0, 2.5), level).unwrap(),
             Decimal::new(994, 1)
         );
-        let fallen = BasisPoints {
+        let fallen = RatesAndCredit {
             rates: -10.0,
             credit: 0.0,
         };
@@ -485,41 +497,42 @@ mod tests {
 
     #[test]
     fn a_spread_moves_with_credit_and_a_yield_with_rates_too() {
-        let moved = BasisPoints {
+        let moved = RatesAndCredit {
             rates: 2.0,
             credit: -1.5,
         };
         // A spread of 125 bp at a beta of 2 tightens 3 bp; rates do not move it.
         let spread = moved_mark(
-            &marked(QuoteField::MidSpread, 2.0),
+            &marked(MarkField::MidSpread, 2.0),
             Decimal::from(125),
             moved,
         );
         assert_eq!(spread.unwrap(), Decimal::from(122));
         // A yield of 7% moves by 2 - 2 × 1.5 = -1 bp, as a decimal.
-        let yielded = moved_mark(
-            &marked(QuoteField::MidYield, 2.0),
-            Decimal::new(7, 2),
-            moved,
-        );
+        let yielded = moved_mark(&marked(MarkField::MidYield, 2.0), Decimal::new(7, 2), moved);
         assert_eq!(yielded.unwrap(), Decimal::new(699, 4));
-        assert!(moved_mark(&marked(QuoteField::MidPrice, 1.0), Decimal::ONE, moved).is_err());
     }
 
     #[test]
-    fn a_fixing_is_published_the_business_day_after_its_observation() {
-        let calendar = SIFMACalendar::global();
+    fn a_fixing_is_published_its_lag_in_business_days_after_its_observation() {
         let day = |y, m, d| Date::from_ymd(y, m, d).unwrap();
-        // Friday's is published on Monday; Thanksgiving's Wednesday on Friday.
-        assert_eq!(
-            calendar.add_business_days(day(2026, 11, 27), 1),
-            day(2026, 11, 30)
-        );
-        assert_eq!(
-            calendar.add_business_days(day(2026, 11, 25), 1),
-            day(2026, 11, 27)
-        );
-        let at = publication_time(day(2026, 11, 30), 13).unwrap();
-        assert_eq!(at.to_rfc3339(), "2026-11-30T13:00:00+00:00");
+        let plan = |lag| FixingPlan {
+            index_id: IndexId::new("USD.SOFR").unwrap(),
+            source: SourceId::new("administrator").unwrap(),
+            rate: Decimal::new(43, 3),
+            last_observation: day(2026, 11, 24),
+            publication_lag_business_days: lag,
+            publication_hour_utc: 13,
+        };
+        // Wednesday's is published on Friday, past Thanksgiving; Friday's on Monday.
+        let (observation, published) = next_fixing(day(2026, 11, 24), &plan(1)).unwrap();
+        assert_eq!(observation, day(2026, 11, 25));
+        assert_eq!(published.to_rfc3339(), "2026-11-27T13:00:00+00:00");
+        let (observation, published) = next_fixing(day(2026, 11, 25), &plan(1)).unwrap();
+        assert_eq!(observation, day(2026, 11, 27));
+        assert_eq!(published.to_rfc3339(), "2026-11-30T13:00:00+00:00");
+        // A lag of two business days from Friday is Tuesday.
+        let (_, published) = next_fixing(day(2026, 11, 25), &plan(2)).unwrap();
+        assert_eq!(published.to_rfc3339(), "2026-12-01T13:00:00+00:00");
     }
 }

@@ -127,7 +127,8 @@ impl<'a> ProceedsAssetSwap<'a> {
         bond: &B,
         settlement: Date,
     ) -> AnalyticsResult<Decimal> {
-        let payments_per_year = bond.coupon_frequency();
+        let frequency = bond.frequency();
+        let payments_per_year = frequency.periods_per_year();
         if payments_per_year == 0 {
             return Err(AnalyticsError::InvalidInput(
                 "Invalid payment frequency".to_string(),
@@ -141,7 +142,7 @@ impl<'a> ProceedsAssetSwap<'a> {
             ));
         }
 
-        let day_count = day_counter(bond.day_count_convention(), bond.frequency());
+        let day_count = day_counter(bond.day_count_convention(), frequency);
         let mut annuity = Decimal::ZERO;
 
         for cf in &cash_flows {
@@ -155,12 +156,9 @@ impl<'a> ProceedsAssetSwap<'a> {
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
             let df = Decimal::from_f64_retain(df_f64).unwrap_or(Decimal::ZERO);
 
-            let tau = Decimal::from_f64_retain(coupon_year_fraction(
-                day_count.as_deref(),
-                cf,
-                bond.frequency(),
-            ))
-            .unwrap_or(Decimal::ONE / Decimal::from(payments_per_year));
+            let tau =
+                Decimal::from_f64_retain(coupon_year_fraction(day_count.as_deref(), cf, frequency))
+                    .unwrap_or(Decimal::ONE / Decimal::from(payments_per_year));
 
             annuity += tau * df;
         }

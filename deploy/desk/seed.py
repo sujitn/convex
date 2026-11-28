@@ -91,8 +91,9 @@ def easter(year: int) -> date:
     h = (19 * a + b - d - g + 15) % 30
     i, k = divmod(c, 4)
     m = (32 + 2 * e + 2 * i - h - k) % 7
-    n = (h + m - 7 * ((a + 11 * h + 19 * m) // 433) + 90) // 25
-    return date(year, n, (h + m - 7 * ((a + 11 * h + 19 * m) // 433) + 33 * n + 19) % 32)
+    days = h + m - 7 * ((a + 11 * h + 19 * m) // 433)
+    month = (days + 90) // 25
+    return date(year, month, (days + 33 * month + 19) % 32)
 
 
 def sifma_holidays(year: int) -> set[date]:
@@ -109,7 +110,8 @@ def sifma_holidays(year: int) -> set[date]:
 
 def business_day_on_or_after(day: date) -> date:
     """`day`, or the next SIFMA business day after it."""
-    while day.weekday() >= 5 or day in sifma_holidays(day.year) | sifma_holidays(day.year + 1):
+    holidays = sifma_holidays(day.year) | sifma_holidays(day.year + 1)
+    while day.weekday() >= 5 or day in holidays:
         day += timedelta(days=1)
     return day
 
@@ -155,7 +157,7 @@ def modified_duration(coupon: Decimal, issue: date, maturity: date, settlement: 
     return round(float((down - up) / (2 * bump * price)), 6)
 
 
-def percent(rate: str) -> str:
+def percent(rate: Decimal) -> str:
     """A decimal rate as a coupon is written: 0.04625 as 4.625."""
     return f'{(Decimal(rate) * 100).normalize():f}'
 
@@ -209,17 +211,18 @@ ISSUERS = {
 }
 
 
-def title(issuer_id: str, coupon: str | None, maturity: date | None, suffix: str = '') -> str:
+def title(issuer_id: str, coupon: Decimal | None, maturity: date | None, suffix: str) -> str:
     """A bond's description: issuer, coupon and maturity, as a sheet lists it."""
     coupon_text = f' {percent(coupon)}%' if coupon else ''
     maturity_text = f' {maturity:%b-%y}' if maturity else ''
     return f'{ISSUERS[issuer_id].short_name}{coupon_text}{maturity_text}{suffix}'
 
 
-def bond(instrument_id: str, issuer_id: str, description: str, *, issue: date, maturity: date | None,
-         coupon: Decimal | None, frequency: int, convention: str, bond_type: str, cusip_code: str | None = None,
+def bond(instrument_id: str, issuer_id: str, *, issue: date, maturity: date | None, coupon: Decimal | None,
+         frequency: int, convention: str, bond_type: str, suffix: str = '', cusip_code: str | None = None,
          seniority: str = 'Senior', payment_lag: int = 0, contractual: dict | None = None, **record: object) -> dict:
-    """A bond's reference record; `contractual` adds to its contractual terms and `record` to the record."""
+    """A bond's reference record, described by its issuer, coupon and maturity and `suffix`;
+    `contractual` adds to its contractual terms and `record` to the record."""
     issuer = ISSUERS[issuer_id]
     terms = {
         'effective': EFFECTIVE, 'dated_date': issue.isoformat(), 'penultimate_coupon_date': None,
@@ -229,7 +232,7 @@ def bond(instrument_id: str, issuer_id: str, description: str, *, issue: date, m
     }
     reference = {
         'instrument_id': instrument_id, 'isin': None, 'cusip': cusip_code, 'sedol': None, 'bbgid': None,
-        'description': description, 'currency': 'USD', 'issue_date': issue.isoformat(),
+        'description': title(issuer_id, coupon, maturity, suffix), 'currency': 'USD', 'issue_date': issue.isoformat(),
         'coupon_rate': None if coupon is None else str(coupon), 'frequency': frequency,
         'day_count': DAY_COUNT_NAMES[CONVENTIONS[convention]['day_count']], 'face_value': '100',
         'bond_type': bond_type, 'issuer_type': issuer.issuer_type, 'issuer_id': issuer_id,
@@ -267,6 +270,9 @@ def widths(unit: str, small: str, medium: str, large: str) -> dict:
 # The universe
 # ---------------------------------------------------------------------------------------
 
+QUOTE_UNITS = {'mid_price': 'price_per100', 'mid_spread': 'spread_basis_points', 'mid_yield': 'yield_decimal'}
+
+
 @dataclass
 class Quote:
     """A bond's opening quote, where it is read from, the value activation expects, and how
@@ -276,11 +282,14 @@ class Quote:
     source: str
     field: str
     value: str
-    unit: str
     expected_measure: str
     expected_value: Decimal
     credit_beta: float
     modified_duration: float | None = None
+
+    @property
+    def unit(self) -> str:
+        return QUOTE_UNITS[self.field]
 
 
 @dataclass
@@ -326,13 +335,13 @@ def add_treasuries(universe: Universe) -> dict[str, Decimal]:
         instrument_id = f'UST-{treasury.tenor}'
         # Issue letters skip I and O, which CUSIPs do not use.
         code = cusip(f'91282C{"LMNPQRS"[index]}{index}')
-        universe.bonds.append(bond(instrument_id, 'US-TREASURY', title('US-TREASURY', treasury.coupon, maturity),
+        universe.bonds.append(bond(instrument_id, 'US-TREASURY',
                                    issue=issue, maturity=maturity, coupon=coupon, frequency=TREASURY_FREQUENCY,
                                    convention='convention-ust', bond_type='FixedBullet', cusip_code=code))
         price = street_clean_price(coupon, issue, maturity, settlement, ytm).quantize(Decimal('1e-12'), ROUND_HALF_EVEN)
         universe.rules.append(rule(instrument_id, {'kind': 'price'}, width={'unit': 'thirty_seconds', 'buckets': [
             {'max_face': '10000000', 'width': '0.5'}, {'width': '1'}]}))
-        universe.quotes.append(Quote(instrument_id, FEED_SOURCE, 'mid_price', str(price), 'price_per100',
+        universe.quotes.append(Quote(instrument_id, FEED_SOURCE, 'mid_price', str(price),
                                      'clean_price_mid', price, credit_beta=0.0,
                                      modified_duration=modified_duration(coupon, issue, maturity, settlement, ytm, price)))
         opening_yields[treasury.tenor] = ytm
@@ -371,12 +380,12 @@ def add_investment_grade(universe: Universe, opening_yields: dict[str, Decimal])
     ]:
         issue = corporate_issue(universe.settlement, years_ago)
         maturity = add_months(issue, 12 * term)
-        universe.bonds.append(bond(instrument_id, issuer_id, title(issuer_id, coupon, maturity), issue=issue,
+        universe.bonds.append(bond(instrument_id, issuer_id, issue=issue,
                                    maturity=maturity, coupon=Decimal(coupon), frequency=2,
                                    convention='convention-corporate', bond_type='FixedBullet'))
         universe.rules.append(rule(instrument_id, {'kind': 'benchmark_spread', 'tenor': tenor},
                                    benchmark_set=SET_ID, width=widths('basis_points', '2', '4', '8')))
-        universe.quotes.append(Quote(instrument_id, LEVEL_SOURCE, 'mid_spread', spread, 'spread_basis_points',
+        universe.quotes.append(Quote(instrument_id, LEVEL_SOURCE, 'mid_spread', spread,
                                      'ytm_mid', opening_yields[tenor] + Decimal(spread) / 10000, credit_beta=1.0))
 
 
@@ -396,16 +405,16 @@ def add_high_yield(universe: Universe) -> None:
         calls = [{'call_date': add_months(issue, 12 * year).isoformat(),
                   'call_price': str(max(Decimal(100), 100 + premium * (term - 1 - year) / max(1, term - 1 - first_call)).quantize(Decimal('0.001'))),
                   'is_make_whole': False} for year in range(first_call, term)]
-        universe.bonds.append(bond(instrument_id, issuer_id, title(issuer_id, coupon, maturity, ' callable'), issue=issue,
+        universe.bonds.append(bond(instrument_id, issuer_id, suffix=' callable', issue=issue,
                                    maturity=maturity, coupon=Decimal(coupon), frequency=2, convention='convention-corporate',
                                    bond_type='FixedCallable', contractual={'call_terms': {'style': 'bermudan', 'notice_days': 30}},
                                    is_callable=True, call_schedule=calls))
         universe.rules.append(rule(instrument_id, {'kind': method}))
         if method == 'price':
-            universe.quotes.append(Quote(instrument_id, FEED_SOURCE, 'mid_price', level, 'price_per100', 'clean_price_mid',
+            universe.quotes.append(Quote(instrument_id, FEED_SOURCE, 'mid_price', level, 'clean_price_mid',
                                          Decimal(level), credit_beta=2.5, modified_duration=3.0))
         else:
-            universe.quotes.append(Quote(instrument_id, LEVEL_SOURCE, 'mid_yield', level, 'yield_decimal', 'ytw_mid',
+            universe.quotes.append(Quote(instrument_id, LEVEL_SOURCE, 'mid_yield', level, 'ytw_mid',
                                          Decimal(level), credit_beta=2.5))
 
 
@@ -417,13 +426,13 @@ def add_floaters(universe: Universe) -> None:
     ]:
         issue = corporate_issue(universe.settlement, 1)
         maturity = add_months(issue, 12 * term)
-        universe.bonds.append(bond(instrument_id, issuer_id, title(issuer_id, None, maturity, f' SOFR+{quoted_margin}'),
+        universe.bonds.append(bond(instrument_id, issuer_id, suffix=f' SOFR+{quoted_margin}',
                                    issue=issue, maturity=maturity, coupon=None, frequency=4, convention='convention-frn',
                                    bond_type='FloatingRate', payment_lag=2,
                                    contractual={'floating_mechanics': {'index': {'id': 'usd-sofr', 'version': 1}, 'overrides': {}}},
                                    floating_terms={'index': 'Sofr', 'spread': quoted_margin, 'reset_frequency': 4, 'cap': None, 'floor': None}))
         universe.rules.append(rule(instrument_id, {'kind': 'discount_margin'}))
-        universe.quotes.append(Quote(instrument_id, LEVEL_SOURCE, 'mid_spread', margin, 'spread_basis_points',
+        universe.quotes.append(Quote(instrument_id, LEVEL_SOURCE, 'mid_spread', margin,
                                      'discount_margin_mid', Decimal(margin), credit_beta=0.5))
 
 
@@ -438,11 +447,11 @@ def add_sinkers(universe: Universe) -> None:
         # Eight per cent of the original face a year from the third, the rest at maturity.
         sinks = [{'date': add_months(issue, 12 * year).isoformat(), 'amount': '8', 'price': '100'} for year in range(3, term - 2)]
         factor = 1 - sum(Decimal(sink['amount']) for sink in sinks if date.fromisoformat(sink['date']) < universe.settlement) / 100
-        universe.bonds.append(bond(instrument_id, issuer_id, title(issuer_id, coupon, maturity, ' sinker'), issue=issue,
+        universe.bonds.append(bond(instrument_id, issuer_id, suffix=' sinker', issue=issue,
                                    maturity=maturity, coupon=Decimal(coupon), frequency=2, convention='convention-sinker',
                                    bond_type='Amortizing', contractual={'sinking_schedule': sinks}, is_sinkable=True))
         universe.rules.append(rule(instrument_id, {'kind': 'price'}))
-        universe.quotes.append(Quote(instrument_id, FEED_SOURCE, 'mid_price', level, 'price_per100', 'clean_price_mid',
+        universe.quotes.append(Quote(instrument_id, FEED_SOURCE, 'mid_price', level, 'clean_price_mid',
                                      Decimal(level) * factor, credit_beta=1.0, modified_duration=5.0))
 
 
@@ -454,14 +463,14 @@ def add_perpetuals(universe: Universe) -> None:
     ]:
         issue = corporate_issue(universe.settlement, 1)
         first_call = add_months(issue, 12 * first_call_years)
-        universe.bonds.append(bond(instrument_id, issuer_id, title(issuer_id, coupon, None, ' perpetual'), issue=issue,
+        universe.bonds.append(bond(instrument_id, issuer_id, suffix=' perpetual', issue=issue,
                                    maturity=None, coupon=Decimal(coupon), frequency=2, convention='convention-corporate',
                                    bond_type='Perpetual', seniority='Subordinated',
                                    contractual={'perpetual': {'first_call_date': first_call.isoformat(), 'call_interval_months': 6,
                                                               'call_price': '100', 'notice_days': 30}},
                                    is_callable=True))
         universe.rules.append(rule(instrument_id, {'kind': 'yield'}))
-        universe.quotes.append(Quote(instrument_id, LEVEL_SOURCE, 'mid_yield', level, 'yield_decimal', 'ytw_mid',
+        universe.quotes.append(Quote(instrument_id, LEVEL_SOURCE, 'mid_yield', level, 'ytw_mid',
                                      Decimal(level), credit_beta=2.0))
 
 

@@ -12,7 +12,7 @@ use convex_engine::configuration::ConfigurationFixture;
 use convex_engine::ports::{
     configuration::{ConfigurationDocument, ProviderCapability, RuntimeMode},
     fixing::{FixingRepository, PublishedFixing},
-    quote_event::{QuoteEvent, QuoteField},
+    quote_event::QuoteField,
     reference_repository::{ReferenceChange, ReferenceCommand},
 };
 use convex_server::SERVER_BUILD_ID;
@@ -23,11 +23,7 @@ use serde_json::{json, Value};
 async fn floating_note(
     setup: &Setup,
     fixings: Vec<PublishedFixing>,
-) -> (
-    ConfigurationDocument,
-    Vec<ConfigurationFixture>,
-    Vec<QuoteEvent>,
-) {
+) -> (ConfigurationDocument, Vec<ConfigurationFixture>) {
     let note = products::frn(fixture::bond());
     setup
         .storage
@@ -90,24 +86,25 @@ async fn floating_note(
         rust_decimal::Decimal::from(45),
     );
     let mut cases = fixtures(setup);
-    cases[0].events = events.clone();
+    cases[0].events = events;
     cases[0].expected[0].measure = MeasureId::new("discount_margin_mid").unwrap();
     cases[0].expected[0].value = FiniteF64::new(45.0).unwrap();
-    (document, cases, events)
+    (document, cases)
 }
 
-/// `convex-config validate`, in a separate process that opens the database alone.
+/// `convex-config validate`, in a separate process that opens the database alone, over
+/// the first fixture's events as the replay.
 fn validate_offline(
     setup: Setup,
     document: &ConfigurationDocument,
     cases: &[ConfigurationFixture],
-    events: &[QuoteEvent],
 ) -> Value {
     let dir = setup.release();
     let path = |name: &str| dir.path().join(name).to_str().unwrap().to_owned();
     std::fs::write(path("document.json"), serde_json::to_vec(document).unwrap()).unwrap();
     std::fs::write(path("fixtures.json"), serde_json::to_vec(cases).unwrap()).unwrap();
-    let replay: String = events
+    let replay: String = cases[0]
+        .events
         .iter()
         .map(|event| serde_json::to_string(event).unwrap() + "\n")
         .collect();
@@ -127,8 +124,8 @@ fn validate_offline(
 
 async fn validate_with(fixings: Vec<PublishedFixing>) -> Value {
     let setup = setup().await;
-    let (document, cases, events) = floating_note(&setup, fixings).await;
-    validate_offline(setup, &document, &cases, &events)
+    let (document, cases) = floating_note(&setup, fixings).await;
+    validate_offline(setup, &document, &cases)
 }
 
 fn issue_codes(validation: &Value) -> Vec<&str> {
