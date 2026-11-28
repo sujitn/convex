@@ -1,8 +1,9 @@
-//! What the RFQ and BMS simulators share: their arguments, the server's HTTP API under the
-//! caller's token, and the `rfq` topic.
+//! What the simulators share: their arguments, the server's HTTP API under the caller's
+//! token, and the `rfq` topic.
 //!
 //! The token, when access is required, is read from `CONVEX_SIM_TOKEN`, so it is not on
 //! the command line. The server listens on loopback only, so the topic is plain `ws://`.
+#![allow(dead_code)] // The feed uses the client and not the topic.
 
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::str::FromStr;

@@ -297,6 +297,13 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **The desk demo** (`deploy/desk/demo.py`): one command builds and runs the server live
+  on a synthetic seed of every product the desk quotes, with the desk app, a market feed
+  and the RFQ and BMS simulators, after activating the configuration under a fixture that
+  asserts every bond's opening quote. See `deploy/desk/README.md`.
+- **`convex-feed-sim`**: a synthetic market that moves rates and credit together, posts
+  priced bonds' mids, moves the desk's marks with the market and publishes SOFR fixings as
+  they fall due.
 - **`convex-config` validates against the database's fixings.** It validated with none,
   so a document holding a floating rate note with a fixing due by a fixture's cutoff
   could not be validated, staged or activated offline (`INVALID_FIXTURE_INPUTS`).
