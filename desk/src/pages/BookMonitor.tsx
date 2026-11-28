@@ -46,11 +46,15 @@ type Summaries = ReadonlyMap<string, BookSummary>
 /** How often the selected book's P&L by position is read again while its summaries arrive. */
 const PNL_READ_MS = 2000
 
+/** What the hook has read for before any read: nothing, so cached data a remount shows is read again. */
+const NOT_READ = Symbol('not read')
+
 /**
  * Read `query` again whenever `wanted` changes, once no read of it is in flight and at
  * least `minIntervalMs` after the last began: a change that arrives during a read is read
- * after it, the last of a burst included, and reads never overlap. Any read that begins,
- * the query's own included, reads what is wanted then.
+ * after it, the last of a burst included, and reads never overlap. A read the query begins
+ * itself, on mount or for a new key, reads what is wanted then; one the hook begins reads
+ * what it was begun for, even if a later change shows in the render it starts in.
  */
 function useReadOnChange(
   query: Pick<UseQueryResult, 'refetch' | 'isFetching'>,
@@ -58,20 +62,25 @@ function useReadOnChange(
   isEnabled: boolean,
   minIntervalMs = 0,
 ): void {
-  const readFor = useRef(wanted)
+  const readFor = useRef<unknown>(NOT_READ)
   const readAt = useRef(0)
   const wasFetching = useRef(false)
+  const isOwnRead = useRef(false)
   const { refetch, isFetching } = query
   useEffect(() => {
     if (isFetching && !wasFetching.current) {
-      readFor.current = wanted
-      readAt.current = Date.now()
+      if (!isOwnRead.current) {
+        readFor.current = wanted
+        readAt.current = Date.now()
+      }
+      isOwnRead.current = false
     }
     wasFetching.current = isFetching
     if (!isEnabled || isFetching || Object.is(readFor.current, wanted)) return
     const read = () => {
       readFor.current = wanted
       readAt.current = Date.now()
+      isOwnRead.current = true
       void refetch()
     }
     const wait = readAt.current + minIntervalMs - Date.now()
