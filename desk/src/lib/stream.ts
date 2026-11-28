@@ -1,7 +1,7 @@
 import type { PublishedValuation } from '@convex/api-client'
 import { observeServerTime } from './clock'
 
-// The stream, `/api/v1/ws`: Live valuations, and requests for quote by book. A browser
+// The stream, `/api/v1/ws`: Live valuations, and requests for quote and summaries by book. A browser
 // cannot send `Authorization` on a WebSocket, so the page offers its token as a
 // subprotocol beside the stream's own, which the server selects. The token never goes in
 // the URL.
@@ -98,38 +98,64 @@ export function openStream(token: string | null, handlers: ConnectionHandlers): 
   }
 }
 
-export interface StreamHandlers {
-  onValuation: (valuation: PublishedValuation) => void
+export interface TopicHandlers<T> {
+  /** An item the topic sent, its latest when sent; one sent at subscription can be newer than one still on its way, so the caller keeps the later. */
+  onItem: (item: T) => void
   onStatus: (status: StreamStatus) => void
   /** A refusal the stream sent, such as `FORBIDDEN` or `RESULT_TOO_LARGE`. */
   onRefusal: (code: string, message: string) => void
 }
 
 /**
- * Follow `instrumentIds` until the returned function is called. Subscribing sends each
- * instrument's current result first, so a reconnection, or a `RESYNC_REQUIRED` after the
- * session fell behind, subscribes again and the newer result of each wins.
+ * Read one message of a topic that sends each subscribed item's latest first: an item of
+ * `itemType` is given, a `RESYNC_REQUIRED` subscribes again, which costs the server
+ * nothing, and any other error is a refusal.
  */
+export function readTopicMessage<T>(
+  message: StreamMessage,
+  send: Send,
+  subscription: readonly string[],
+  itemType: string,
+  handlers: TopicHandlers<T>,
+): void {
+  if (message.type === itemType) handlers.onItem(message as unknown as T)
+  else if (message.type === 'error' && message.code === 'RESYNC_REQUIRED') for (const sent of subscription) send(sent)
+  else if (message.type === 'error') handlers.onRefusal(message.code ?? 'ERROR', message.message ?? '')
+}
+
+/**
+ * Follow a topic until the returned function is called: send `subscription` on each
+ * connection, and give each item of `itemType` as it arrives. Subscribing sends each
+ * item's latest first, so a reconnection, or a `RESYNC_REQUIRED` after the session fell
+ * behind, subscribes again; the caller keeps the later of each.
+ */
+export function followTopic<T>(
+  token: string | null,
+  subscription: readonly string[],
+  itemType: string,
+  handlers: TopicHandlers<T>,
+): () => void {
+  if (subscription.length === 0) return () => {}
+  return openStream(token, {
+    onOpen: (send) => {
+      for (const sent of subscription) send(sent)
+    },
+    onStatus: handlers.onStatus,
+    onMessage: (message, send) => readTopicMessage(message, send, subscription, itemType, handlers),
+  })
+}
+
+/** Follow the Live valuations of `instrumentIds` until the returned function is called. */
 export function followValuations(
   token: string | null,
   instrumentIds: string[],
-  handlers: StreamHandlers,
+  handlers: TopicHandlers<PublishedValuation>,
 ): () => void {
-  if (instrumentIds.length === 0) return () => {}
-  const subscribe = (send: Send) => {
-    for (const message of subscriptionMessages(instrumentIds)) send(message)
-  }
-  return openStream(token, {
-    onOpen: subscribe,
-    onStatus: handlers.onStatus,
-    onMessage: (message, send) => {
-      if (message.type === 'valuation') {
-        handlers.onValuation(message as unknown as PublishedValuation)
-      } else if (message.type === 'error' && message.code === 'RESYNC_REQUIRED') {
-        subscribe(send)
-      } else if (message.type === 'error') {
-        handlers.onRefusal(message.code ?? 'ERROR', message.message ?? '')
-      }
-    },
-  })
+  return followTopic(token, subscriptionMessages(instrumentIds), 'valuation', handlers)
+}
+
+/** The message that follows `bookIds` on a topic by book, at most `most`: the session's bound on it. */
+export function bookTopicSubscription(type: string, bookIds: readonly string[], most: number): string {
+  if (bookIds.length > most) throw new Error(`a session follows at most ${most} books`)
+  return JSON.stringify({ type, book_ids: bookIds })
 }

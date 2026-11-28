@@ -1,10 +1,12 @@
 import type { BondPage, MasterPage, Reply } from '@convex/api-client'
 import { failureStatus } from './failure'
+import type { BookPnlDetail } from './books'
+import type { LimitEvaluation } from './limits'
 import type { RfqRecord } from './rfqs'
 import type { Bond, DeskLevels, PricingRule } from './sheet'
 
 // The screens' reads: every pricing rule and bond, a page at a time, the desk's marks, the
-// books and one bond, and a request for quote's entries.
+// books and one bond, a request for quote's entries, and a book's limits and P&L.
 
 /**
  * Records a page. In required access mode the server checks every bond a reply names
@@ -49,7 +51,7 @@ export async function readDeskLevels(call: Call): Promise<DeskLevels | null> {
 }
 
 /** A book as `GET /api/v1/books` lists it. */
-interface BookSummary {
+interface BookListing {
   book_id: string
   effective_until: string | null
 }
@@ -67,7 +69,7 @@ export async function readLiveBookIds(call: Call, most: number): Promise<string[
   try {
     for (;;) {
       const cursor: string = after === null ? '' : `&after=${encodeURIComponent(after)}`
-      const page = (await call<{ books: BookSummary[]; next_after: string | null }>(`/api/v1/books?limit=${BOOK_PAGE}${cursor}`)).data
+      const page = (await call<{ books: BookListing[]; next_after: string | null }>(`/api/v1/books?limit=${BOOK_PAGE}${cursor}`)).data
       for (const book of page.books) {
         if (book.effective_until !== null) continue
         bookIds.push(book.book_id)
@@ -90,4 +92,14 @@ export async function readBond(call: Call, instrumentId: string): Promise<Bond> 
 /** Every entry of the request `rfqKey`, in order. */
 export async function readRfqRecords(call: Call, rfqKey: string): Promise<RfqRecord[]> {
   return (await call<{ records: RfqRecord[] }>(`/api/v1/rfqs/${rfqKey}`)).data.records
+}
+
+/** Each limit of a book's current set, evaluated now. */
+export async function readLimitStatus(call: Call, bookId: string): Promise<LimitEvaluation[]> {
+  return (await call<{ limits: LimitEvaluation[] }>(`/api/v1/books/${encodeURIComponent(bookId)}/limits/status`)).data.limits
+}
+
+/** A book's P&L since its latest close, by position. */
+export async function readBookPnl(call: Call, bookId: string): Promise<BookPnlDetail> {
+  return (await call<BookPnlDetail>(`/api/v1/books/${encodeURIComponent(bookId)}/pnl`)).data
 }

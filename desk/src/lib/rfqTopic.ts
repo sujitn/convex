@@ -1,6 +1,6 @@
 import { failureStatus } from './failure'
 import { isOpen, rowFromRecords, type RfqRecord, type RfqRow } from './rfqs'
-import { openStream, type Send, type StreamMessage, type StreamStatus } from './stream'
+import { bookTopicSubscription, openStream, type Send, type StreamMessage, type StreamStatus } from './stream'
 
 // The `rfq` topic: each open request for quote on the followed books, then every
 // transition, as the list's row with its entry's `record_id`.
@@ -28,8 +28,7 @@ export interface RfqTopicHandlers {
 
 /** The `subscribe_rfqs` message for `bookIds`, at most [`MAX_RFQ_BOOKS`]. */
 export function rfqSubscription(bookIds: readonly string[]): string {
-  if (bookIds.length > MAX_RFQ_BOOKS) throw new Error(`a session follows at most ${MAX_RFQ_BOOKS} books`)
-  return JSON.stringify({ type: 'subscribe_rfqs', book_ids: bookIds })
+  return bookTopicSubscription('subscribe_rfqs', bookIds, MAX_RFQ_BOOKS)
 }
 
 /**

@@ -1,8 +1,19 @@
 import { ApiFailure, type PublishedValuation } from '@convex/api-client'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { calculatedMeasures } from './calculation'
 import { addDecimal, isDecimal } from './decimal'
-import { formatAge, formatCoupon, formatMeasure, formatThirtySeconds, localDate, measureUnit } from './format'
+import {
+  codeWords,
+  formatAge,
+  formatAmount,
+  formatCoupon,
+  formatMeasure,
+  formatPercent,
+  formatThirtySeconds,
+  formatYears,
+  localDate,
+  measureUnit,
+} from './format'
 import { failureNotice } from './failure'
 import { MarkWriter, type DeskBond, type PostMark } from './marks'
 import {
@@ -19,7 +30,14 @@ import {
   type Bond,
   type PricingRule,
 } from './sheet'
-import { streamProtocols, subscriptionMessages } from './stream'
+import {
+  bookTopicSubscription,
+  readTopicMessage,
+  streamProtocols,
+  subscriptionMessages,
+  type StreamMessage,
+  type TopicHandlers,
+} from './stream'
 
 function valuation(
   revision: number,
@@ -153,6 +171,13 @@ describe('formats', () => {
     expect(localDate(new Date(2026, 0, 15, 23, 30))).toBe('2026-01-15')
     expect(localDate(new Date(2026, 0, 15, 0, 30))).toBe('2026-01-15')
   })
+  it('group amounts, keep two places of years and show fractions in percent', () => {
+    expect(formatAmount('-19338.77')).toBe('-19,339')
+    expect(formatAmount(5000000)).toBe('5,000,000')
+    expect(formatYears('6.1')).toBe('6.10')
+    expect(formatPercent('1.0526')).toBe('105.3%')
+    expect(codeWords('traded_away')).toBe('traded away')
+  })
 })
 
 describe('results', () => {
@@ -226,6 +251,21 @@ describe('stream', () => {
     const messages = subscriptionMessages(ids).map((text) => JSON.parse(text) as { instrument_ids: string[] })
     expect(messages.map((message) => message.instrument_ids.length)).toEqual([256, 256, 88])
     expect(messages.flatMap((message) => message.instrument_ids)).toEqual(ids)
+  })
+  it('gives each item, subscribes again after RESYNC_REQUIRED and reports any other error', () => {
+    const handlers = { onItem: vi.fn(), onRefusal: vi.fn(), onStatus: vi.fn() } satisfies TopicHandlers<{ book_id: string }>
+    const send = vi.fn()
+    const subscription = [bookTopicSubscription('subscribe_books', ['BOOK-IG'], 64)]
+    const read = (message: StreamMessage) => readTopicMessage(message, send, subscription, 'book_summary', handlers)
+    read({ type: 'book_summary', book_id: 'BOOK-IG', sequence: 3 })
+    expect(handlers.onItem).toHaveBeenCalledWith(expect.objectContaining({ book_id: 'BOOK-IG', sequence: 3 }))
+    read({ type: 'error', code: 'RESYNC_REQUIRED', message: 'fell behind' })
+    expect(send).toHaveBeenCalledWith(subscription[0])
+    read({ type: 'error', code: 'FORBIDDEN', message: 'the summary of book BOOK-IG needs read access' })
+    expect(handlers.onRefusal).toHaveBeenCalledWith('FORBIDDEN', 'the summary of book BOOK-IG needs read access')
+    read({ type: 'subscribed', subscription_type: 'books', count: 1 })
+    expect(handlers.onItem).toHaveBeenCalledTimes(1)
+    expect(handlers.onRefusal).toHaveBeenCalledTimes(1)
   })
 })
 

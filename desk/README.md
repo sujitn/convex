@@ -1,13 +1,14 @@
 # Convex desk
 
-The trader's screens for a running `convex-server`: the pricing sheet, the RFQ blotter and
-the bond calculator. It is a separate build from the operator's `admin/` app, and only the
+The trader's screens for a running `convex-server`: the pricing sheet, the RFQ blotter, the
+books and the bond calculator. It is a separate build from the operator's `admin/` app, and only the
 server publishes it, from its `desk_ui_dir` setting, at `/desk`.
 
 | Screen | Reads | Writes |
 |---|---|---|
 | Pricing sheet | `/api/v1/reference/masters/pricing_rule`, `/api/v1/bonds`, `/api/v1/market/levels`, the `/api/v1/ws` stream | `POST /api/v1/market/levels` |
 | RFQ blotter | `/api/v1/books`, `/api/v1/bonds/:instrument_id`, `/api/v1/rfqs/:rfq_key`, the `/api/v1/ws` stream | `POST /api/v1/rfqs/:rfq_key/quote`, `/pass` |
+| Books | `/api/v1/books`, the `/api/v1/ws` stream, `/api/v1/books/:book_id/limits/status`, `.../pnl` | `POST /api/v1/books/:book_id/close` |
 | Calculator | none | `POST /api/v1/bonds/:instrument_id/calculate` (read-only) |
 
 ## The pricing sheet
@@ -82,6 +83,33 @@ server publishes it, from its `desk_ui_dir` setting, at `/desk`.
   meanwhile shows how; one that cannot be read then is read by a subscription 5 seconds
   later. A request the identity may not read is counted as withheld.
 
+## The books
+
+- **Books.** Chosen as on the RFQ blotter: every book that is not retired, the first 64
+  by id, when the identity may list books; otherwise the books typed, kept in the URL
+  (`/desk/books?books=BOOK-IG,BOOK-HY`).
+- **Rows.** One a book, from its latest summary on the stream: its currency, market
+  value, DV01, CS01 and modified duration, each in the book's currency or `unknown`
+  (hover for why); its P&L since its close (`*` when positions without P&L are left
+  out; hover for the entitled cash) and the close's date; how many limits are in each
+  status, the worst first; and how long ago it was evaluated, on the server's clock. A
+  book is summarized only while the server watches it: while it holds a limit set, or
+  is in force with a close. Of two summaries of a book the later is kept: the later
+  start of the server's monitor, then the higher sequence.
+- **The selected book** (↑ and ↓, or a click):
+  - each limit's status, value and use of the moment, beside what the status route says
+    of it: its measure, the bounds it was judged against (an excess's while one
+    applies), the member that set its status and, for one `unknown`, why. The route is
+    read again when a limit's status changes;
+  - its key-rate DV01 at each tenor its positions carry;
+  - its P&L since the close by position: the face and dirty price at the close and now,
+    the face held through, the entitled cash and the P&L, or why a position has none,
+    then the total. It is read again at most every 2 seconds while the book's summaries
+    arrive.
+- **Take close** closes the book now, after a confirmation, as the desk's display basis
+  for P&L; it needs `trader` on the book and each instrument it holds. A book is closed
+  at most once a UTC date, and the server's refusal is shown as given.
+
 ## The calculator
 
 One level of a stored bond, by any method (price, yield, benchmark spread to a tenor,
@@ -96,7 +124,9 @@ The page calls only its own origin, at most 4 calls at once (the server refuses 
 past its concurrent requests, 8 by default); the rest wait their turn. The blotter's
 identity needs `trader` (answering) and
 `reader` on the books, every instrument they hold or their limits name, and the bonds
-quoted. In required access mode, paste a bearer token into
+quoted. The books screen's identity needs `reader` on each book and every instrument it holds, its
+limits name or its close holds, and `trader` on them to take a close; a summary it may
+not read is refused in its place (`FORBIDDEN`). In required access mode, paste a bearer token into
 the header bar; it stays in page memory, never in storage, the URL or a cookie. The
 stream receives it in the `convex.bearer.<base64url token>` subprotocol beside
 `convex.v1`, since a browser cannot send `Authorization` on a WebSocket.
