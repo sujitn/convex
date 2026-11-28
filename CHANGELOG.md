@@ -217,6 +217,11 @@ the changes that matter when you upgrade.
 
 ### convex-analytics
 
+- **The asset swap spread counts an ACT/ACT ICMA coupon against its regular period.** It
+  used the bare ICMA day count, which fell back to ACT/ACT ISDA and logged a warning per
+  coupon, so a regular semiannual period counted 181/365 or 184/365 rather than a half
+  year. A regular coupon is now exactly 1/f at the bond's own frequency, and a short stub
+  its share of the regular period ending with it.
 - **Perpetual quotes.** `workflow::quote_perpetual_worst` solves each call date
   after settlement up to a horizon, and the perpetuity, from one price; the
   worst is the lowest yield. `quote_perpetual_price_to_worst` prices each at one
